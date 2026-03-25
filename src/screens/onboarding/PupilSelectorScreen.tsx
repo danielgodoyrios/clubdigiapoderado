@@ -5,12 +5,24 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { mockPupils, mockUser } from '../../mock/data';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 
 export default function PupilSelectorScreen({ navigation }: any) {
+  const { state, setActivePupil } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
+
+  const pupils = state.status === 'authenticated' ? state.pupils : [];
+  const userName = state.status === 'authenticated' ? state.user.name : '';
+
+  const handleEnter = () => {
+    const pupil = pupils.find(p => p.id === selected);
+    if (pupil) {
+      setActivePupil(pupil);
+      navigation.replace('AppTabs');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -23,12 +35,12 @@ export default function PupilSelectorScreen({ navigation }: any) {
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.greeting}>Hola, {mockUser.name}</Text>
+        <Text style={styles.greeting}>Hola, {userName}</Text>
         <Text style={styles.title}>¿Quién veremos hoy?</Text>
         <Text style={styles.sub}>Selecciona un pupilo para continuar.</Text>
 
         <FlatList
-          data={mockPupils}
+          data={pupils}
           keyExtractor={p => p.id}
           contentContainerStyle={{ gap: 10, marginTop: 20 }}
           renderItem={({ item }) => {
@@ -57,7 +69,7 @@ export default function PupilSelectorScreen({ navigation }: any) {
 
         <TouchableOpacity
           style={[styles.btn, !selected && styles.btnDisabled]}
-          onPress={() => selected && navigation.replace('AppTabs')}
+          onPress={handleEnter}
           disabled={!selected}
           activeOpacity={0.85}
         >

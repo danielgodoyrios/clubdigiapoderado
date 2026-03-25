@@ -1,51 +1,51 @@
 
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme';
+import { useAuth } from '../context/AuthContext';
 
 // ── Onboarding ──────────────────────────────────────────────
 import SplashScreen        from '../screens/onboarding/SplashScreen';
 import PhoneScreen         from '../screens/onboarding/PhoneScreen';
 import OTPScreen           from '../screens/onboarding/OTPScreen';
+import RoleSelectorScreen  from '../screens/onboarding/RoleSelectorScreen';
+import EnrollmentScreen    from '../screens/onboarding/EnrollmentScreen';
 import PupilSelectorScreen from '../screens/onboarding/PupilSelectorScreen';
 
-// ── Tabs ────────────────────────────────────────────────────
+// ── Apoderado Tabs ───────────────────────────────────────────
 import { ApoderadoHomeScreen } from '../screens/apoderado/HomeScreen';
 import AgendaScreen            from '../screens/apoderado/AgendaScreen';
 import GestionScreen           from '../screens/apoderado/GestionScreen';
 
-// ── Asistencia ──────────────────────────────────────────────
-import AsistenciaScreen       from '../screens/apoderado/AsistenciaScreen';
+// ── Apoderado Screens ────────────────────────────────────────
+import AsistenciaScreen        from '../screens/apoderado/AsistenciaScreen';
 import AsistenciaDetalleScreen from '../screens/apoderado/AsistenciaDetalleScreen';
-
-// ── Pagos ────────────────────────────────────────────────────
-import PagosScreen      from '../screens/apoderado/PagosScreen';
-import PagoDetalleScreen from '../screens/apoderado/PagoDetalleScreen';
-
-// ── Comunicados ──────────────────────────────────────────────
+import PagosScreen             from '../screens/apoderado/PagosScreen';
+import PagoDetalleScreen       from '../screens/apoderado/PagoDetalleScreen';
 import ComunicadosScreen       from '../screens/apoderado/ComunicadosScreen';
 import ComunicadoDetalleScreen from '../screens/apoderado/ComunicadoDetalleScreen';
+import DocumentosScreen        from '../screens/apoderado/DocumentosScreen';
+import DocumentoFirmaScreen    from '../screens/apoderado/DocumentoFirmaScreen';
+import CarnetScreen            from '../screens/apoderado/CarnetScreen';
+import CarnetEnrolarScreen     from '../screens/apoderado/CarnetEnrolarScreen';
+import PerfilScreen            from '../screens/apoderado/PerfilScreen';
+import EditarPupilo            from '../screens/apoderado/EditarPupilo';
+import ConfiguracionScreen     from '../screens/apoderado/ConfiguracionScreen';
 
-// ── Documentos ───────────────────────────────────────────────
-import DocumentosScreen    from '../screens/apoderado/DocumentosScreen';
-import DocumentoFirmaScreen from '../screens/apoderado/DocumentoFirmaScreen';
+// ── Profesor ─────────────────────────────────────────────────
+import ProfesorHomeScreen from '../screens/profesor/HomeScreen';
 
-// ── Carnet ───────────────────────────────────────────────────
-import CarnetScreen        from '../screens/apoderado/CarnetScreen';
-import CarnetEnrolarScreen from '../screens/apoderado/CarnetEnrolarScreen';
-
-// ── Perfil ───────────────────────────────────────────────────
-import PerfilScreen         from '../screens/apoderado/PerfilScreen';
-import EditarPupilo         from '../screens/apoderado/EditarPupilo';
-import ConfiguracionScreen  from '../screens/apoderado/ConfiguracionScreen';
+// ── Admin ─────────────────────────────────────────────────────
+import AdminHomeScreen from '../screens/admin/HomeScreen';
 
 const Stack = createStackNavigator();
 const Tab   = createBottomTabNavigator();
 
-function AppTabs() {
+function ApoderadoTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -76,42 +76,59 @@ function AppTabs() {
 }
 
 export default function AppNavigation() {
+  const { state } = useAuth();
+
+  // Spinner mientras se verifica si hay sesión guardada
+  if (state.status === 'loading') {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.blue }}>
+        <ActivityIndicator color="#fff" size="large" />
+      </View>
+    );
+  }
+
+  // Si está autenticado, determinar pantalla inicial según rol
+  const getInitialRoute = () => {
+    if (state.status !== 'authenticated') return 'Splash';
+    if (state.activeRole === 'profesor') return 'ProfesorHome';
+    if (state.activeRole === 'admin') return 'AdminHome';
+    return 'AppTabs';
+  };
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={getInitialRoute()}>
+
         {/* ── Onboarding ── */}
-        <Stack.Screen name="Splash"         component={SplashScreen} />
-        <Stack.Screen name="Phone"          component={PhoneScreen} />
-        <Stack.Screen name="OTP"            component={OTPScreen} />
-        <Stack.Screen name="PupilSelector"  component={PupilSelectorScreen} />
+        <Stack.Screen name="Splash"        component={SplashScreen} />
+        <Stack.Screen name="Phone"         component={PhoneScreen} />
+        <Stack.Screen name="OTP"           component={OTPScreen} />
+        <Stack.Screen name="RoleSelector"  component={RoleSelectorScreen} />
+        <Stack.Screen name="Enrollment"    component={EnrollmentScreen} />
+        <Stack.Screen name="PupilSelector" component={PupilSelectorScreen} />
 
-        {/* ── App (tabs) ── */}
-        <Stack.Screen name="AppTabs"        component={AppTabs} />
-
-        {/* ── Asistencia ── */}
+        {/* ── Apoderado ── */}
+        <Stack.Screen name="AppTabs"           component={ApoderadoTabs} />
         <Stack.Screen name="Asistencia"        component={AsistenciaScreen} />
         <Stack.Screen name="AsistenciaDetalle" component={AsistenciaDetalleScreen} />
-
-        {/* ── Pagos ── */}
-        <Stack.Screen name="Pagos"       component={PagosScreen} />
-        <Stack.Screen name="PagoDetalle" component={PagoDetalleScreen} />
-
-        {/* ── Comunicados ── */}
+        <Stack.Screen name="Pagos"             component={PagosScreen} />
+        <Stack.Screen name="PagoDetalle"       component={PagoDetalleScreen} />
         <Stack.Screen name="Comunicados"       component={ComunicadosScreen} />
         <Stack.Screen name="ComunicadoDetalle" component={ComunicadoDetalleScreen} />
+        <Stack.Screen name="Documentos"        component={DocumentosScreen} />
+        <Stack.Screen name="DocumentoFirma"    component={DocumentoFirmaScreen} />
+        <Stack.Screen name="Carnet"            component={CarnetScreen} />
+        <Stack.Screen name="CarnetEnrolar"     component={CarnetEnrolarScreen} />
+        <Stack.Screen name="Perfil"            component={PerfilScreen} />
+        <Stack.Screen name="EditarPupilo"      component={EditarPupilo} />
+        <Stack.Screen name="Configuracion"     component={ConfiguracionScreen} />
 
-        {/* ── Documentos ── */}
-        <Stack.Screen name="Documentos"     component={DocumentosScreen} />
-        <Stack.Screen name="DocumentoFirma" component={DocumentoFirmaScreen} />
+        {/* ── Profesor ── */}
+        <Stack.Screen name="ProfesorHome" component={ProfesorHomeScreen} />
 
-        {/* ── Carnet ── */}
-        <Stack.Screen name="Carnet"        component={CarnetScreen} />
-        <Stack.Screen name="CarnetEnrolar" component={CarnetEnrolarScreen} />
+        {/* ── Admin ── */}
+        <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
 
-        {/* ── Perfil ── */}
-        <Stack.Screen name="Perfil"         component={PerfilScreen} />
-        <Stack.Screen name="EditarPupilo"   component={EditarPupilo} />
-        <Stack.Screen name="Configuracion"  component={ConfiguracionScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,16 +1,33 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform,
+  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 
 export default function PhoneScreen({ navigation }: any) {
   const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { requestOTP } = useAuth();
   const valid = phone.replace(/\D/g, '').length >= 9;
+
+  const handleContinue = async () => {
+    if (!valid) return;
+    const normalized = '+56' + phone.replace(/\D/g, '').replace(/^56/, '');
+    setLoading(true);
+    try {
+      await requestOTP(normalized);
+      navigation.navigate('OTP', { phone: normalized });
+    } catch {
+      Alert.alert('Error', 'No se pudo enviar el código. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -44,13 +61,15 @@ export default function PhoneScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity
-            style={[styles.btn, !valid && styles.btnDisabled]}
-            onPress={() => valid && navigation.navigate('OTP', { phone })}
-            disabled={!valid}
+            style={[styles.btn, (!valid || loading) && styles.btnDisabled]}
+            onPress={handleContinue}
+            disabled={!valid || loading}
             activeOpacity={0.85}
           >
-            <Text style={styles.btnTxt}>Continuar</Text>
-            <Ionicons name="arrow-forward" size={16} color="#fff" />
+            {loading ? <ActivityIndicator color="#fff" /> : <>
+              <Text style={styles.btnTxt}>Continuar</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
+            </>}
           </TouchableOpacity>
 
           <Text style={styles.disclaimer}>

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 
@@ -12,6 +13,14 @@ const BLUE = Colors.blue;
 const QR_PATTERN = [1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,0,1,1,0,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,1,0,1,0,1,0,0,1,1,1,0,1,1,1];
 
 export default function CarnetScreen({ navigation }: any) {
+  const { state } = useAuth();
+  const pupil    = state.status === 'authenticated' ? state.activePupil : null;
+  const pupilName = pupil?.name ?? '';
+  const initials  = pupilName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const category  = pupil ? `${pupil.category} · #${pupil.number}` : '';
+  const club      = pupil?.club ?? '';
+  const licenseId = pupil?.license_id ?? '';
+
   const [token, setToken] = useState('7 4 3 2 1');
   const pulse = useRef(new Animated.Value(1)).current;
 
@@ -55,7 +64,7 @@ export default function CarnetScreen({ navigation }: any) {
         </View>
         <View style={styles.headerTitle}>
           <Text style={styles.pageTitle}>Carnet Digital</Text>
-          <Text style={styles.pageSub}>Carlos Muñoz Jr.</Text>
+          <Text style={styles.pageSub}>{pupilName}</Text>
         </View>
       </View>
 
@@ -80,10 +89,10 @@ export default function CarnetScreen({ navigation }: any) {
               <View style={styles.avatarDot} />
             </View>
             <View style={styles.playerInfo}>
-              <Text style={styles.playerName}>Carlos Muñoz Jr.</Text>
-              <Text style={styles.playerSub}>Alevín · #8</Text>
+              <Text style={styles.playerName}>{pupilName}</Text>
+              <Text style={styles.playerSub}>{category}</Text>
               <View style={styles.clubPill}>
-                <Text style={styles.clubTxt}>C.D. Santo Domingo</Text>
+                <Text style={styles.clubTxt}>{club}</Text>
               </View>
             </View>
           </View>
@@ -109,7 +118,7 @@ export default function CarnetScreen({ navigation }: any) {
 
           {/* Footer */}
           <View style={styles.cardFooter}>
-            <Text style={styles.licenseId}>LIC-2026-0892</Text>
+            <Text style={styles.licenseId}>{licenseId}</Text>
             <View style={styles.footerRight}>
               <View style={styles.footerDot} />
               <Text style={styles.footerVig}>Vigente 2026</Text>

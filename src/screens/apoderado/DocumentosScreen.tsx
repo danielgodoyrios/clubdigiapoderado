@@ -1,20 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView,
+  StyleSheet, SafeAreaView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { Documentos, Documento } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
-
-const DOCS = [
-  { id: 'd1', title: 'Autorización torneo regional', type: 'authorization', status: 'pending_signature', date: '2026-03-20', due: '2026-04-05' },
-  { id: 'd2', title: 'Contrato temporada 2026',      type: 'contract',      status: 'signed',           date: '2026-01-10', due: null },
-  { id: 'd3', title: 'Ficha médica 2026',            type: 'medical',       status: 'signed',           date: '2026-01-10', due: null },
-  { id: 'd4', title: 'Reglamento interno',           type: 'regulation',    status: 'signed',           date: '2026-01-10', due: null },
-  { id: 'd5', title: 'Contrato temporada 2025',      type: 'contract',      status: 'signed',           date: '2025-01-08', due: null },
-];
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: string }> = {
   pending_signature: { label: 'Firma pendiente', color: Colors.red,   icon: 'alert-circle-outline'    },
@@ -30,7 +24,24 @@ const TYPE_ICON: Record<string, string> = {
 };
 
 export default function DocumentosScreen({ navigation }: any) {
-  const pending = DOCS.filter(d => d.status === 'pending_signature').length;
+  const { state } = useAuth();
+  const pupilId   = state.status === 'authenticated' ? state.activePupil?.id : undefined;
+  const pupilName = state.status === 'authenticated' && state.activePupil
+    ? `${state.activePupil.name} · ${state.activePupil.category} #${state.activePupil.number}`
+    : '';
+
+  const [docs, setDocs]     = useState<Documento[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!pupilId) return;
+    Documentos.list(pupilId)
+      .then(setDocs)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [pupilId]);
+
+  const pending = docs.filter(d => d.status === 'pending_signature').length;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -48,7 +59,7 @@ export default function DocumentosScreen({ navigation }: any) {
         </View>
         <View style={styles.headerTitle}>
           <Text style={styles.pageTitle}>Documentos</Text>
-          <Text style={styles.pageSub}>Carlos Muñoz Jr. · Alevín #8</Text>
+          <Text style={styles.pageSub}>{pupilName}</Text>
         </View>
 
         {pending > 0 && (
@@ -61,58 +72,61 @@ export default function DocumentosScreen({ navigation }: any) {
 
       {/* ── List ── */}
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {/* Pending first */}
-        {DOCS.filter(d => d.status !== 'signed').length > 0 && (
-          <>
-            <Text style={styles.sectionLbl}>ACCIÓN REQUERIDA</Text>
-            {DOCS.filter(d => d.status !== 'signed').map(doc => {
-              const st = STATUS_MAP[doc.status];
-              return (
-                <TouchableOpacity
-                  key={doc.id}
-                  style={[styles.card, styles.cardAction]}
-                  onPress={() => navigation.navigate('DocumentoFirma', { doc })}
-                  activeOpacity={0.85}
-                >
-                  <View style={[styles.docIcon, { backgroundColor: Colors.red + '15' }]}>
-                    <Ionicons name={TYPE_ICON[doc.type] as any} size={18} color={Colors.red} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.docTitle}>{doc.title}</Text>
-                    <Text style={styles.docMeta}>Vence {(doc.due ?? '').slice(8,10)}/{(doc.due ?? '').slice(5,7)}</Text>
-                  </View>
-                  <View style={[styles.statusPill, { backgroundColor: Colors.red + '15' }]}>
-                    <Text style={[styles.statusTxt, { color: Colors.red }]}>{st.label}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={14} color={Colors.light} />
-                </TouchableOpacity>
-              );
-            })}
-          </>
-        )}
+        {loading ? (
+          <ActivityIndicator color={BLUE} style={{ marginTop: 40 }} />
+        ) : <>
+          {/* Pending first */}
+          {docs.filter(d => d.status !== 'signed').length > 0 && (
+            <>
+              <Text style={styles.sectionLbl}>ACCIÓN REQUERIDA</Text>
+              {docs.filter(d => d.status !== 'signed').map(doc => {
+                const st = STATUS_MAP[doc.status];
+                return (
+                  <TouchableOpacity
+                    key={doc.id}
+                    style={[styles.card, styles.cardAction]}
+                    onPress={() => navigation.navigate('DocumentoFirma', { doc })}
+                    activeOpacity={0.85}
+                  >
+                    <View style={[styles.docIcon, { backgroundColor: Colors.red + '15' }]}>
+                      <Ionicons name={TYPE_ICON[doc.type] as any} size={18} color={Colors.red} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.docTitle}>{doc.title}</Text>
+                      {doc.due && <Text style={styles.docMeta}>Vence {doc.due.slice(8,10)}/{doc.due.slice(5,7)}</Text>}
+                    </View>
+                    <View style={[styles.statusPill, { backgroundColor: Colors.red + '15' }]}>
+                      <Text style={[styles.statusTxt, { color: Colors.red }]}>{st.label}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color={Colors.light} />
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          )}
 
-        {/* Signed */}
-        <Text style={[styles.sectionLbl, { marginTop: 16 }]}>FIRMADOS</Text>
-        <View style={styles.groupCard}>
-          {DOCS.filter(d => d.status === 'signed').map((doc, i) => (
-            <TouchableOpacity
-              key={doc.id}
-              style={[styles.groupRow, i > 0 && styles.groupBorder]}
-              onPress={() => navigation.navigate('DocumentoFirma', { doc })}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.docIcon, { backgroundColor: Colors.ok + '15' }]}>
-                <Ionicons name={TYPE_ICON[doc.type] as any} size={16} color={Colors.ok} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.docTitle}>{doc.title}</Text>
-                <Text style={styles.docMeta}>Firmado {doc.date.slice(8,10)}/{doc.date.slice(5,7)}/{doc.date.slice(0,4)}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={14} color={Colors.light} />
-            </TouchableOpacity>
-          ))}
-        </View>
-
+          {/* Signed */}
+          <Text style={[styles.sectionLbl, { marginTop: 16 }]}>FIRMADOS</Text>
+          <View style={styles.groupCard}>
+            {docs.filter(d => d.status === 'signed').map((doc, i) => (
+              <TouchableOpacity
+                key={doc.id}
+                style={[styles.groupRow, i > 0 && styles.groupBorder]}
+                onPress={() => navigation.navigate('DocumentoFirma', { doc })}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.docIcon, { backgroundColor: Colors.ok + '15' }]}>
+                  <Ionicons name={TYPE_ICON[doc.type] as any} size={16} color={Colors.ok} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.docTitle}>{doc.title}</Text>
+                  <Text style={styles.docMeta}>Firmado {doc.date.slice(8,10)}/{doc.date.slice(5,7)}/{doc.date.slice(0,4)}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={Colors.light} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>}
         <View style={{ height: 28 }} />
       </ScrollView>
     </SafeAreaView>

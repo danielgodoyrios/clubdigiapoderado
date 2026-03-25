@@ -1,15 +1,26 @@
 
 // DATOS DE PRUEBA — reemplazar con llamadas reales al backend
+
+// Roles posibles: 'apoderado' | 'profesor' | 'admin'
+// Un mismo usuario puede tener múltiples roles (ej: apoderado + profesor)
 export const mockUser = {
   id: 'usr_001',
   name: 'Carlos Muñoz',
   initials: 'CM',
   rut: '18.234.567-k',
   phone: '+56 9 8765 4321',
-  roles: ['coach', 'jugador'],
-  level: 'n2', // coach level: none | n0 | n1 | n2 | n3
-  xp: 3420,
-  xpNext: 5000,
+  email: 'carlos@email.com',
+  // Roles activos del usuario en el sistema
+  roles: ['apoderado', 'profesor'] as Array<'apoderado' | 'profesor' | 'admin'>,
+  // Último rol seleccionado (para sesiones futuras)
+  lastRole: 'apoderado' as 'apoderado' | 'profesor' | 'admin',
+  // Contexto por rol
+  profesorInfo: {
+    club: 'C.D. Santo Domingo',
+    club_id: 'club_001',
+    categories: ['Alevín', 'Sub-14'],
+    licenseNumber: 'PROF-2026-042',
+  },
 };
 
 export const mockPupils = [

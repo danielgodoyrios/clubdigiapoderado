@@ -1,27 +1,44 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView,
+  StyleSheet, SafeAreaView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { Payments, Payment } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE  = Colors.blue;
 const AMBER = Colors.amber;
 
-const PENDING = [
-  { id: 'p1', concept: 'Cuota Abril 2026', amount: '$25.000', due: '2026-04-05', status: 'pending' },
-];
+function formatAmount(amount: number) {
+  return '$' + amount.toLocaleString('es-CL');
+}
 
-const HISTORY = [
-  { id: 'h1', concept: 'Cuota Marzo 2026',    amount: '$25.000', date: '2026-03-03', status: 'paid' },
-  { id: 'h2', concept: 'Cuota Febrero 2026',  amount: '$25.000', date: '2026-02-04', status: 'paid' },
-  { id: 'h3', concept: 'Inscripción 2026',    amount: '$60.000', date: '2026-01-10', status: 'paid' },
-  { id: 'h4', concept: 'Cuota Enero 2026',    amount: '$25.000', date: '2026-01-05', status: 'paid' },
-  { id: 'h5', concept: 'Cuota Diciembre 2025',amount: '$25.000', date: '2025-12-03', status: 'paid' },
-];
+function formatDate(dateStr?: string) {
+  if (!dateStr) return '';
+  return `${dateStr.slice(8,10)}/${dateStr.slice(5,7)}/${dateStr.slice(0,4)}`;
+}
 
 export default function PagosScreen({ navigation }: any) {
+  const { state } = useAuth();
+  const pupilId   = state.status === 'authenticated' ? state.activePupil?.id : undefined;
+  const pupilName = state.status === 'authenticated' && state.activePupil
+    ? `${state.activePupil.name} · ${state.activePupil.category} #${state.activePupil.number}`
+    : '';
+
+  const [pending, setPending] = useState<Payment[]>([]);
+  const [history, setHistory] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!pupilId) return;
+    Payments.list(pupilId)
+      .then(data => { setPending(data.pending); setHistory(data.history); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [pupilId]);
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* ── Header ── */}
@@ -38,7 +55,7 @@ export default function PagosScreen({ navigation }: any) {
         </View>
         <View style={styles.headerTitle}>
           <Text style={styles.pageTitle}>Pagos</Text>
-          <Text style={styles.pageSub}>Carlos Muñoz Jr. · Alevín #8</Text>
+          <Text style={styles.pageSub}>{pupilName}</Text>
         </View>
 
         {/* Status pills */}
@@ -46,65 +63,69 @@ export default function PagosScreen({ navigation }: any) {
           <View style={styles.pill}>
             <View style={[styles.pillDot, { backgroundColor: AMBER }]} />
             <Text style={styles.pillLbl}>Pendientes</Text>
-            <Text style={styles.pillVal}>{PENDING.length}</Text>
+            <Text style={styles.pillVal}>{pending.length}</Text>
           </View>
           <View style={styles.pill}>
             <View style={[styles.pillDot, { backgroundColor: Colors.ok }]} />
             <Text style={styles.pillLbl}>Al día</Text>
-            <Text style={styles.pillVal}>{HISTORY.length} pagados</Text>
+            <Text style={styles.pillVal}>{history.length} pagados</Text>
           </View>
         </View>
       </View>
 
       {/* ── Body ── */}
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {/* Pending */}
-        {PENDING.length > 0 && (
-          <>
-            <Text style={styles.sectionLbl}>PENDIENTES</Text>
-            {PENDING.map(p => (
-              <View key={p.id} style={[styles.card, styles.cardPending]}>
-                <View style={styles.cardRow}>
-                  <View style={[styles.dotBig, { backgroundColor: AMBER }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.concept}>{p.concept}</Text>
-                    <Text style={styles.meta}>Vence {p.due.slice(8,10)}/{p.due.slice(5,7)}/{p.due.slice(0,4)}</Text>
+        {loading ? (
+          <ActivityIndicator color={BLUE} style={{ marginTop: 40 }} />
+        ) : <>
+          {/* Pending */}
+          {pending.length > 0 && (
+            <>
+              <Text style={styles.sectionLbl}>PENDIENTES</Text>
+              {pending.map(p => (
+                <View key={p.id} style={[styles.card, styles.cardPending]}>
+                  <View style={styles.cardRow}>
+                    <View style={[styles.dotBig, { backgroundColor: AMBER }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.concept}>{p.concept}</Text>
+                      <Text style={styles.meta}>Vence {formatDate(p.due_date)}</Text>
+                    </View>
+                    <Text style={styles.amount}>{formatAmount(p.amount)}</Text>
                   </View>
-                  <Text style={styles.amount}>{p.amount}</Text>
+                  <TouchableOpacity
+                    style={styles.payBtn}
+                    onPress={() => navigation.navigate('PagoDetalle', { payment: p })}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="card-outline" size={15} color="#fff" />
+                    <Text style={styles.payBtnTxt}>Pagar ahora</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={styles.payBtn}
-                  onPress={() => navigation.navigate('PagoDetalle', { payment: p })}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="card-outline" size={15} color="#fff" />
-                  <Text style={styles.payBtnTxt}>Pagar ahora</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </>
-        )}
+              ))}
+            </>
+          )}
 
-        {/* History */}
-        <Text style={[styles.sectionLbl, { marginTop: 16 }]}>HISTORIAL</Text>
-        <View style={styles.histCard}>
-          {HISTORY.map((h, i) => (
-            <TouchableOpacity
-              key={h.id}
-              style={[styles.histRow, i > 0 && styles.histBorder]}
-              onPress={() => navigation.navigate('PagoDetalle', { payment: h })}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.dotBig, { backgroundColor: Colors.ok }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.concept}>{h.concept}</Text>
-                <Text style={styles.meta}>{h.date.slice(8,10)}/{h.date.slice(5,7)}/{h.date.slice(0,4)}</Text>
-              </View>
-              <Text style={[styles.amount, { color: Colors.ok }]}>{h.amount}</Text>
-              <Ionicons name="chevron-forward" size={14} color={Colors.light} style={{ marginLeft: 4 }} />
-            </TouchableOpacity>
-          ))}
-        </View>
+          {/* History */}
+          <Text style={[styles.sectionLbl, { marginTop: 16 }]}>HISTORIAL</Text>
+          <View style={styles.histCard}>
+            {history.map((h, i) => (
+              <TouchableOpacity
+                key={h.id}
+                style={[styles.histRow, i > 0 && styles.histBorder]}
+                onPress={() => navigation.navigate('PagoDetalle', { payment: h })}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.dotBig, { backgroundColor: Colors.ok }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.concept}>{h.concept}</Text>
+                  <Text style={styles.meta}>{formatDate(h.paid_date)}</Text>
+                </View>
+                <Text style={[styles.amount, { color: Colors.ok }]}>{formatAmount(h.amount)}</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.light} style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>}
 
         <View style={{ height: 28 }} />
       </ScrollView>

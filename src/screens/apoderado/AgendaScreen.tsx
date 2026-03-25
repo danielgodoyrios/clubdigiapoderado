@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, SafeAreaView,
@@ -7,19 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetIcon } from '../../components/CarnetIcon';
 import { CarnetModal } from '../../components/CarnetModal';
+import { Events, Event } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAYS   = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
-
-const EVENTS = [
-  { id:'e1', type:'training', title:'Entrenamiento Alevín',         date:'2026-03-24', time:'17:30', venue:'Gim. Municipal' },
-  { id:'e2', type:'match',    title:'Sto. Domingo vs Quilpué BC',   date:'2026-03-25', time:'20:00', venue:'Gim. Municipal',   league:'Liga Regional Valparaíso' },
-  { id:'e3', type:'training', title:'Entrenamiento Alevín',         date:'2026-03-26', time:'17:30', venue:'Gim. Municipal' },
-  { id:'e4', type:'match',    title:'Sto. Domingo vs Valpo BC',     date:'2026-03-28', time:'19:30', venue:'Polideportivo',    league:'Copa Chile FEBA' },
-  { id:'e5', type:'training', title:'Entrenamiento Alevín',         date:'2026-03-31', time:'17:30', venue:'Gim. Municipal' },
-  { id:'e6', type:'training', title:'Entrenamiento Alevín',         date:'2026-04-02', time:'17:30', venue:'Gim. Municipal' },
-];
 
 function buildWeek(base: Date) {
   const week = [];
@@ -35,15 +28,28 @@ function buildWeek(base: Date) {
 function fmtDate(d: Date) { return d.toISOString().slice(0, 10); }
 
 export default function AgendaScreen() {
+  const { state } = useAuth();
+  const pupil   = state.status === 'authenticated' ? state.activePupil : null;
+  const pupilId = pupil?.id;
+
   const [carnetVisible, setCarnetVisible] = useState(false);
-  const today   = new Date('2026-03-23');
-  const [base,    setBase]    = useState(new Date('2026-03-23'));
-  const [selected, setSelected] = useState(new Date('2026-03-24'));
+  const today   = new Date();
+  const [base,    setBase]    = useState(new Date());
+  const [selected, setSelected] = useState(new Date());
+  const [events,  setEvents]  = useState<Event[]>([]);
 
   const week    = buildWeek(base);
   const selStr  = fmtDate(selected);
   const todayStr = fmtDate(today);
-  const dayEvents = EVENTS.filter(e => e.date === selStr);
+  const dayEvents = events.filter(e => e.date === selStr);
+
+  useEffect(() => {
+    if (!pupilId) return;
+    const weekStart = buildWeek(base);
+    const from = fmtDate(weekStart[0]);
+    const to   = fmtDate(weekStart[6]);
+    Events.list(pupilId, from, to).then(setEvents).catch(() => {});
+  }, [pupilId, fmtDate(base)]);
 
   const prevWeek = () => { const d = new Date(base); d.setDate(d.getDate() - 7); setBase(d); };
   const nextWeek = () => { const d = new Date(base); d.setDate(d.getDate() + 7); setBase(d); };
@@ -85,7 +91,7 @@ export default function AgendaScreen() {
             const ds      = fmtDate(d);
             const isSel   = ds === selStr;
             const isToday = ds === todayStr;
-            const hasEv   = EVENTS.some(e => e.date === ds);
+            const hasEv   = events.some(e => e.date === ds);
             return (
               <TouchableOpacity key={i} style={styles.dayCol} onPress={() => setSelected(new Date(d))}>
                 <Text style={[styles.dayShort, isSel && styles.dayShortSel]}>{DAYS[d.getDay()]}</Text>
@@ -130,7 +136,7 @@ export default function AgendaScreen() {
 
         {/* Upcoming */}
         <Text style={[styles.sectionLbl, { marginTop: 18 }]}>PRÓXIMOS EVENTOS</Text>
-        {EVENTS.filter(e => e.date > selStr).slice(0, 4).map(ev => (
+        {events.filter(e => e.date > selStr).slice(0, 4).map(ev => (
           <View key={ev.id} style={styles.card}>
             <View style={[styles.accent, { backgroundColor: ev.type === 'match' ? BLUE : Colors.ok }]} />
             <View style={styles.cardBody}>
@@ -150,12 +156,12 @@ export default function AgendaScreen() {
         visible={carnetVisible}
         onClose={() => setCarnetVisible(false)}
         role="jugador"
-        name="Carlos Muñoz Jr."
-        initials="CM"
-        licenseId="LIC-2026-0892"
+        name={pupil ? pupil.name : ''}
+        initials={pupil ? pupil.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() : ''}
+        licenseId={pupil?.license_id ?? ''}
         headerColor={BLUE}
-        position="Alevín · #8"
-        club="C.D. Santo Domingo"
+        position={pupil ? `${pupil.category} · #${pupil.number}` : ''}
+        club={pupil?.club ?? ''}
       />
     </SafeAreaView>
   );

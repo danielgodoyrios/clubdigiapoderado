@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetModal } from '../../components/CarnetModal';
 import { CarnetIcon } from '../../components/CarnetIcon';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue; // #1A3A7C
 
@@ -22,13 +23,20 @@ const QUICK_ACTIONS = [
 
 export const ApoderadoHomeScreen: React.FC = () => {
   const [carnetVisible, setCarnetVisible] = useState(false);
+  const { state, setActivePupil } = useAuth();
   const [pupilIdx, setPupilIdx] = useState(0);
 
-  const pupils = [
-    { name: 'Carlos Muñoz Jr.', initials: 'CM', category: 'Alevín · #8 · C.D. Santo Domingo', licenseId: 'LIC-2026-0892', attendance: 92, quotaPending: true },
-    { name: 'Ana Muñoz',        initials: 'AM', category: 'Sub-14 · #5 · C.D. Santo Domingo',  licenseId: 'LIC-2026-0991', attendance: 88, quotaPending: false },
-  ];
-  const pupil = pupils[pupilIdx];
+  // Usar datos reales del AuthContext
+  const pupils = state.status === 'authenticated' ? state.pupils : [];
+  const pupil  = pupils[pupilIdx] ?? null;
+
+  const cyclePupil = () => {
+    const nextIdx = (pupilIdx + 1) % pupils.length;
+    setPupilIdx(nextIdx);
+    setActivePupil(pupils[nextIdx]);
+  };
+
+  if (!pupil) return null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -54,7 +62,7 @@ export const ApoderadoHomeScreen: React.FC = () => {
         </View>
 
         {/* Pupil selector */}
-        <TouchableOpacity style={styles.pupilSel} onPress={() => setPupilIdx(p => (p+1) % pupils.length)}>
+        <TouchableOpacity style={styles.pupilSel} onPress={cyclePupil}>
           <View style={styles.pupilAv}>
             <Text style={styles.pupilAvTxt}>{pupil.initials}</Text>
             <View style={styles.pupilDot} />
@@ -62,7 +70,7 @@ export const ApoderadoHomeScreen: React.FC = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.apodLabel}>Apoderado de</Text>
             <Text style={styles.pupilName}>{pupil.name}</Text>
-            <Text style={styles.pupilMeta}>{pupil.category}</Text>
+            <Text style={styles.pupilMeta}>{pupil.category} · #{pupil.number} · {pupil.club}</Text>
           </View>
           {pupils.length > 1 && (
             <View style={styles.switchPill}>
@@ -77,12 +85,12 @@ export const ApoderadoHomeScreen: React.FC = () => {
           <View style={styles.statusPill}>
             <View style={[styles.pillDot, { backgroundColor: Colors.ok }]} />
             <Text style={styles.pillLbl}>Asistencia</Text>
-            <Text style={styles.pillVal}>{pupil.attendance}%</Text>
+            <Text style={styles.pillVal}>{pupil.attendance_pct}%</Text>
           </View>
           <View style={styles.statusPill}>
-            <View style={[styles.pillDot, { backgroundColor: pupil.quotaPending ? '#D97706' : Colors.ok }]} />
-            <Text style={styles.pillLbl}>Cuota Abr</Text>
-            <Text style={styles.pillVal}>{pupil.quotaPending ? 'Pendiente' : 'Al día'}</Text>
+            <View style={[styles.pillDot, { backgroundColor: pupil.quota_pending ? '#D97706' : Colors.ok }]} />
+            <Text style={styles.pillLbl}>Cuota</Text>
+            <Text style={styles.pillVal}>{pupil.quota_pending ? 'Pendiente' : 'Al día'}</Text>
           </View>
         </View>
       </View>
@@ -167,10 +175,10 @@ export const ApoderadoHomeScreen: React.FC = () => {
         role="jugador"
         name={pupil.name}
         initials={pupil.initials}
-        licenseId={pupil.licenseId}
+        licenseId={pupil.license_id}
         headerColor={BLUE}
         position={pupil.category}
-        club="C.D. Santo Domingo"
+        club={pupil.club}
       />
     </SafeAreaView>
   );

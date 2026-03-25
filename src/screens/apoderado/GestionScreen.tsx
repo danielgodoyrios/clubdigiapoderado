@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetIcon } from '../../components/CarnetIcon';
 import { CarnetModal } from '../../components/CarnetModal';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 
@@ -42,6 +43,9 @@ const SECTIONS = [
 ];
 
 export default function GestionScreen({ navigation }: any) {
+  const { state } = useAuth();
+  const pupil = state.status === 'authenticated' ? state.activePupil : null;
+  const pupilLabel = pupil ? `${pupil.name} · ${pupil.category} #${pupil.number}` : '';
   const [carnetVisible, setCarnetVisible] = useState(false);
 
   return (
@@ -65,7 +69,7 @@ export default function GestionScreen({ navigation }: any) {
         </View>
         <View style={styles.headerTitle}>
           <Text style={styles.pageTitle}>Gestión</Text>
-          <Text style={styles.pageSub}>Carlos Muñoz Jr. · Alevín #8</Text>
+          <Text style={styles.pageSub}>{pupilLabel}</Text>
         </View>
       </View>
 

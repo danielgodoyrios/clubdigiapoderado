@@ -1,20 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView,
+  StyleSheet, SafeAreaView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { Comunicados, Comunicado } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
-
-const MESSAGES = [
-  { id: 'm1', title: 'Cambio de horario martes',       preview: 'Estimados apoderados, a partir de la próxima semana el entrenamiento del martes pasa a las 18:30.',  date: '2026-03-22', unread: true,  category: 'info'   },
-  { id: 'm2', title: 'Autorización torneo regional',   preview: 'Se requiere firma digital de autorización para participar en el torneo del 5 de abril.',              date: '2026-03-20', unread: true,  category: 'action' },
-  { id: 'm3', title: 'Resultados Liga Regional',       preview: 'Sto. Domingo 68 – Quilpué BC 55. Gran actuación del equipo Alevín este fin de semana.',               date: '2026-03-18', unread: false, category: 'info'   },
-  { id: 'm4', title: 'Cuota de marzo disponible',      preview: 'Ya está disponible el cobro de la cuota mensual de marzo. Puedes pagarlo desde la sección Pagos.',    date: '2026-03-10', unread: false, category: 'admin'  },
-  { id: 'm5', title: 'Bienvenida temporada 2026',      preview: 'Estimados apoderados, les damos la bienvenida a la temporada 2026 del C.D. Santo Domingo.',           date: '2026-01-05', unread: false, category: 'info'   },
-];
 
 const CAT_COLOR: Record<string, string> = {
   info:   BLUE,
@@ -23,7 +17,29 @@ const CAT_COLOR: Record<string, string> = {
 };
 
 export default function ComunicadosScreen({ navigation }: any) {
-  const unread = MESSAGES.filter(m => m.unread).length;
+  const { state } = useAuth();
+  const pupilId   = state.status === 'authenticated' ? state.activePupil?.id : undefined;
+
+  const [messages, setMessages] = useState<Comunicado[]>([]);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    if (!pupilId) return;
+    Comunicados.list(pupilId)
+      .then(setMessages)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [pupilId]);
+
+  const unread = messages.filter(m => !m.read).length;
+
+  const handleOpen = async (m: Comunicado) => {
+    navigation.navigate('ComunicadoDetalle', { message: m });
+    if (!m.read) {
+      await Comunicados.markRead(m.id).catch(() => {});
+      setMessages(prev => prev.map(x => x.id === m.id ? { ...x, read: true } : x));
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -53,28 +69,33 @@ export default function ComunicadosScreen({ navigation }: any) {
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionLbl}>TODOS LOS MENSAJES</Text>
 
-        {MESSAGES.map((m, i) => (
-          <TouchableOpacity
-            key={m.id}
-            style={[styles.card, m.unread && styles.cardUnread]}
-            onPress={() => navigation.navigate('ComunicadoDetalle', { message: m })}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.iconWrap, { backgroundColor: CAT_COLOR[m.category] + '18' }]}>
-              <Ionicons
-                name={m.category === 'action' ? 'document-text-outline' : 'chatbubble-outline'}
-                size={16}
-                color={CAT_COLOR[m.category]}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.msgTitle, m.unread && styles.msgTitleUnread]}>{m.title}</Text>
-              <Text style={styles.msgPreview} numberOfLines={1}>{m.preview}</Text>
-              <Text style={styles.msgDate}>{m.date.slice(8,10)}/{m.date.slice(5,7)}/{m.date.slice(0,4)}</Text>
-            </View>
-            {m.unread && <View style={[styles.unreadDot, { backgroundColor: CAT_COLOR[m.category] }]} />}
-          </TouchableOpacity>
-        ))}
+        {loading ? (
+          <ActivityIndicator color={BLUE} style={{ marginTop: 40 }} />
+        ) : messages.map((m) => {
+          const dateStr = m.date.slice(0, 10);
+          return (
+            <TouchableOpacity
+              key={m.id}
+              style={[styles.card, !m.read && styles.cardUnread]}
+              onPress={() => handleOpen(m)}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.iconWrap, { backgroundColor: CAT_COLOR[m.category] + '18' }]}>
+                <Ionicons
+                  name={m.category === 'action' ? 'document-text-outline' : 'chatbubble-outline'}
+                  size={16}
+                  color={CAT_COLOR[m.category]}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.msgTitle, !m.read && styles.msgTitleUnread]}>{m.title}</Text>
+                <Text style={styles.msgPreview} numberOfLines={1}>{m.preview}</Text>
+                <Text style={styles.msgDate}>{dateStr.slice(8,10)}/{dateStr.slice(5,7)}/{dateStr.slice(0,4)}</Text>
+              </View>
+              {!m.read && <View style={[styles.unreadDot, { backgroundColor: CAT_COLOR[m.category] }]} />}
+            </TouchableOpacity>
+          );
+        })}
 
         <View style={{ height: 28 }} />
       </ScrollView>

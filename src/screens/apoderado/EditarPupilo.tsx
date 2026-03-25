@@ -1,26 +1,41 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, SafeAreaView, ScrollView, Alert,
+  StyleSheet, SafeAreaView, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { Pupils } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 
 export default function EditarPupilo({ navigation, route }: any) {
-  const { pupil } = route.params ?? {
-    pupil: { id: 'pup_001', name: 'Carlos Muñoz Jr.', initials: 'CM', number: 8, category: 'Alevín', club: 'C.D. Santo Domingo', licenseId: 'LIC-2026-0892' },
-  };
+  const { state } = useAuth();
+  const activePupil = state.status === 'authenticated' ? state.activePupil : null;
+  const pupil = route.params?.pupil ?? activePupil;
 
-  const [name,     setName]     = useState(pupil.name);
-  const [number,   setNumber]   = useState(String(pupil.number));
-  const [category, setCategory] = useState(pupil.category);
+  const [name,     setName]     = useState(pupil?.name ?? '');
+  const [number,   setNumber]   = useState(String(pupil?.number ?? ''));
+  const [category, setCategory] = useState(pupil?.category ?? '');
+  const [saving,   setSaving]   = useState(false);
 
-  const handleSave = () => {
-    Alert.alert('Guardado', 'Los datos del pupilo fueron actualizados.', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+  const initials  = (pupil?.name ?? '').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const licenseId = pupil?.license_id ?? pupil?.licenseId ?? '';
+
+  const handleSave = async () => {
+    if (!pupil?.id) return;
+    setSaving(true);
+    try {
+      await Pupils.update(pupil.id, { name, number: Number(number), category });
+      Alert.alert('Guardado', 'Los datos del pupilo fueron actualizados.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar. Intenta de nuevo.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -39,18 +54,18 @@ export default function EditarPupilo({ navigation, route }: any) {
         </View>
         <View style={styles.headerTitle}>
           <Text style={styles.pageTitle}>Editar Pupilo</Text>
-          <Text style={styles.pageSub}>{pupil.name}</Text>
+          <Text style={styles.pageSub}>{pupil?.name ?? ''}</Text>
         </View>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         {/* Avatar */}
-        <View style={styles.avatarWrap}>
+          <View style={styles.avatarWrap}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarTxt}>{pupil.initials}</Text>
+            <Text style={styles.avatarTxt}>{initials}</Text>
             <View style={styles.avatarDot} />
           </View>
-          <Text style={styles.licenseId}>{pupil.licenseId}</Text>
+          <Text style={styles.licenseId}>{licenseId}</Text>
         </View>
 
         {/* Form */}
@@ -86,13 +101,14 @@ export default function EditarPupilo({ navigation, route }: any) {
           </View>
           <View style={[styles.field, styles.fieldBorder]}>
             <Text style={styles.fieldLabel}>Club</Text>
-            <Text style={styles.fieldReadOnly}>{pupil.club}</Text>
+            <Text style={styles.fieldReadOnly}>{pupil?.club ?? ''}</Text>
           </View>
         </View>
 
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-          <Ionicons name="checkmark-outline" size={18} color="#fff" />
-          <Text style={styles.saveBtnTxt}>Guardar cambios</Text>
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85} disabled={saving}>
+          {saving
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <><Ionicons name="checkmark-outline" size={18} color="#fff" /><Text style={styles.saveBtnTxt}>Guardar cambios</Text></>}
         </TouchableOpacity>
 
         <View style={{ height: 28 }} />

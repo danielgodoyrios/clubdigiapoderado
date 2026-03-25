@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform,
+  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE    = Colors.blue;
 const CODE_LEN = 6;
@@ -12,12 +13,43 @@ const CODE_LEN = 6;
 export default function OTPScreen({ navigation, route }: any) {
   const { phone } = route.params ?? { phone: '+56 9 XXXX XXXX' };
   const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const { verifyOTP, requestOTP } = useAuth();
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300); }, []);
 
   const digits  = code.padEnd(CODE_LEN, ' ').split('');
   const complete = code.length === CODE_LEN;
+
+  const handleVerify = async () => {
+    if (!complete) return;
+    setLoading(true);
+    try {
+      const hasRoles = await verifyOTP(phone, code);
+      if (hasRoles) {
+        navigation.replace('RoleSelector');
+      } else {
+        navigation.replace('Enrollment');
+      }
+    } catch (err: any) {
+      const msg = err?.error ?? 'Código incorrecto o expirado.';
+      Alert.alert('Error', msg);
+      setCode('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      await requestOTP(phone);
+      setCode('');
+      Alert.alert('Enviado', 'Se reenvió el código SMS.');
+    } catch {
+      Alert.alert('Error', 'No se pudo reenviar el código.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -65,15 +97,15 @@ export default function OTPScreen({ navigation, route }: any) {
           />
 
           <TouchableOpacity
-            style={[styles.btn, !complete && styles.btnDisabled]}
-            onPress={() => complete && navigation.replace('PupilSelector')}
-            disabled={!complete}
+            style={[styles.btn, (!complete || loading) && styles.btnDisabled]}
+            onPress={handleVerify}
+            disabled={!complete || loading}
             activeOpacity={0.85}
           >
-            <Text style={styles.btnTxt}>Verificar</Text>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnTxt}>Verificar</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.resend} onPress={() => setCode('')}>
+          <TouchableOpacity style={styles.resend} onPress={handleResend}>
             <Text style={styles.resendTxt}>
               ¿No llegó el código?{'  '}
               <Text style={{ color: BLUE, fontWeight: '700' }}>Reenviar</Text>

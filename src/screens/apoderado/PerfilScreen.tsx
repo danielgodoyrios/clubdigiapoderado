@@ -5,11 +5,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { mockUser, mockPupils } from '../../mock/data';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 
 export default function PerfilScreen({ navigation }: any) {
+  const { state } = useAuth();
+  const user   = state.status === 'authenticated' ? state.user : null;
+  const pupils = state.status === 'authenticated' ? state.pupils : [];
+  if (!user) return null;
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* ── Header ── */}
@@ -28,12 +33,12 @@ export default function PerfilScreen({ navigation }: any) {
         {/* Apoderado avatar */}
         <View style={styles.apodRow}>
           <View style={styles.apodAvatar}>
-            <Text style={styles.apodAvatarTxt}>{mockUser.initials}</Text>
+            <Text style={styles.apodAvatarTxt}>{user.initials}</Text>
           </View>
           <View>
-            <Text style={styles.apodName}>{mockUser.name}</Text>
-            <Text style={styles.apodMeta}>Apoderado · {mockUser.rut}</Text>
-            <Text style={styles.apodPhone}>{mockUser.phone}</Text>
+            <Text style={styles.apodName}>{user.name}</Text>
+            <Text style={styles.apodMeta}>Apoderado · {user.rut}</Text>
+            <Text style={styles.apodPhone}>{user.phone}</Text>
           </View>
         </View>
       </View>
@@ -43,9 +48,10 @@ export default function PerfilScreen({ navigation }: any) {
         <Text style={styles.sectionLbl}>MIS DATOS</Text>
         <View style={styles.card}>
           {[
-            { label: 'Nombre',   value: mockUser.name },
-            { label: 'RUT',      value: mockUser.rut },
-            { label: 'Teléfono', value: mockUser.phone },
+            { label: 'Nombre',   value: user.name },
+            { label: 'RUT',      value: user.rut },
+            { label: 'Teléfono', value: user.phone },
+            { label: 'Email',    value: user.email },
           ].map((r, i) => (
             <View key={i} style={[styles.row, i > 0 && styles.rowBorder]}>
               <Text style={styles.rowLabel}>{r.label}</Text>
@@ -56,7 +62,7 @@ export default function PerfilScreen({ navigation }: any) {
 
         {/* Pupilos */}
         <Text style={[styles.sectionLbl, { marginTop: 16 }]}>MIS PUPILOS</Text>
-        {mockPupils.map((p, i) => (
+        {pupils.map((p) => (
           <TouchableOpacity
             key={p.id}
             style={styles.pupilCard}
@@ -70,7 +76,7 @@ export default function PerfilScreen({ navigation }: any) {
             <View style={{ flex: 1 }}>
               <Text style={styles.pupilName}>{p.name}</Text>
               <Text style={styles.pupilMeta}>{p.category} · #{p.number} · {p.club}</Text>
-              <Text style={styles.pupilLic}>{p.licenseId}</Text>
+              <Text style={styles.pupilLic}>{p.license_id}</Text>
             </View>
             <Ionicons name="create-outline" size={16} color={BLUE} />
           </TouchableOpacity>
