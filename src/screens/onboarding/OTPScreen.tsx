@@ -10,17 +10,31 @@ import { useAuth } from '../../context/AuthContext';
 const BLUE    = Colors.blue;
 const CODE_LEN = 6;
 
+const RESEND_COOLDOWN = 60; // segundos
+
 export default function OTPScreen({ navigation, route }: any) {
   const { phone } = route.params ?? { phone: '+56 9 XXXX XXXX' };
   const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [resending, setResending]     = useState(false);
+  const [cooldown, setCooldown]       = useState(RESEND_COOLDOWN);
   const inputRef = useRef<TextInput>(null);
   const { verifyOTP, requestOTP } = useAuth();
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300); }, []);
 
+  // Cuenta regresiva para habilitar el reenvío
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
   const digits  = code.padEnd(CODE_LEN, ' ').split('');
   const complete = code.length === CODE_LEN;
+
+  const apiMsg = (err: any): string =>
+    err?.message ?? err?.error ?? err?.detail ?? 'Ocurrió un error. Intenta de nuevo.';
 
   const handleVerify = async () => {
     if (!complete) return;
@@ -33,21 +47,27 @@ export default function OTPScreen({ navigation, route }: any) {
         navigation.replace('Enrollment');
       }
     } catch (err: any) {
-      const msg = err?.error ?? 'Código incorrecto o expirado.';
-      Alert.alert('Error', msg);
+      Alert.alert('Código inválido', apiMsg(err));
       setCode('');
+      setTimeout(() => inputRef.current?.focus(), 100);
     } finally {
       setLoading(false);
     }
   };
 
   const handleResend = async () => {
+    if (cooldown > 0 || resending) return;
+    setResending(true);
     try {
       await requestOTP(phone);
       setCode('');
-      Alert.alert('Enviado', 'Se reenvió el código SMS.');
-    } catch {
-      Alert.alert('Error', 'No se pudo reenviar el código.');
+      setCooldown(RESEND_COOLDOWN);
+      setTimeout(() => inputRef.current?.focus(), 100);
+      Alert.alert('Código enviado', `Se envió un nuevo código SMS a ${phone}.`);
+    } catch (err: any) {
+      Alert.alert('Error al reenviar', apiMsg(err));
+    } finally {
+      setResending(false);
     }
   };
 
@@ -110,11 +130,22 @@ export default function OTPScreen({ navigation, route }: any) {
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnTxt}>Verificar</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.resend} onPress={handleResend}>
-            <Text style={styles.resendTxt}>
-              ¿No llegó el código?{'  '}
-              <Text style={{ color: BLUE, fontWeight: '700' }}>Reenviar</Text>
-            </Text>
+          <TouchableOpacity
+            style={[styles.resend, (cooldown > 0 || resending) && styles.resendDisabled]}
+            onPress={handleResend}
+            disabled={cooldown > 0 || resending}
+          >
+            {resending ? (
+              <ActivityIndicator size="small" color={BLUE} />
+            ) : (
+              <Text style={styles.resendTxt}>
+                ¿No llegó el código?{'  '}
+                {cooldown > 0
+                  ? <Text style={{ color: Colors.gray }}>Reenviar en {cooldown}s</Text>
+                  : <Text style={{ color: BLUE, fontWeight: '700' }}>Reenviar</Text>
+                }
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -142,6 +173,7 @@ const styles = StyleSheet.create({
   btn:             { backgroundColor: BLUE, borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: 8 },
   btnDisabled:     { opacity: 0.4 },
   btnTxt:          { fontSize: 15, fontWeight: '700', color: '#fff' },
-  resend:          { marginTop: 20 },
+  resend:          { marginTop: 20, height: 28, alignItems: 'center', justifyContent: 'center' },
+  resendDisabled:  { opacity: 0.5 },
   resendTxt:       { fontSize: 12, color: Colors.gray },
 });
