@@ -46,7 +46,7 @@ const SECTIONS = [
 export default function GestionScreen({ navigation }: any) {
   const { state } = useAuth();
   const pupil = state.status === 'authenticated' ? state.activePupil : null;
-  const pupilLabel = pupil ? `${pupil.name} · ${pupil.category} #${pupil.number}` : '';
+  const pupilLabel = pupil ? `${pupil.name} · ${pupil.category}` : '';
   const [carnetVisible, setCarnetVisible] = useState(false);
   const [menuVisible,   setMenuVisible]   = useState(false);
 

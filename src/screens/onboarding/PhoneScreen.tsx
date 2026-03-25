@@ -22,8 +22,15 @@ export default function PhoneScreen({ navigation }: any) {
     try {
       await requestOTP(normalized);
       navigation.navigate('OTP', { phone: normalized });
-    } catch {
-      Alert.alert('Error', 'No se pudo enviar el código. Intenta de nuevo.');
+    } catch (err: any) {
+      const status  = err?.status ?? 'sin respuesta';
+      const detail  = err?.detail ?? err?.message ?? 'sin detalle';
+      const errName = err?.name ?? '';
+      console.error('[OTP Request Error]', JSON.stringify(err));
+      Alert.alert(
+        'Error al enviar código',
+        `Status: ${status}\nTipo: ${errName}\nDetalle: ${detail}`,
+      );
     } finally {
       setLoading(false);
     }

@@ -13,18 +13,18 @@ const BLUE = Colors.blue;
 const SLIDES = [
   {
     icon:  'shield-checkmark-outline' as const,
-    title: 'Bienvenido a\nClubDigi',
-    desc:  'Tu portal digital como apoderado. Sigue a tus pupilos desde un solo lugar, en cualquier momento.',
+    title: 'Bienvenido a\nClub Digi App',
+    desc:  'La plataforma digital para la gestión integral de tu club deportivo. Para apoderados, profesores y directivos.',
   },
   {
-    icon:  'clipboard-outline' as const,
-    title: 'Asistencia\ny Pagos',
-    desc:  'Consulta la asistencia mensual y el estado de cuotas de cada pupilo en tiempo real.',
+    icon:  'people-outline' as const,
+    title: 'Multi-rol,\nUna sola App',
+    desc:  'Accede como apoderado, profesor o administrador. Cada rol tiene su propio panel con la información que necesitas.',
   },
   {
     icon:  'chatbubble-ellipses-outline' as const,
-    title: 'Comunicación\nDirecta',
-    desc:  'Recibe comunicados del club, firma documentos digitales y accede al carnet QR del jugador.',
+    title: 'Todo el Club\nConectado',
+    desc:  'Comunicados, asistencia, pagos, documentos digitales y carnet QR. Todo en tiempo real desde tu celular.',
   },
 ];
 

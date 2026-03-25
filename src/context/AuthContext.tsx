@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Auth, Apoderado, Pupils, getAccessToken, ApoderadoProfile, Pupil } from '../api';
+import { Auth, Apoderado, Pupils, getAccessToken, MeResponse, Pupil } from '../api';
 
 // ── Types ─────────────────────────────────────────────────────
 type AuthState =
   | { status: 'loading' }
   | { status: 'unauthenticated' }
-  | { status: 'authenticated'; user: ApoderadoProfile; pupils: Pupil[]; activePupil: Pupil | null; activeRole: string };
+  | { status: 'authenticated'; user: MeResponse; pupils: Pupil[]; activePupil: Pupil | null; activeRole: string };
 
 interface AuthContextValue {
   state: AuthState;
@@ -70,14 +70,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const verifyOTP = async (phone: string, code: string) => {
-    await Auth.verifyOTP(phone, code);
-    const [user, pupils] = await Promise.all([
-      Apoderado.getMe(),
-      Pupils.list(),
-    ]);
+    const res = await Auth.verifyOTP(phone, code);
+    const { user } = res;
     const hasRoles = (user.roles?.length ?? 0) > 0;
     if (hasRoles) {
-      const activeRole = user.roles![0];
+      const pupils = await Pupils.list();
+      const activeRole = user.roles[0];
       await AsyncStorage.setItem('active_role', activeRole);
       setState({ status: 'authenticated', user, pupils, activePupil: pupils[0] ?? null, activeRole });
     }

@@ -27,7 +27,7 @@ export default function DocumentosScreen({ navigation }: any) {
   const { state } = useAuth();
   const pupilId   = state.status === 'authenticated' ? state.activePupil?.id : undefined;
   const pupilName = state.status === 'authenticated' && state.activePupil
-    ? `${state.activePupil.name} · ${state.activePupil.category} #${state.activePupil.number}`
+    ? `${state.activePupil.name} · ${state.activePupil.category}`
     : '';
 
   const [docs, setDocs]     = useState<Documento[]>([]);

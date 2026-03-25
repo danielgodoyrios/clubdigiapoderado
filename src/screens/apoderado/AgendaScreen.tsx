@@ -159,10 +159,10 @@ export default function AgendaScreen() {
         role="jugador"
         name={pupil ? pupil.name : ''}
         initials={pupil ? pupil.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() : ''}
-        licenseId={pupil?.license_id ?? ''}
+        licenseId={pupil?.rut ?? ''}
         headerColor={BLUE}
-        position={pupil ? `${pupil.category} · #${pupil.number}` : ''}
-        club={pupil?.club ?? ''}
+        position={pupil ? pupil.category : ''}
+        club={pupil?.team ?? ''}
       />
     </SafeAreaView>
   );

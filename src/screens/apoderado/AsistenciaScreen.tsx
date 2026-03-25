@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { Attendance, AttendanceSummaryMonth } from '../../api';
+import { Attendance, AttendanceMonth } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
@@ -20,22 +20,23 @@ export default function AsistenciaScreen({ navigation }: any) {
   const { state } = useAuth();
   const pupilId = state.status === 'authenticated' ? state.activePupil?.id : undefined;
   const pupilName = state.status === 'authenticated' && state.activePupil
-    ? `${state.activePupil.name} · ${state.activePupil.category} #${state.activePupil.number}`
+    ? `${state.activePupil.name} · ${state.activePupil.category}`
     : '';
 
-  const [months, setMonths] = useState<AttendanceSummaryMonth[]>([]);
+  const [months, setMonths] = useState<AttendanceMonth[]>([]);;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!pupilId) return;
-    Attendance.summary(pupilId, 6)
-      .then(data => setMonths(data))
+    Attendance.summary(pupilId)
+      .then(data => setMonths(data.months))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [pupilId]);
 
+  const pct = (m: AttendanceMonth) => m.total > 0 ? Math.round(m.present * 100 / m.total) : 0;
   const overall = months.length
-    ? Math.round(months.reduce((a, m) => a + m.attendance_pct, 0) / months.length)
+    ? Math.round(months.reduce((a, m) => a + pct(m), 0) / months.length)
     : 0;
 
   return (
@@ -61,8 +62,8 @@ export default function AsistenciaScreen({ navigation }: any) {
         <View style={styles.pillsRow}>
           {[
             { label: '% General', value: `${overall}%`, dot: dotColor(overall) },
-            { label: 'Este mes',  value: months[0] ? `${months[0].attendance_pct}%` : '-', dot: months[0] ? dotColor(months[0].attendance_pct) : Colors.gray },
-            { label: 'Ausencias', value: months[0] ? `${months[0].sessions_absent}` : '-', dot: Colors.red },
+            { label: 'Este mes',  value: months[0] ? `${pct(months[0])}%` : '-', dot: months[0] ? dotColor(pct(months[0])) : Colors.gray },
+            { label: 'Ausencias', value: months[0] ? `${months[0].absent}` : '-', dot: Colors.red },
           ].map((p, i) => (
             <View key={i} style={styles.pill}>
               <View style={[styles.pillDot, { backgroundColor: p.dot }]} />
@@ -87,22 +88,22 @@ export default function AsistenciaScreen({ navigation }: any) {
               pupilId,
               year: parseInt(m.month.slice(0, 4)),
               month: parseInt(m.month.slice(5, 7)),
-              monthLabel: m.month_label,
+              monthLabel: m.month,
             })}
             activeOpacity={0.85}
           >
             <View style={styles.cardLeft}>
-              <View style={[styles.dot, { backgroundColor: dotColor(m.attendance_pct) }]} />
+              <View style={[styles.dot, { backgroundColor: dotColor(pct(m)) }]} />
               <View>
-                <Text style={styles.monthName}>{m.month_label}</Text>
-                <Text style={styles.monthSub}>{m.sessions_total} sesiones · {m.sessions_absent} ausencia{m.sessions_absent !== 1 ? 's' : ''}</Text>
+                <Text style={styles.monthName}>{m.month}</Text>
+                <Text style={styles.monthSub}>{m.total} sesiones · {m.absent} ausencia{m.absent !== 1 ? 's' : ''}</Text>
               </View>
             </View>
 
             <View style={styles.cardRight}>
-              <Text style={[styles.pctTxt, { color: dotColor(m.attendance_pct) }]}>{m.attendance_pct}%</Text>
+              <Text style={[styles.pctTxt, { color: dotColor(pct(m)) }]}>{pct(m)}%</Text>
               <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${m.attendance_pct}%` as any, backgroundColor: dotColor(m.attendance_pct) }]} />
+                <View style={[styles.barFill, { width: `${pct(m)}%` as any, backgroundColor: dotColor(pct(m)) }]} />
               </View>
               <Ionicons name="chevron-forward" size={14} color={Colors.light} />
             </View>

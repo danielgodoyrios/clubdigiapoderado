@@ -67,13 +67,13 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
         {/* Pupil selector */}
         <TouchableOpacity style={styles.pupilSel} onPress={cyclePupil}>
           <View style={styles.pupilAv}>
-            <Text style={styles.pupilAvTxt}>{pupil.initials}</Text>
+            <Text style={styles.pupilAvTxt}>{pupil.name.split(' ').map((w: string) => w[0]).join('').slice(0,2).toUpperCase()}</Text>
             <View style={styles.pupilDot} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.apodLabel}>Apoderado de</Text>
             <Text style={styles.pupilName}>{pupil.name}</Text>
-            <Text style={styles.pupilMeta}>{pupil.category} · #{pupil.number} · {pupil.club}</Text>
+            <Text style={styles.pupilMeta}>{pupil.category} · {pupil.team}</Text>
           </View>
           {pupils.length > 1 && (
             <View style={styles.switchPill}>
@@ -178,10 +178,10 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
         role="jugador"
         name={pupil.name}
         initials={pupil.initials}
-        licenseId={pupil.license_id}
+        licenseId={pupil.rut}
         headerColor={BLUE}
         position={pupil.category}
-        club={pupil.club}
+        club={pupil.team}
       />
     </SafeAreaView>
   );

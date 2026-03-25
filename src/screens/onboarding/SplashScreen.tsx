@@ -26,7 +26,7 @@ export default function SplashScreen({ navigation }: any) {
           <Text style={styles.logoI}>CLUB</Text>
           <Text style={styles.logoB}>DIGI</Text>
         </View>
-        <Text style={styles.tag}>Portal del Apoderado</Text>
+        <Text style={styles.tag}>Gestión Deportiva Digital</Text>
       </Animated.View>
       <Text style={styles.ver}>v1.0.0</Text>
     </View>

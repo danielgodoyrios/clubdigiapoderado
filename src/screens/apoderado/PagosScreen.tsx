@@ -24,7 +24,7 @@ export default function PagosScreen({ navigation }: any) {
   const { state } = useAuth();
   const pupilId   = state.status === 'authenticated' ? state.activePupil?.id : undefined;
   const pupilName = state.status === 'authenticated' && state.activePupil
-    ? `${state.activePupil.name} · ${state.activePupil.category} #${state.activePupil.number}`
+    ? `${state.activePupil.name} · ${state.activePupil.category}`
     : '';
 
   const [pending, setPending] = useState<Payment[]>([]);
@@ -34,7 +34,10 @@ export default function PagosScreen({ navigation }: any) {
   useEffect(() => {
     if (!pupilId) return;
     Payments.list(pupilId)
-      .then(data => { setPending(data.pending); setHistory(data.history); })
+      .then(data => {
+        setPending(data.filter(p => p.status === 'pending'));
+        setHistory(data.filter(p => p.status === 'paid'));
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [pupilId]);
@@ -118,7 +121,7 @@ export default function PagosScreen({ navigation }: any) {
                 <View style={[styles.dotBig, { backgroundColor: Colors.ok }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.concept}>{h.concept}</Text>
-                  <Text style={styles.meta}>{formatDate(h.paid_date)}</Text>
+                  <Text style={styles.meta}>Vence {formatDate(h.due_date)}</Text>
                 </View>
                 <Text style={[styles.amount, { color: Colors.ok }]}>{formatAmount(h.amount)}</Text>
                 <Ionicons name="chevron-forward" size={14} color={Colors.light} style={{ marginLeft: 4 }} />

@@ -70,13 +70,13 @@ export default function PerfilScreen({ navigation }: any) {
             activeOpacity={0.85}
           >
             <View style={styles.pupilAvatar}>
-              <Text style={styles.pupilAvatarTxt}>{p.initials}</Text>
+              <Text style={styles.pupilAvatarTxt}>{p.name.split(' ').map((w: string) => w[0]).join('').slice(0,2).toUpperCase()}</Text>
               <View style={styles.pupilDot} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.pupilName}>{p.name}</Text>
-              <Text style={styles.pupilMeta}>{p.category} · #{p.number} · {p.club}</Text>
-              <Text style={styles.pupilLic}>{p.license_id}</Text>
+              <Text style={styles.pupilMeta}>{p.category} · {p.team}</Text>
+              <Text style={styles.pupilLic}>{p.rut}</Text>
             </View>
             <Ionicons name="create-outline" size={16} color={BLUE} />
           </TouchableOpacity>

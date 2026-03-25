@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { Pupils } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
@@ -16,23 +15,18 @@ export default function EditarPupilo({ navigation, route }: any) {
   const pupil = route.params?.pupil ?? activePupil;
 
   const [name,     setName]     = useState(pupil?.name ?? '');
-  const [number,   setNumber]   = useState(String(pupil?.number ?? ''));
   const [category, setCategory] = useState(pupil?.category ?? '');
   const [saving,   setSaving]   = useState(false);
 
   const initials  = (pupil?.name ?? '').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-  const licenseId = pupil?.license_id ?? pupil?.licenseId ?? '';
 
   const handleSave = async () => {
-    if (!pupil?.id) return;
     setSaving(true);
     try {
-      await Pupils.update(pupil.id, { name, number: Number(number), category });
-      Alert.alert('Guardado', 'Los datos del pupilo fueron actualizados.', [
+      // La actualización de pupilos no está disponible en esta versión
+      Alert.alert('No disponible', 'La edición de pupilos se habilitará próximamente.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch {
-      Alert.alert('Error', 'No se pudo guardar. Intenta de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -65,7 +59,7 @@ export default function EditarPupilo({ navigation, route }: any) {
             <Text style={styles.avatarTxt}>{initials}</Text>
             <View style={styles.avatarDot} />
           </View>
-          <Text style={styles.licenseId}>{licenseId}</Text>
+          <Text style={styles.licenseId}>{pupil?.rut ?? ''}</Text>
         </View>
 
         {/* Form */}
@@ -82,26 +76,16 @@ export default function EditarPupilo({ navigation, route }: any) {
             />
           </View>
           <View style={[styles.field, styles.fieldBorder]}>
-            <Text style={styles.fieldLabel}>Número de camiseta</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={number}
-              onChangeText={setNumber}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
+            <Text style={styles.fieldLabel}>RUT</Text>
+            <Text style={styles.fieldReadOnly}>{pupil?.rut ?? ''}</Text>
           </View>
           <View style={[styles.field, styles.fieldBorder]}>
             <Text style={styles.fieldLabel}>Categoría</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={category}
-              onChangeText={setCategory}
-            />
+            <Text style={styles.fieldReadOnly}>{category}</Text>
           </View>
           <View style={[styles.field, styles.fieldBorder]}>
-            <Text style={styles.fieldLabel}>Club</Text>
-            <Text style={styles.fieldReadOnly}>{pupil?.club ?? ''}</Text>
+            <Text style={styles.fieldLabel}>Equipo</Text>
+            <Text style={styles.fieldReadOnly}>{pupil?.team ?? ''}</Text>
           </View>
         </View>
 

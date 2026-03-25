@@ -107,7 +107,7 @@ export default function SideMenu({ visible, onClose, navigation }: Props) {
           </Text>
           {pupil && (
             <Text style={styles.pupilInfo} numberOfLines={1}>
-              {pupil.name} · {pupil.category} #{pupil.number}
+              {pupil.name} · {pupil.team}
             </Text>
           )}
         </View>
