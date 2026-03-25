@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, Animated,
+  View, Text, TouchableOpacity,
+  StyleSheet, SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
@@ -9,8 +9,67 @@ import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 
-// Simple QR-like decoration pattern
-const QR_PATTERN = [1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,0,1,1,0,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,1,0,1,0,1,0,0,1,1,1,0,1,1,1];
+export default function CarnetScreen({ navigation }: any) {
+  const { state } = useAuth();
+  const pupil     = state.status === 'authenticated' ? state.activePupil : null;
+  const pupilName = pupil?.name ?? '';
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      {/* ── Header ── */}
+      <View style={{ backgroundColor: BLUE }}>
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.ic}>
+            <Ionicons name="arrow-back" size={20} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.logo}>
+            <Text style={styles.logoI}>CLUB</Text>
+            <Text style={styles.logoB}>DIGI</Text>
+          </View>
+          <View style={{ width: 36 }} />
+        </View>
+        <View style={styles.headerTitle}>
+          <Text style={styles.pageTitle}>Carnet Digital</Text>
+          <Text style={styles.pageSub}>{pupilName}</Text>
+        </View>
+      </View>
+
+      {/* ── Próximamente ── */}
+      <View style={styles.body}>
+        <View style={styles.iconWrap}>
+          <Ionicons name="card-outline" size={56} color={BLUE} />
+        </View>
+        <Text style={styles.soon}>Próximamente</Text>
+        <Text style={styles.desc}>
+          El carnet digital con QR y token de acceso estará disponible en la próxima versión de la app.
+        </Text>
+        <View style={styles.badge}>
+          <Ionicons name="time-outline" size={13} color={Colors.amber} />
+          <Text style={styles.badgeTxt}>En desarrollo</Text>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe:        { flex: 1, backgroundColor: Colors.surf },
+  topRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 4 },
+  logo:        { flexDirection: 'row', alignItems: 'baseline' },
+  logoI:       { fontSize: 14, fontWeight: '800', color: 'rgba(255,255,255,0.35)' },
+  logoB:       { fontSize: 14, fontWeight: '800', color: '#fff' },
+  ic:          { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { paddingHorizontal: 18, paddingTop: 4, paddingBottom: 16 },
+  pageTitle:   { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
+  pageSub:     { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
+  body:        { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  iconWrap:    { width: 110, height: 110, borderRadius: 55, backgroundColor: BLUE + '12', alignItems: 'center', justifyContent: 'center', marginBottom: 28 },
+  soon:        { fontSize: 26, fontWeight: '800', color: Colors.black, letterSpacing: -0.4, marginBottom: 12 },
+  desc:        { fontSize: 14, color: Colors.gray, textAlign: 'center', lineHeight: 21, marginBottom: 20 },
+  badge:       { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.amber + '18', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 },
+  badgeTxt:    { fontSize: 12, fontWeight: '700', color: Colors.amber },
+});
+
 
 export default function CarnetScreen({ navigation }: any) {
   const { state } = useAuth();

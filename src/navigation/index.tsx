@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 
 // ── Onboarding ──────────────────────────────────────────────
 import SplashScreen        from '../screens/onboarding/SplashScreen';
+import WelcomeScreen       from '../screens/onboarding/WelcomeScreen';
 import PhoneScreen         from '../screens/onboarding/PhoneScreen';
 import OTPScreen           from '../screens/onboarding/OTPScreen';
 import RoleSelectorScreen  from '../screens/onboarding/RoleSelectorScreen';
@@ -101,6 +102,7 @@ export default function AppNavigation() {
 
         {/* ── Onboarding ── */}
         <Stack.Screen name="Splash"        component={SplashScreen} />
+        <Stack.Screen name="Welcome"       component={WelcomeScreen} />
         <Stack.Screen name="Phone"         component={PhoneScreen} />
         <Stack.Screen name="OTP"           component={OTPScreen} />
         <Stack.Screen name="RoleSelector"  component={RoleSelectorScreen} />

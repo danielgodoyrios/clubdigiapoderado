@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../theme';
 
 export default function SplashScreen({ navigation }: any) {
@@ -11,7 +12,10 @@ export default function SplashScreen({ navigation }: any) {
       Animated.timing(opacity, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.spring(scale,   { toValue: 1, tension: 55, friction: 9, useNativeDriver: true }),
     ]).start();
-    const t = setTimeout(() => navigation.replace('Phone'), 2400);
+    const t = setTimeout(async () => {
+      const seen = await AsyncStorage.getItem('onboarding_seen');
+      navigation.replace(seen ? 'Phone' : 'Welcome');
+    }, 2400);
     return () => clearTimeout(t);
   }, []);
 

@@ -9,6 +9,7 @@ import { CarnetIcon } from '../../components/CarnetIcon';
 import { CarnetModal } from '../../components/CarnetModal';
 import { Events, Event } from '../../api';
 import { useAuth } from '../../context/AuthContext';
+import SideMenu from '../../components/SideMenu';
 
 const BLUE = Colors.blue;
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -32,8 +33,7 @@ export default function AgendaScreen() {
   const pupil   = state.status === 'authenticated' ? state.activePupil : null;
   const pupilId = pupil?.id;
 
-  const [carnetVisible, setCarnetVisible] = useState(false);
-  const today   = new Date();
+  const [carnetVisible, setCarnetVisible] = useState(false);  const [menuVisible,   setMenuVisible]   = useState(false);  const today   = new Date();
   const [base,    setBase]    = useState(new Date());
   const [selected, setSelected] = useState(new Date());
   const [events,  setEvents]  = useState<Event[]>([]);
@@ -56,10 +56,11 @@ export default function AgendaScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} navigation={navigation} />
       {/* ── Header ── */}
       <View style={{ backgroundColor: BLUE }}>
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.ic}>
+          <TouchableOpacity style={styles.ic} onPress={() => setMenuVisible(true)}>
             <Ionicons name="menu" size={22} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
           <View style={styles.logo}>

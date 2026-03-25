@@ -86,6 +86,9 @@ export default function OTPScreen({ navigation, route }: any) {
             ))}
           </TouchableOpacity>
 
+          {/* Tap hint */}
+          <Text style={styles.tapHint}>Toca las casillas e ingresa el código</Text>
+
           {/* Hidden real input */}
           <TextInput
             ref={inputRef}
@@ -94,6 +97,8 @@ export default function OTPScreen({ navigation, route }: any) {
             onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, CODE_LEN))}
             keyboardType="number-pad"
             maxLength={CODE_LEN}
+            autoFocus
+            caretHidden
           />
 
           <TouchableOpacity
@@ -128,10 +133,11 @@ const styles = StyleSheet.create({
   title:           { fontSize: 26, fontWeight: '800', color: Colors.black, letterSpacing: -0.5, marginBottom: 8, alignSelf: 'flex-start' },
   sub:             { fontSize: 13, color: Colors.gray, lineHeight: 19, marginBottom: 36, alignSelf: 'flex-start' },
   phone:           { color: Colors.black, fontWeight: '700' },
-  digitsRow:       { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  digitsRow:       { flexDirection: 'row', gap: 10, marginBottom: 8 },
   digitBox:        { width: 46, height: 56, borderRadius: 12, backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.light, alignItems: 'center', justifyContent: 'center' },
   digitBoxActive:  { borderColor: BLUE },
   digitTxt:        { fontSize: 22, fontWeight: '700', color: Colors.black },
+  tapHint:         { fontSize: 11, color: Colors.gray, marginBottom: 28, textAlign: 'center' },
   hidden:          { position: 'absolute', opacity: 0, height: 0 },
   btn:             { backgroundColor: BLUE, borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: 8 },
   btnDisabled:     { opacity: 0.4 },

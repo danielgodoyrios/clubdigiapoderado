@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetIcon } from '../../components/CarnetIcon';
 import { CarnetModal } from '../../components/CarnetModal';
+import SideMenu from '../../components/SideMenu';
 import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
@@ -47,13 +48,15 @@ export default function GestionScreen({ navigation }: any) {
   const pupil = state.status === 'authenticated' ? state.activePupil : null;
   const pupilLabel = pupil ? `${pupil.name} · ${pupil.category} #${pupil.number}` : '';
   const [carnetVisible, setCarnetVisible] = useState(false);
+  const [menuVisible,   setMenuVisible]   = useState(false);
 
   return (
     <SafeAreaView style={styles.safe}>
+      <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} navigation={navigation} />
       {/* ── Header ── */}
       <View style={{ backgroundColor: BLUE }}>
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.ic}>
+          <TouchableOpacity style={styles.ic} onPress={() => setMenuVisible(true)}>
             <Ionicons name="menu" size={22} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
           <View style={styles.logo}>

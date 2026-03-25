@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetModal } from '../../components/CarnetModal';
 import { CarnetIcon } from '../../components/CarnetIcon';
+import SideMenu from '../../components/SideMenu';
 import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue; // #1A3A7C
@@ -21,8 +22,9 @@ const QUICK_ACTIONS = [
   { id: 'stats',   icon: 'bar-chart-outline',    label: 'Estadísticas' },
 ];
 
-export const ApoderadoHomeScreen: React.FC = () => {
+export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
   const [carnetVisible, setCarnetVisible] = useState(false);
+  const [menuVisible,  setMenuVisible]  = useState(false);
   const { state, setActivePupil } = useAuth();
   const [pupilIdx, setPupilIdx] = useState(0);
 
@@ -40,11 +42,12 @@ export const ApoderadoHomeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} navigation={navigation} />
       {/* HEADER */}
       <View style={{ backgroundColor: BLUE }}>
         {/* Top row */}
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.ic}>
+          <TouchableOpacity style={styles.ic} onPress={() => setMenuVisible(true)}>
             <Ionicons name="menu" size={22} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
           <View style={styles.logo}>
