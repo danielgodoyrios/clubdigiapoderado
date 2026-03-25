@@ -5,10 +5,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { useAuth } from '../../context/AuthContext';
 
 const BLUE = Colors.blue;
 
 export default function ConfiguracionScreen({ navigation }: any) {
+  const { logout, state } = useAuth();
+  const roles = state.status === 'authenticated' ? (state.user?.roles ?? []) : [];
+  const hasMultiRoles = roles.length > 1;
   const [notifPartidos,    setNotifPartidos]    = useState(true);
   const [notifEntrenam,    setNotifEntrenam]    = useState(true);
   const [notifComunicados, setNotifComunicados] = useState(true);
@@ -20,7 +24,7 @@ export default function ConfiguracionScreen({ navigation }: any) {
       '¿Deseas salir de tu cuenta ClubDigi?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Salir',    style: 'destructive', onPress: () => navigation.replace('Splash') },
+        { text: 'Salir',    style: 'destructive', onPress: logout },
       ],
     );
   };
@@ -89,6 +93,18 @@ export default function ConfiguracionScreen({ navigation }: any) {
           ))}
         </View>
 
+        {/* Role switch */}
+        {hasMultiRoles && (
+          <TouchableOpacity
+            style={styles.switchRoleBtn}
+            onPress={() => navigation.navigate('RoleSelector', { fromApp: true })}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="swap-horizontal-outline" size={18} color={BLUE} />
+            <Text style={styles.switchRoleTxt}>Cambiar de rol</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
           <Ionicons name="log-out-outline" size={18} color={Colors.red} />
@@ -119,6 +135,8 @@ const styles = StyleSheet.create({
   rowSub:      { fontSize: 10, color: Colors.gray, marginTop: 2 },
   infoRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 13 },
   infoVal:     { fontSize: 12, fontWeight: '600', color: Colors.gray },
-  logoutBtn:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.red + '12', borderRadius: 12, borderWidth: 1, borderColor: Colors.red + '30', paddingVertical: 14, marginTop: 16 },
+  switchRoleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BLUE + '12', borderRadius: 12, borderWidth: 1, borderColor: BLUE + '30', paddingVertical: 14, marginTop: 16 },
+  switchRoleTxt: { fontSize: 14, fontWeight: '700', color: BLUE },
+  logoutBtn:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.red + '12', borderRadius: 12, borderWidth: 1, borderColor: Colors.red + '30', paddingVertical: 14, marginTop: 10 },
   logoutTxt:   { fontSize: 14, fontWeight: '700', color: Colors.red },
 });
