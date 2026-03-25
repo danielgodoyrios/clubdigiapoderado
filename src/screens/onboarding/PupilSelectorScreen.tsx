@@ -11,7 +11,7 @@ const BLUE = Colors.blue;
 
 export default function PupilSelectorScreen({ navigation }: any) {
   const { state, setActivePupil } = useAuth();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
 
   const pupils = state.status === 'authenticated' ? state.pupils : [];
   const userName = state.status === 'authenticated' ? state.user.name : '';
@@ -41,7 +41,7 @@ export default function PupilSelectorScreen({ navigation }: any) {
 
         <FlatList
           data={pupils}
-          keyExtractor={p => p.id}
+          keyExtractor={p => String(p.id)}
           contentContainerStyle={{ gap: 10, marginTop: 20 }}
           renderItem={({ item }) => {
             const sel = selected === item.id;
@@ -52,12 +52,14 @@ export default function PupilSelectorScreen({ navigation }: any) {
                 activeOpacity={0.85}
               >
                 <View style={[styles.avatar, sel && styles.avatarSel]}>
-                  <Text style={[styles.avatarTxt, sel && { color: BLUE }]}>{item.initials}</Text>
+                  <Text style={[styles.avatarTxt, sel && { color: BLUE }]}>
+                    {item.name.split(' ').map((w: string) => w[0]).join('').slice(0,2).toUpperCase()}
+                  </Text>
                   <View style={styles.dot} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{item.name}</Text>
-                  <Text style={styles.meta}>{item.category} · #{item.number} · {item.club}</Text>
+                  <Text style={styles.meta}>{item.category} · {item.team}</Text>
                 </View>
                 <View style={[styles.check, sel && styles.checkSel]}>
                   {sel && <Ionicons name="checkmark" size={14} color="#fff" />}

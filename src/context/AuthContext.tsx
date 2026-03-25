@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Auth, Apoderado, Pupils, getAccessToken, MeResponse, Pupil } from '../api';
+import { Auth, Apoderado, Profesor, Admin, Pupils, getAccessToken, MeResponse, Pupil } from '../api';
 
 // ── Types ─────────────────────────────────────────────────────
 type AuthState =
@@ -44,12 +44,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const token = await getAccessToken();
         if (!token) { setState({ status: 'unauthenticated' }); return; }
 
-        const [user, pupils] = await Promise.all([
-          Apoderado.getMe(),
-          Pupils.list(),
-        ]);
+        const savedRole = await AsyncStorage.getItem('active_role') ?? 'apoderado';
 
-        const savedRole = await AsyncStorage.getItem('active_role');
+        // Llamar /me del rol correspondiente
+        const getMeFn = savedRole === 'profesor' ? Profesor.getMe
+                      : savedRole === 'admin'    ? Admin.getMe
+                      : Apoderado.getMe;
+        const user = await getMeFn();
+
+        const pupils = savedRole === 'apoderado' ? await Pupils.list() : [];
         const activeRole = savedRole ?? (user.roles?.[0] ?? 'apoderado');
 
         setState({
@@ -74,8 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { user } = res;
     const hasRoles = (user.roles?.length ?? 0) > 0;
     if (hasRoles) {
-      const pupils = await Pupils.list();
       const activeRole = user.roles[0];
+      const pupils = activeRole === 'apoderado' ? await Pupils.list() : [];
       await AsyncStorage.setItem('active_role', activeRole);
       setState({ status: 'authenticated', user, pupils, activePupil: pupils[0] ?? null, activeRole });
     }
