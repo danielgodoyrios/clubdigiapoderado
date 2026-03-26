@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
+﻿import React, { useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, FlatList,
+  View, Text, TouchableOpacity, StyleSheet, FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
@@ -99,7 +99,7 @@ export default function RoleSelectorScreen({ navigation, route }: any) {
 
       <View style={styles.body}>
         <Text style={styles.greeting}>Hola, {user.name}</Text>
-        <Text style={styles.title}>{fromApp ? '¿A qué rol{\n}deseas cambiar?' : '¿Con qué rol{\n}ingresas hoy?'}</Text>
+        <Text style={styles.title}>{fromApp ? '¿A qué rol\ndeseas cambiar?' : '¿Con qué rol\ningresas hoy?'}</Text>
         <Text style={styles.sub}>
           Tienes {roles.length} {roles.length === 1 ? 'rol activo' : 'roles activos'} en el sistema.
         </Text>

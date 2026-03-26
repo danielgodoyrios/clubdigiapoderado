@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, ActivityIndicator,
+  StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { Attendance, AttendanceMonth } from '../../api';
@@ -20,7 +21,7 @@ export default function AsistenciaScreen({ navigation }: any) {
   const { state } = useAuth();
   const pupilId = state.status === 'authenticated' ? state.activePupil?.id : undefined;
   const pupilName = state.status === 'authenticated' && state.activePupil
-    ? `${state.activePupil.name} · ${state.activePupil.category}`
+    ? `${state.activePupil.name}${state.activePupil.category ? ` · ${state.activePupil.category}` : ''}`
     : '';
 
   const [months, setMonths] = useState<AttendanceMonth[]>([]);;

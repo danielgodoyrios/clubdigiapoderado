@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, ActivityIndicator,
+  StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { Comunicados, Comunicado } from '../../api';
@@ -36,7 +37,7 @@ export default function ComunicadosScreen({ navigation }: any) {
   const handleOpen = async (m: Comunicado) => {
     navigation.navigate('ComunicadoDetalle', { message: m });
     if (!m.read) {
-      await Comunicados.markRead(m.id).catch(() => {});
+      await Comunicados.markRead(pupilId!, m.id).catch(() => {});
       setMessages(prev => prev.map(x => x.id === m.id ? { ...x, read: true } : x));
     }
   };

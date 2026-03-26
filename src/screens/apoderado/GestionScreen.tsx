@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView,
+  StyleSheet,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetIcon } from '../../components/CarnetIcon';
@@ -46,7 +47,7 @@ const SECTIONS = [
 export default function GestionScreen({ navigation }: any) {
   const { state } = useAuth();
   const pupil = state.status === 'authenticated' ? state.activePupil : null;
-  const pupilLabel = pupil ? `${pupil.name} · ${pupil.category}` : '';
+  const pupilLabel = pupil ? `${pupil.name}${pupil.category ? ` · ${pupil.category}` : ''}` : '';
   const [carnetVisible, setCarnetVisible] = useState(false);
   const [menuVisible,   setMenuVisible]   = useState(false);
 

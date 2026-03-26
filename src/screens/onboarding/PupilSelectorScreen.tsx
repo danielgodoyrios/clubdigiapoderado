@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, FlatList,
+  View, Text, TouchableOpacity, StyleSheet, FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
@@ -59,7 +59,7 @@ export default function PupilSelectorScreen({ navigation }: any) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{item.name}</Text>
-                  <Text style={styles.meta}>{item.category} · {item.team}</Text>
+                  <Text style={styles.meta}>{[item.category, item.team].filter(Boolean).join(' · ') || 'Sin equipo asignado'}</Text>
                 </View>
                 <View style={[styles.check, sel && styles.checkSel]}>
                   {sel && <Ionicons name="checkmark" size={14} color="#fff" />}

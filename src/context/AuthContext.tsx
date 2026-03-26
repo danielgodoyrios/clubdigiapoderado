@@ -50,9 +50,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const getMeFn = savedRole === 'profesor' ? Profesor.getMe
                       : savedRole === 'admin'    ? Admin.getMe
                       : Apoderado.getMe;
-        const user = await getMeFn();
+        let user;
+        try {
+          user = await getMeFn();
+        } catch (err) {
+          // Token inválido o expirado
+          await Auth.logout();
+          setState({ status: 'unauthenticated' });
+          return;
+        }
 
-        const pupils = savedRole === 'apoderado' ? await Pupils.list() : [];
+        let pupils: Pupil[] = [];
+        if (savedRole === 'apoderado') {
+          try {
+            pupils = await Pupils.list();
+            console.log('[AuthContext] Pupils loaded:', JSON.stringify(pupils));
+          } catch (err) {
+            console.error('[AuthContext] Pupils.list() error:', JSON.stringify(err));
+            // Solo cerrar sesión si es error de auth (401/403), no en otros errores
+            if ((err as any)?.status === 401 || (err as any)?.status === 403) {
+              await Auth.logout();
+              setState({ status: 'unauthenticated' });
+              return;
+            }
+            // En caso de otro error (500, red), continuar sin pupilos
+          }
+        }
         const activeRole = savedRole ?? (user.roles?.[0] ?? 'apoderado');
 
         setState({
@@ -87,9 +110,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveRole = useCallback(async (role: string) => {
     await AsyncStorage.setItem('active_role', role);
-    setState(prev =>
-      prev.status === 'authenticated' ? { ...prev, activeRole: role } : prev,
-    );
+    if (role === 'apoderado') {
+      try {
+        const pupils = await Pupils.list();
+        console.log('[AuthContext] setActiveRole → pupils:', JSON.stringify(pupils));
+        setState(prev =>
+          prev.status === 'authenticated'
+            ? { ...prev, activeRole: role, pupils, activePupil: prev.activePupil ?? pupils[0] ?? null }
+            : prev,
+        );
+      } catch (err) {
+        console.error('[AuthContext] setActiveRole Pupils.list() error:', JSON.stringify(err));
+        setState(prev =>
+          prev.status === 'authenticated' ? { ...prev, activeRole: role } : prev,
+        );
+      }
+    } else {
+      setState(prev =>
+        prev.status === 'authenticated' ? { ...prev, activeRole: role } : prev,
+      );
+    }
   }, []);
 
   const setActivePupil = useCallback((pupil: Pupil) => {

@@ -1,15 +1,22 @@
-
-import React, { useState } from 'react';
+﻿
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
+  StyleSheet, Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetModal } from '../../components/CarnetModal';
 import { CarnetIcon } from '../../components/CarnetIcon';
 import SideMenu from '../../components/SideMenu';
 import { useAuth } from '../../context/AuthContext';
+import {
+  Events, Event,
+  Attendance, AttendanceMonth,
+  Comunicados, Comunicado,
+  Payments,
+} from '../../api';
 
 const BLUE = Colors.blue; // #1A3A7C
 
@@ -25,8 +32,13 @@ const QUICK_ACTIONS = [
 export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
   const [carnetVisible, setCarnetVisible] = useState(false);
   const [menuVisible,  setMenuVisible]  = useState(false);
-  const { state, setActivePupil } = useAuth();
+  const { state, setActivePupil, logout } = useAuth();
   const [pupilIdx, setPupilIdx] = useState(0);
+
+  const [nextMatch,    setNextMatch]    = useState<Event | null>(null);
+  const [attMonth,     setAttMonth]     = useState<AttendanceMonth | null>(null);
+  const [msgs,         setMsgs]         = useState<Comunicado[]>([]);
+  const [quotaPending, setQuotaPending] = useState(false);
 
   // Usar datos reales del AuthContext
   const pupils = state.status === 'authenticated' ? state.pupils : [];
@@ -38,7 +50,63 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
     setActivePupil(pupils[nextIdx]);
   };
 
-  if (!pupil) return null;
+  useEffect(() => {
+    if (!pupil?.id) return;
+    const id  = pupil.id;
+    const now = new Date();
+    const from = now.toISOString().slice(0, 10);
+    const to   = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+
+    Events.list(id, from, to, 'match')
+      .then(evs => setNextMatch(evs[0] ?? null))
+      .catch(() => {});
+
+    Attendance.summary(id)
+      .then(data => {
+        const key = now.toISOString().slice(0, 7);
+        setAttMonth(data.months.find(m => m.month === key) ?? data.months[data.months.length - 1] ?? null);
+      })
+      .catch(() => {});
+
+    Comunicados.list(id)
+      .then(list => setMsgs(list.slice(0, 3)))
+      .catch(() => {});
+
+    Payments.list(id)
+      .then(pays => setQuotaPending(pays.some(p => p.status === 'pending')))
+      .catch(() => {});
+  }, [pupil?.id]);
+
+  if (state.status === 'loading') {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={BLUE} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!pupil) {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center', padding: 32 }]}>
+        <Ionicons name="person-add-outline" size={52} color={Colors.light} />
+        <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.black, marginTop: 16, marginBottom: 8, textAlign: 'center' }}>
+          Sin pupilos registrados
+        </Text>
+        <Text style={{ fontSize: 13, color: Colors.gray, textAlign: 'center', marginBottom: 32 }}>
+          Agrega un pupilo para ver su información.
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: BLUE, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32, marginBottom: 16 }}
+          onPress={() => navigation.navigate('Enrollment')}
+        >
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Agregar pupilo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={logout}>
+          <Text style={{ color: Colors.gray, fontSize: 13, fontWeight: '600' }}>Cerrar sesión</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -67,13 +135,16 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
         {/* Pupil selector */}
         <TouchableOpacity style={styles.pupilSel} onPress={cyclePupil}>
           <View style={styles.pupilAv}>
-            <Text style={styles.pupilAvTxt}>{pupil.name.split(' ').map((w: string) => w[0]).join('').slice(0,2).toUpperCase()}</Text>
+            {pupil.photo
+              ? <Image source={{ uri: pupil.photo }} style={styles.pupilPhoto} />
+              : <Text style={styles.pupilAvTxt}>{pupil.name.split(' ').map((w: string) => w[0]).join('').slice(0,2).toUpperCase()}</Text>
+            }
             <View style={styles.pupilDot} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.apodLabel}>Apoderado de</Text>
             <Text style={styles.pupilName}>{pupil.name}</Text>
-            <Text style={styles.pupilMeta}>{pupil.category} · {pupil.team}</Text>
+            <Text style={styles.pupilMeta}>{[pupil.category, pupil.team].filter(Boolean).join(' · ') || 'Sin categoría'}</Text>
           </View>
           {pupils.length > 1 && (
             <View style={styles.switchPill}>
@@ -88,12 +159,14 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
           <View style={styles.statusPill}>
             <View style={[styles.pillDot, { backgroundColor: Colors.ok }]} />
             <Text style={styles.pillLbl}>Asistencia</Text>
-            <Text style={styles.pillVal}>{pupil.attendance_pct}%</Text>
+            <Text style={styles.pillVal}>
+              {attMonth && attMonth.total > 0 ? `${Math.round(attMonth.present * 100 / attMonth.total)}%` : '--'}
+            </Text>
           </View>
           <View style={styles.statusPill}>
-            <View style={[styles.pillDot, { backgroundColor: pupil.quota_pending ? '#D97706' : Colors.ok }]} />
+            <View style={[styles.pillDot, { backgroundColor: quotaPending ? '#D97706' : Colors.ok }]} />
             <Text style={styles.pillLbl}>Cuota</Text>
-            <Text style={styles.pillVal}>{pupil.quota_pending ? 'Pendiente' : 'Al día'}</Text>
+            <Text style={styles.pillVal}>{quotaPending ? 'Pendiente' : 'Al día'}</Text>
           </View>
         </View>
       </View>
@@ -119,54 +192,110 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
         {/* Next match */}
         <View style={styles.section}>
           <Text style={styles.sectionLbl}>PRÓXIMO PARTIDO</Text>
-          <View style={styles.card}>
-            <View style={styles.matchTag}>
-              <View style={[styles.tagDot, { backgroundColor: BLUE }]} />
-              <Text style={[styles.tagTxt, { color: BLUE }]}>SÁBADO 28 · 10:00</Text>
+          {nextMatch ? (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => navigation.navigate('Agenda')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.matchTag}>
+                <View style={[styles.tagDot, { backgroundColor: BLUE }]} />
+                <Text style={[styles.tagTxt, { color: BLUE }]}>
+                  {nextMatch.date.slice(8, 10)}/{nextMatch.date.slice(5, 7)}
+                  {nextMatch.time ? ' · ' + nextMatch.time : ''}
+                </Text>
+                <View style={{ flex: 1 }} />
+                <Ionicons name="chevron-forward" size={12} color={Colors.gray} />
+              </View>
+              <Text style={styles.teamName}>{nextMatch.title}</Text>
+              <Text style={styles.matchMeta}>
+                📍 {nextMatch.venue ?? nextMatch.location ?? 'Por confirmar'}
+                {nextMatch.league ? ' · ' + nextMatch.league : ''}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.card, { paddingVertical: 22, alignItems: 'center' }]}>
+              <Ionicons name="calendar-outline" size={28} color={Colors.light} />
+              <Text style={{ color: Colors.gray, fontSize: 12, marginTop: 6 }}>Sin partidos próximos</Text>
             </View>
-            <View style={styles.matchTeams}>
-              <Text style={styles.teamName}>Sto. Domingo</Text>
-              <Text style={styles.vs}>VS</Text>
-              <Text style={styles.teamName}>Quilpué BC</Text>
-            </View>
-            <Text style={styles.matchMeta}>📍 Gim. Municipal · Liga Alevín</Text>
-          </View>
+          )}
         </View>
 
         {/* Attendance */}
         <View style={styles.section}>
           <Text style={styles.sectionLbl}>ASISTENCIA ESTE MES</Text>
           <View style={styles.card}>
-            <View style={styles.attRow}>
-              {[{v:'11',l:'Presentes',color:'#1a7c4a'},{v:'1',l:'Ausencias',color:Colors.red},{v:'92%',l:'% Total',color:Colors.black}].map((s,i) => (
-                <View key={i} style={styles.attItem}>
-                  <Text style={[styles.attVal, { color: s.color }]}>{s.v}</Text>
-                  <Text style={styles.attLbl}>{s.l}</Text>
-                  <View style={styles.attBar}><View style={[styles.attFill, { width: s.l==='Ausencias'?'8%':'92%' as any, backgroundColor: s.color }]} /></View>
-                </View>
-              ))}
-            </View>
+            {attMonth ? (
+              <View style={styles.attRow}>
+                {[
+                  { v: String(attMonth.present), l: 'Presentes', color: '#1a7c4a' },
+                  { v: String(attMonth.absent),  l: 'Ausencias', color: Colors.red },
+                  { v: attMonth.total > 0 ? `${Math.round(attMonth.present * 100 / attMonth.total)}%` : 'N/A', l: '% Total', color: Colors.black },
+                ].map((s, i) => {
+                  const fillPct = attMonth.total > 0
+                    ? (s.l === 'Ausencias'
+                        ? Math.round(attMonth.absent  * 100 / attMonth.total)
+                        : Math.round(attMonth.present * 100 / attMonth.total))
+                    : 0;
+                  return (
+                    <View key={i} style={styles.attItem}>
+                      <Text style={[styles.attVal, { color: s.color }]}>{s.v}</Text>
+                      <Text style={styles.attLbl}>{s.l}</Text>
+                      <View style={styles.attBar}>
+                        <View style={[styles.attFill, { width: `${fillPct}%` as any, backgroundColor: s.color }]} />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+                <ActivityIndicator color={BLUE} size="small" />
+              </View>
+            )}
           </View>
         </View>
 
         {/* Comunicados */}
         <View style={styles.section}>
-          <Text style={styles.sectionLbl}>COMUNICADOS</Text>
-          <View style={styles.card}>
-            {[
-              { icon: 'chatbubble-outline', color: BLUE,       title: 'Cambio de horario', sub: 'Martes pasa a 18:30',     dot: BLUE },
-              { icon: 'document-text-outline', color: Colors.gray, title: 'Autorización torneo', sub: 'Requiere firma · 5 Abr', dot: Colors.red },
-            ].map((m, i) => (
-              <View key={i} style={[styles.msgItem, i > 0 && styles.msgBorder]}>
-                <View style={styles.msgIc}><Ionicons name={m.icon as any} size={13} color={m.color} /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.msgTitle}>{m.title}</Text>
-                  <Text style={styles.msgSub}>{m.sub}</Text>
-                </View>
-                <View style={[styles.unreadDot, { backgroundColor: m.dot }]} />
-              </View>
-            ))}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.sectionLbl}>COMUNICADOS</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Comunicados')}>
+              <Text style={{ fontSize: 11, color: BLUE, fontWeight: '600', marginBottom: 6 }}>Ver todos</Text>
+            </TouchableOpacity>
           </View>
+          {msgs.length === 0 ? (
+            <View style={[styles.card, { paddingVertical: 22, alignItems: 'center' }]}>
+              <Ionicons name="chatbubble-outline" size={28} color={Colors.light} />
+              <Text style={{ color: Colors.gray, fontSize: 12, marginTop: 6 }}>Sin comunicados recientes</Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              {msgs.map((m, i) => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.msgItem, i > 0 && styles.msgBorder]}
+                  onPress={() => navigation.navigate('ComunicadoDetalle', { message: m })}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.msgIc}>
+                    <Ionicons
+                      name={m.category === 'action' ? 'document-text-outline' : 'chatbubble-outline'}
+                      size={13}
+                      color={m.category === 'action' ? Colors.red : BLUE}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.msgTitle}>{m.title}</Text>
+                    {m.preview ? <Text style={styles.msgSub}>{m.preview}</Text> : null}
+                  </View>
+                  {!m.read && (
+                    <View style={[styles.unreadDot, { backgroundColor: m.category === 'action' ? Colors.red : BLUE }]} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -177,11 +306,11 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
         onClose={() => setCarnetVisible(false)}
         role="jugador"
         name={pupil.name}
-        initials={pupil.initials}
+        initials={pupil.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
         licenseId={pupil.rut}
         headerColor={BLUE}
-        position={pupil.category}
-        club={pupil.team}
+        position={pupil.category ?? 'Jugador'}
+        club={pupil.team ?? 'C.D. Santo Domingo'}
       />
     </SafeAreaView>
   );
@@ -197,7 +326,8 @@ const styles = StyleSheet.create({
   ic: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   notifDot: { position: 'absolute', top: 1, right: 1, width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.red },
   pupilSel: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 18, paddingTop: 10, paddingBottom: 11 },
-  pupilAv: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 2.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  pupilAv:    { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 2.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
+  pupilPhoto:  { width: 44, height: 44, borderRadius: 22 },
   pupilAvTxt: { fontSize: 14, fontWeight: '800', color: '#fff' },
   pupilDot: { position: 'absolute', bottom: -1, right: -1, width: 13, height: 13, borderRadius: 7, backgroundColor: Colors.ok, borderWidth: 2, borderColor: Colors.blue },
   apodLabel: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },

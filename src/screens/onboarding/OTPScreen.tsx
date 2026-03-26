@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
@@ -33,23 +34,52 @@ export default function OTPScreen({ navigation, route }: any) {
   const digits  = code.padEnd(CODE_LEN, ' ').split('');
   const complete = code.length === CODE_LEN;
 
-  const apiMsg = (err: any): string =>
-    err?.message ?? err?.error ?? err?.detail ?? 'Ocurrió un error. Intenta de nuevo.';
+  const apiMsg = (err: any): string => {
+    const msg = err?.message ?? err?.error ?? err?.detail ?? err?.errors?.[0];
+    if (msg) return msg;
+    const raw = JSON.stringify(err);
+    return raw !== '{}' ? raw : 'Ocurrió un error. Intenta de nuevo.';
+  };
 
-  const handleVerify = async () => {
-    if (!complete) return;
+  const handleVerify = async (codeToSend = code) => {
+    if (codeToSend.length !== CODE_LEN || loading) return;
+    console.log('[OTP Verify] phone:', phone, '| code:', codeToSend);
     setLoading(true);
     try {
-      const hasRoles = await verifyOTP(phone, code);
+      const hasRoles = await verifyOTP(phone, codeToSend);
       if (hasRoles) {
         navigation.replace('RoleSelector');
       } else {
         navigation.replace('Enrollment');
       }
     } catch (err: any) {
-      Alert.alert('Código inválido', apiMsg(err));
+      console.error('[OTP Verify Error]', JSON.stringify(err));
       setCode('');
-      setTimeout(() => inputRef.current?.focus(), 100);
+      // Error 500 del servidor: el código puede haberse consumido, pedir uno nuevo
+      if (err?.status === 500 || !err?.status) {
+        Alert.alert(
+          'Error del servidor',
+          'Hubo un problema al verificar el código. Solicita un nuevo código e intenta de nuevo.',
+          [
+            {
+              text: 'Reenviar código',
+              onPress: async () => {
+                try {
+                  await requestOTP(phone);
+                  setCooldown(RESEND_COOLDOWN);
+                  setTimeout(() => inputRef.current?.focus(), 100);
+                } catch {
+                  Alert.alert('Error', 'No se pudo reenviar el código. Intenta más tarde.');
+                }
+              },
+            },
+            { text: 'Cancelar', style: 'cancel', onPress: () => setTimeout(() => inputRef.current?.focus(), 100) },
+          ],
+        );
+      } else {
+        Alert.alert('Código inválido', apiMsg(err));
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     } finally {
       setLoading(false);
     }
@@ -114,7 +144,14 @@ export default function OTPScreen({ navigation, route }: any) {
             ref={inputRef}
             style={styles.hidden}
             value={code}
-            onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, CODE_LEN))}
+            onChangeText={t => {
+              const clean = t.replace(/\D/g, '').slice(0, CODE_LEN);
+              setCode(clean);
+              // Auto-submit cuando se completan los 6 dígitos
+              if (clean.length === CODE_LEN) {
+                handleVerify(clean);
+              }
+            }}
             keyboardType="number-pad"
             maxLength={CODE_LEN}
             autoFocus

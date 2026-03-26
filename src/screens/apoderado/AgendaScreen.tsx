@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView,
+  StyleSheet,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetIcon } from '../../components/CarnetIcon';
@@ -28,7 +29,7 @@ function buildWeek(base: Date) {
 
 function fmtDate(d: Date) { return d.toISOString().slice(0, 10); }
 
-export default function AgendaScreen() {
+export default function AgendaScreen({ navigation }: any) {
   const { state } = useAuth();
   const pupil   = state.status === 'authenticated' ? state.activePupil : null;
   const pupilId = pupil?.id;
@@ -130,7 +131,7 @@ export default function AgendaScreen() {
                 <Text style={styles.cardTime}>{ev.time}</Text>
               </View>
               <Text style={styles.cardTitle}>{ev.title}</Text>
-              <Text style={styles.cardMeta}>📍 {ev.venue}{(ev as any).league ? ' · ' + (ev as any).league : ''}</Text>
+              <Text style={styles.cardMeta}>📍 {ev.venue ?? ev.location ?? 'Por confirmar'}{(ev as any).league ? ' · ' + (ev as any).league : ''}</Text>
             </View>
           </View>
         ))}
@@ -145,7 +146,7 @@ export default function AgendaScreen() {
                 <Text style={styles.cardTitle}>{ev.title}</Text>
                 <Text style={styles.cardTime}>{ev.date.slice(8,10)}/{ev.date.slice(5,7)}</Text>
               </View>
-              <Text style={styles.cardMeta}>{ev.time} · 📍 {ev.venue}</Text>
+              <Text style={styles.cardMeta}>{ev.time ? ev.time + ' · ' : ''}📍 {ev.venue ?? ev.location ?? 'Por confirmar'}</Text>
             </View>
           </View>
         ))}
@@ -161,7 +162,7 @@ export default function AgendaScreen() {
         initials={pupil ? pupil.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() : ''}
         licenseId={pupil?.rut ?? ''}
         headerColor={BLUE}
-        position={pupil ? pupil.category : ''}
+        position={pupil ? (pupil.category ?? 'Jugador') : ''}
         club={pupil?.team ?? ''}
       />
     </SafeAreaView>

@@ -137,14 +137,52 @@ export const Admin = {
 // ── 3. PUPILOS ────────────────────────────────────────────────
 export type Pupil = {
   id: number;
-  name: string;
+  name: string;       // mapeado desde full_name
   rut: string;
-  team: string;
-  category: string;
+  team: string | null;
+  category: string | null;
+  photo: string | null;
+  birth_date: string | null;
+  gender: string | null;
+  status: string;
 };
 
+type PupilRaw = {
+  id: number;
+  name: string;
+  lastname: string;
+  full_name: string;
+  rut: string;
+  birth_date: string | null;
+  gender: string | null;
+  photo: string | null;
+  status: string;
+  club_id: number;
+  team: string | null;
+  category?: string | null;
+};
+
+function mapPupil(raw: PupilRaw): Pupil {
+  return {
+    id:         raw.id,
+    name:       raw.full_name ?? `${raw.name} ${raw.lastname}`.trim(),
+    rut:        raw.rut,
+    team:       raw.team ?? null,
+    category:   raw.category ?? null,
+    photo:      raw.photo ?? null,
+    birth_date: raw.birth_date ?? null,
+    gender:     raw.gender ?? null,
+    status:     raw.status,
+  };
+}
+
 export const Pupils = {
-  list: () => request<Pupil[]>('GET', '/apoderado/me/pupils'),
+  list: async (): Promise<Pupil[]> => {
+    const res = await request<{ data: PupilRaw[] } | PupilRaw[]>('GET', '/apoderado/me/pupils');
+    // El backend puede envolver en { data: [...] } o devolver array directo
+    const raw = Array.isArray(res) ? res : (res as any).data ?? [];
+    return raw.map(mapPupil);
+  },
 };
 
 // ── 4. AGENDA / EVENTOS ───────────────────────────────────────
@@ -152,16 +190,20 @@ export type Event = {
   id: number;
   type: 'training' | 'match' | 'event';
   title: string;
-  date: string;
-  location: string;
+  date: string;        // "2026-03-01"
+  time?: string;       // "10:00"
+  location?: string;
+  venue?: string;
+  league?: string;
 };
 
 export const Events = {
-  list: (pupilId: number, from?: string, to?: string, type = 'all') => {
+  list: async (pupilId: number, from?: string, to?: string, type = 'all'): Promise<Event[]> => {
     const params = new URLSearchParams({ type });
     if (from) params.append('from', from);
     if (to)   params.append('to', to);
-    return request<Event[]>('GET', `/apoderado/pupils/${pupilId}/events?${params}`);
+    const res = await request<Event[] | { data: Event[] }>('GET', `/apoderado/pupils/${pupilId}/events?${params}`);
+    return Array.isArray(res) ? res : ((res as any).data ?? []);
   },
 };
 
@@ -183,8 +225,10 @@ export type AttendanceSession = {
 export const Attendance = {
   summary: (pupilId: number) =>
     request<{ months: AttendanceMonth[] }>('GET', `/apoderado/pupils/${pupilId}/attendance`),
-  detail: (pupilId: number, month: string) =>
-    request<AttendanceSession[]>('GET', `/apoderado/pupils/${pupilId}/attendance/${month}`),
+  detail: async (pupilId: number, month: string): Promise<AttendanceSession[]> => {
+    const res = await request<AttendanceSession[] | { data: AttendanceSession[] }>('GET', `/apoderado/pupils/${pupilId}/attendance/${month}`);
+    return Array.isArray(res) ? res : ((res as any).data ?? []);
+  },
 };
 
 // ── 6. PAGOS ──────────────────────────────────────────────────
@@ -197,9 +241,10 @@ export type Payment = {
 };
 
 export const Payments = {
-  list: (pupilId: number) =>
-    request<Payment[]>('GET', `/apoderado/pupils/${pupilId}/payments`),
-
+  list: async (pupilId: number): Promise<Payment[]> => {
+    const res = await request<Payment[] | { data: Payment[] }>('GET', `/apoderado/pupils/${pupilId}/payments`);
+    return Array.isArray(res) ? res : ((res as any).data ?? []);
+  },
   checkout: (pupilId: number, invoiceId: number, returnUrl = 'clubdigi://payment-result') =>
     request<{ webpay_url: string | null; webpay_token: string }>(
       'POST', `/apoderado/pupils/${pupilId}/payments/${invoiceId}/checkout`,
@@ -216,8 +261,10 @@ export const Payments = {
 export type Comunicado = {
   id: number;
   title: string;
+  preview?: string;
   date: string;
   read: boolean;
+  category?: 'info' | 'action' | 'admin';
 };
 
 export type ComunicadoDetail = {
@@ -229,14 +276,31 @@ export type ComunicadoDetail = {
 };
 
 export const Comunicados = {
-  list: (pupilId: number, page = 1) =>
-    request<Comunicado[]>(
+  list: async (pupilId: number, page = 1): Promise<Comunicado[]> => {
+    const res = await request<Comunicado[] | { data: Comunicado[] }>(
       'GET', `/apoderado/pupils/${pupilId}/comunicados?page=${page}&per_page=20`,
-    ),
+    );
+    return Array.isArray(res) ? res : ((res as any).data ?? []);
+  },
   get: (pupilId: number, newsId: number) =>
     request<ComunicadoDetail>('GET', `/apoderado/pupils/${pupilId}/comunicados/${newsId}`),
   markRead: (pupilId: number, newsId: number) =>
     request<void>('POST', `/apoderado/pupils/${pupilId}/comunicados/${newsId}/read`),
+};
+
+// ── 8a. JUSTIFICATIVOS ───────────────────────────────────────
+export type Justificativo = {
+  id: number;
+  date: string;    // "2026-03-19"
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+};
+
+export const Justificativos = {
+  list: (pupilId: number) =>
+    request<Justificativo[]>('GET', `/apoderado/pupils/${pupilId}/justificativos`),
+  submit: (pupilId: number, data: { date: string; reason: string }) =>
+    request<Justificativo>('POST', `/apoderado/pupils/${pupilId}/justificativos`, data),
 };
 
 // ── 8. DOCUMENTOS ─────────────────────────────────────────────
@@ -250,9 +314,10 @@ export type Documento = {
 };
 
 export const Documentos = {
-  list: (pupilId: number) =>
-    request<Documento[]>('GET', `/apoderado/pupils/${pupilId}/documents`),
-  get: (pupilId: number, docId: number) =>
+  list: async (pupilId: number): Promise<Documento[]> => {
+    const res = await request<Documento[] | { data: Documento[] }>('GET', `/apoderado/pupils/${pupilId}/documents`);
+    return Array.isArray(res) ? res : ((res as any).data ?? []);
+  },  get: (pupilId: number, docId: number) =>
     request<Documento>('GET', `/apoderado/pupils/${pupilId}/documents/${docId}`),
   sign: (pupilId: number, docId: number) =>
     request<{ signed: boolean; signed_at: string }>(
