@@ -4,6 +4,19 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { NotificationsAPI } from '../api';
+import { navigationRef } from '../navigation';
+
+// Pantallas válidas que se pueden abrir desde una notificación
+const VALID_SCREENS = [
+  'Pagos', 'PagoDetalle',
+  'Comunicados', 'ComunicadoDetalle',
+  'Asistencia', 'AsistenciaDetalle',
+  'Documentos', 'DocumentoFirma',
+  'Carnet', 'Agenda',
+  'Justificativo',
+] as const;
+
+type NotifScreen = typeof VALID_SCREENS[number];
 
 // Comportamiento cuando la app está en primer plano
 Notifications.setNotificationHandler({
@@ -37,9 +50,21 @@ export function usePushNotifications(isAuthenticated: boolean) {
 
     // Usuario tocó la notificación
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      console.log('[Push] Tapped:', data);
-      // TODO: navegar a la pantalla correspondiente según data.screen
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      const screen = data?.screen as string | undefined;
+      const params = data?.params as Record<string, unknown> | undefined;
+
+      if (screen && (VALID_SCREENS as readonly string[]).includes(screen)) {
+        // Esperar a que el NavigationContainer esté listo
+        const navigate = () => {
+          if (navigationRef.current?.isReady()) {
+            navigationRef.current.navigate(screen as NotifScreen, params as any);
+          } else {
+            setTimeout(navigate, 300);
+          }
+        };
+        navigate();
+      }
     });
 
     return () => {

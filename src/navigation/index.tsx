@@ -1,13 +1,15 @@
 
-import React from 'react';
+import React, { createRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+export const navigationRef = createRef<NavigationContainerRef<ParamListBase>>();
 
 // ── Onboarding ──────────────────────────────────────────────
 import SplashScreen        from '../screens/onboarding/SplashScreen';
@@ -147,7 +149,7 @@ export default function AppNavigation() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {state.status === 'authenticated'
         ? <AppStack role={state.activeRole} />
         : <AuthStack />
