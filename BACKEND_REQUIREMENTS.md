@@ -463,7 +463,7 @@ GET /pupils/{pupil_id}/carnet/token
 ```
 GET /verify/{token}
 ```
-> Endpoint público (sin auth). Devuelve si el carnet es válido.
+> Endpoint **público** (sin auth). El escáner QR hace un `GET` a esta URL — el código QR embebe la URL completa `https://api.clubdigital.cl/verify/{token}` y el dispositivo la abre en el navegador o vía deeplink. Responde a **GET únicamente** (no POST).
 
 **Response 200:**
 ```json
@@ -631,20 +631,42 @@ POST /apoderado/me/devices
 
 ---
 
-### 11.2 Actualizar preferencias de notificación
+### 11.2 Leer preferencias de notificación
 ```
-PUT /apoderado/me/notifications
+GET /apoderado/me/notifications
 ```
-**Body:**
+**Response 200:**
 ```json
 {
-  "pagos": true,
-  "asistencia": true,
-  "comunicados": true,
-  "agenda": false
+  "pagos":          true,
+  "asistencia":     true,
+  "comunicados":    true,
+  "agenda":         false,
+  "justificativos": true
 }
 ```
-**Response 200:** preferencias actualizadas
+
+---
+
+### 11.3 Actualizar preferencias de notificación
+```
+PATCH /apoderado/me/notifications
+```
+> Usar `PATCH` (no `PUT`): solo los campos enviados se actualizan, el resto mantiene su valor actual.
+
+**Body (campos opcionales, al menos uno requerido):**
+```json
+{
+  "pagos":          true,
+  "asistencia":     true,
+  "comunicados":    true,
+  "agenda":         false,
+  "justificativos": true
+}
+```
+- `justificativos` ← campo nuevo: notificar cuando el estado de un justificativo cambia (aprobado/rechazado).
+
+**Response 200:** objeto completo con todos los campos actualizados
 
 ---
 
@@ -1534,16 +1556,34 @@ Registrar o actualizar el token de push notifications del dispositivo.
 
 ---
 
-### PUT /apoderado/me/notifications
-Actualizar preferencias de notificación.
+### GET /apoderado/me/notifications
+Leer preferencias de notificación del apoderado autenticado.
+
+**Response 200:**
+```json
+{
+  "pagos":          true,
+  "asistencia":     true,
+  "comunicados":    true,
+  "agenda":         false,
+  "justificativos": true
+}
+```
+
+---
+
+### PATCH /apoderado/me/notifications
+Actualizar preferencias de notificación (parcial — solo campos enviados se modifican).
 
 **Validaciones:**
 - Body debe tener al menos un campo — `400 EMPTY_BODY`
-- Todos los campos son booleanos — `400 INVALID_TYPE` si no lo son
+- Todos los campos deben ser booleanos — `400 INVALID_TYPE` si no lo son
 
 **Campos aceptados:** `pagos` · `asistencia` · `comunicados` · `agenda` · `justificativos`
 
-**Response 200:**
+> `justificativos` — nuevo campo: el apoderado recibe push cuando el estado de su justificativo cambia a `approved` o `rejected`.
+
+**Response 200:** objeto completo con todos los campos (incluyendo los no modificados)
 ```json
 {
   "pagos":          true,
@@ -1576,14 +1616,37 @@ Usar la **Expo Push Notifications API**: `https://exp.host/--/api/v2/push/send`
 }
 ```
 
-**Eventos que disparan push:**
-| Evento | Título | Cuerpo |
-|--------|--------|--------|
-| Justificativo aprobado | `Justificativo aprobado ✓` | `Tu justificativo del {fecha} fue aprobado` |
-| Justificativo rechazado | `Justificativo rechazado` | `Tu justificativo del {fecha} no fue aprobado` |
-| Nuevo comunicado | `Nuevo comunicado` | `{título del comunicado}` |
-| Pago pendiente | `Pago pendiente` | `Tienes un pago de ${monto} pendiente` |
-| Pago confirmado | `Pago confirmado ✓` | `Tu pago de ${monto} fue procesado` |
+**Eventos que disparan push y pantalla de destino (`data.screen`):**
+
+| Evento | Título | Cuerpo | `data.screen` | `data.params` |
+|--------|--------|--------|--------------|---------------|
+| Justificativo aprobado | `Justificativo aprobado ✓` | `Tu justificativo del {fecha} fue aprobado` | `Justificativo` | `{ pupilId }` |
+| Justificativo rechazado | `Justificativo rechazado` | `Tu justificativo del {fecha} no fue aprobado` | `Justificativo` | `{ pupilId }` |
+| Nuevo comunicado | `Nuevo comunicado` | `{título del comunicado}` | `ComunicadoDetalle` | `{ id: comunicado_id }` |
+| Documento por firmar | `Documento pendiente` | `Tienes un documento por firmar: {título}` | `DocumentoFirma` | `{ id: documento_id }` |
+| Pago pendiente | `Pago pendiente` | `Tienes un pago de $${monto} pendiente` | `Pagos` | `{ pupilId }` |
+| Pago confirmado | `Pago confirmado ✓` | `Tu pago de $${monto} fue procesado` | `Pagos` | `{ pupilId }` |
+| Inasistencia registrada | `Inasistencia registrada` | `{nombre} no asistió al entrenamiento de hoy` | `Asistencia` | `{ pupilId }` |
+| Partido mañana | `Partido mañana ⛹️` | `{hora} vs {rival} en {sede}` | `Agenda` | `{ pupilId }` |
+
+> **Regla:** El frontend lee `data.screen` al recibir o presionar la notificación y navega directamente con `navigation.navigate(data.screen, data.params ?? {})`. El campo `data.pupilId` (cuando corresponda) permite al frontend preseleccionar el pupilo correcto antes de navegar.
+
+**Ejemplo completo de payload:**
+```json
+{
+  "to":    "ExponentPushToken[xxxx]",
+  "title": "Nuevo comunicado",
+  "body":  "Cambio de horario entrenamiento del lunes",
+  "data":  {
+    "screen": "ComunicadoDetalle",
+    "params": { "id": 42 },
+    "pupilId": 1
+  },
+  "sound":    "default",
+  "badge":    1,
+  "priority": "high"
+}
+```
 
 **Manejo de errores de push:**
 - Si Expo devuelve `DeviceNotRegistered`: eliminar ese token de la BD
