@@ -24,7 +24,7 @@ const QUICK_ACTIONS = [
   { id: 'att',   icon: 'clipboard-outline',    label: 'Asistencia',   screen: 'Asistencia',  active: true  },
   { id: 'pay',   icon: 'card-outline',          label: 'Pagos',        screen: 'Pagos',       active: true  },
   { id: 'msg',   icon: 'chatbubble-outline',    label: 'Comunicados',  screen: 'Comunicados', active: true  },
-  { id: 'cal',   icon: 'calendar-outline',      label: 'Agenda',       screen: null,          active: false },
+  { id: 'hor',   icon: 'time-outline',           label: 'Horarios',     screen: 'Horarios',    active: true  },
   { id: 'doc',   icon: 'document-text-outline', label: 'Documentos',   screen: null,          active: false },
   { id: 'stats', icon: 'bar-chart-outline',     label: 'Estadísticas', screen: null,          active: false },
 ];

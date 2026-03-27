@@ -17,9 +17,17 @@ const SECTIONS = [
   {
     title: 'Seguimiento',
     items: [
-      { id: 'asistencia', icon: 'clipboard-outline',    label: 'Asistencia',      sub: 'Ver historial mensual',        dot: Colors.ok,    screen: 'Asistencia',        active: true  },
-      { id: 'pagos',      icon: 'card-outline',          label: 'Pagos',           sub: 'Cuotas y estado de pago',      dot: Colors.amber, screen: 'Pagos',             active: true  },
-      { id: 'agenda',     icon: 'calendar-outline',      label: 'Agenda',          sub: 'Próximamente',                 dot: Colors.gray,  screen: null,                active: false },
+      { id: 'asistencia', icon: 'clipboard-outline',    label: 'Asistencia',      sub: 'Ver historial mensual',             dot: Colors.ok,    screen: 'Asistencia',        active: true  },
+      { id: 'pagos',      icon: 'card-outline',          label: 'Pagos',           sub: 'Cuotas y estado de pago',           dot: Colors.amber, screen: 'Pagos',             active: true  },
+      { id: 'horarios',   icon: 'time-outline',          label: 'Horarios',        sub: 'Programación de entrenamientos',    dot: BLUE,         screen: 'Horarios',          active: true  },
+      { id: 'agenda',     icon: 'calendar-outline',      label: 'Agenda',          sub: 'Próximamente',                      dot: Colors.gray,  screen: null,                active: false },
+    ],
+  },
+  {
+    title: 'Trámites',
+    items: [
+      { id: 'misjust', icon: 'document-outline',  label: 'Mis Justificativos',  sub: 'Historial de justificaciones',         dot: Colors.amber, screen: 'MisJustificativos', active: true },
+      { id: 'permiso', icon: 'ribbon-outline',    label: 'Permiso Deportivo',   sub: 'Actividad oficial · Ausencia escolar', dot: BLUE,         screen: 'PermisoDeportivo',  active: true },
     ],
   },
   {

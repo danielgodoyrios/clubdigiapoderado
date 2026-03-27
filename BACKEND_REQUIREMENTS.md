@@ -1651,3 +1651,414 @@ HTTP 201 Created
 | `429` | Rate limit superado |
 | `500` | Error interno del servidor |
 | `503` | Servicio externo no disponible (SMS, pasarela de pago) |
+
+---
+
+## REQUERIMIENTO 3 — NUEVOS ENDPOINTS (Horarios · Permiso Deportivo)
+
+> Esta sección complementa el Requerimiento 2 con tres endpoints adicionales que corresponden a las nuevas pantallas implementadas en el frontend.
+
+---
+
+### 3.1  Horario Semanal del Club
+
+**Objetivo:** Devolver el horario recurrente de entrenamientos/partidos de una categoría específica o de todo el club. Los datos son de tipo "horario fijo semanal" (no calendario de eventos puntuales).
+
+**Endpoint:**
+`'`
+GET /api/clubs/{club_id}/schedule
+`'`
+
+**Query params (opcionales):**
+- category — Filtra por categoría (Ej: "Sub-14", "Mini"). Si se omite, devuelve todos.
+
+**Autenticación:** Pública o autenticada con Bearer (el frontend siempre la llama con auth).
+
+**Respuesta 200:**
+`'`json
+[
+  {
+    "id": "uuid-o-int",
+    "day_of_week": 1,
+    "time_start": "18:00",
+    "time_end": "20:00",
+    "type": "training",
+    "venue": "Cancha Municipal Sector Norte",
+    "notes": "Llevar hidratación",
+    "category": "Sub-14",
+    "active": true
+  }
+]
+`'`
+
+**Campos:**
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | string/int | Identificador único del bloque horario |
+| day_of_week | int (0-6) | 0=Domingo, 1=Lunes, ..., 6=Sábado |
+| 	ime_start | string "HH:MM" | Hora de inicio |
+| 	ime_end | string "HH:MM" | Hora de término |
+| 	ype | enum | 	raining, match, practice, other |
+| enue | string | Nombre del recinto |
+| 
+otes | string\|null | Indicaciones adicionales |
+| category | string | Categoría asociada |
+| ctive | bool | Si el bloque está vigente |
+
+**Gestión (admin/profesor):**
+`'`
+POST   /api/clubs/{club_id}/schedule       — Crear bloque horario
+PUT    /api/clubs/{club_id}/schedule/{id}  — Actualizar
+DELETE /api/clubs/{club_id}/schedule/{id}  — Eliminar
+`'`
+
+**Body POST/PUT:**
+`'`json
+{
+  "day_of_week": 3,
+  "time_start": "09:00",
+  "time_end": "11:00",
+  "type": "training",
+  "venue": "Gimnasio Club",
+  "notes": null,
+  "category": "Mini"
+}
+`'`
+
+---
+
+### 3.2  Permisos Deportivos (Decreto 22 / Ausencia Escolar)
+
+**Objetivo:** Permitir al apoderado solicitar un "Permiso Deportivo" que certifica la participación del alumno en una actividad deportiva oficial, para presentarlo en el establecimiento educacional como justificativo de ausencia.
+
+#### 3.2.1  Listar permisos del alumno
+
+`'`
+GET /api/apoderado/pupils/{pupil_id}/permisos-deportivos
+`'`
+
+**Auth:** Bearer (apoderado). Solo ve los permisos de sus propios pupilos.
+
+**Respuesta 200:**
+`'`json
+[
+  {
+    "id": 1,
+    "event_id": 42,
+    "event_title": "Torneo Regional Sub-14",
+    "event_date": "2026-05-10",
+    "school_name": "Liceo Politécnico A-54",
+    "grade": "2° Medio",
+    "notes": "Ausencia días 10 y 11 de mayo",
+    "status": "approved",
+    "certificate_url": "https://cdn.clubdigital.cl/permisos/1.pdf",
+    "created_at": "2026-04-28T10:00:00Z"
+  }
+]
+`'`
+
+#### 3.2.2  Solicitar permiso deportivo
+
+`'`
+POST /api/apoderado/pupils/{pupil_id}/permisos-deportivos
+`'`
+
+**Auth:** Bearer (apoderado). Validar que el pupilo le pertenece.
+
+**Body:**
+`'`json
+{
+  "event_id": 42,
+  "school_name": "Liceo Politécnico A-54",
+  "grade": "2° Medio",
+  "notes": "Ausencia días 10 y 11 de mayo"
+}
+`'`
+
+**Validaciones:**
+- event_id existente, de tipo match o event, perteneciente al club del alumno.
+- El evento debe ser en el futuro (no aceptar eventos pasados).
+- school_name requerido, max 120 caracteres.
+- grade requerido (puede ser texto libre o enum validado).
+- El apoderado no puede solicitar más de un permiso por el mismo evento para el mismo alumno — devolver 409 si ya existe.
+
+**Respuesta 201:**
+`'`json
+{
+  "id": 2,
+  "event_id": 42,
+  "event_title": "Torneo Regional Sub-14",
+  "event_date": "2026-05-10",
+  "school_name": "Liceo Politécnico A-54",
+  "grade": "2° Medio",
+  "notes": null,
+  "status": "pending",
+  "certificate_url": null,
+  "created_at": "2026-04-29T14:32:00Z"
+}
+`'`
+
+#### 3.2.3  Gestión por admin/coach (revisar y aprobar)
+
+`'`
+GET    /api/clubs/{club_id}/permisos-deportivos              — Lista todos (usa filtros ?status=pending)
+PUT    /api/clubs/{club_id}/permisos-deportivos/{id}/approve — Aprobar y adjuntar certificado (PDF URL)
+PUT    /api/clubs/{club_id}/permisos-deportivos/{id}/reject  — Rechazar con motivo
+`'`
+
+**Body APPROVE:**
+`'`json
+{
+  "certificate_url": "https://cdn.clubdigital.cl/permisos/1.pdf"
+}
+`'`
+
+**Body REJECT:**
+`'`json
+{
+  "reject_reason": "El evento no corresponde a actividad oficial registrada."
+}
+`'`
+
+**Respuesta 200:** Objeto PermisoDeportivo actualizado.
+
+**Push notification al apoderado:**
+- Al aprobar: "¡Permiso listo! El permiso deportivo de {nombre} para {evento} ya está disponible."
+- Al rechazar: "Tu solicitud de permiso deportivo para {evento} fue rechazada. Motivo: {motivo}"
+
+---
+
+### 3.3  Mis Justificativos (sin filtro de tipo)
+
+> El endpoint ya existe: GET /api/apoderado/pupils/{pupil_id}/justificativos
+> La nueva pantalla "Mis Justificativos" lo consume sin filtro de tipo (a diferencia de "Historial Médico" que filtra solo enfermedad y lesion).
+
+**Asegurarse que el endpoint:**
+- Devuelva TODOS los tipos (enfermedad, lesion, otro, y futuros tipos).
+- Admita filtro opcional por query param: ?status=pending|approved|rejected (para optimizar en el futuro, aunque el filtro actual se hace en cliente).
+- Ordene por date DESC por defecto.
+
+---
+
+### 3.4  Modelo de base de datos (tablas nuevas)
+
+#### Tabla schedule_blocks
+`'`sql
+CREATE TABLE schedule_blocks (
+  id          SERIAL PRIMARY KEY,
+  club_id     INT NOT NULL REFERENCES clubs(id),
+  category    VARCHAR(50),
+  day_of_week SMALLINT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  time_start  TIME NOT NULL,
+  time_end    TIME NOT NULL,
+  type        VARCHAR(20) NOT NULL DEFAULT 'training',
+  venue       VARCHAR(150) NOT NULL,
+  notes       TEXT,
+  active      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_schedule_club ON schedule_blocks(club_id, active);
+`'`
+
+#### Tabla sports_permits (Permisos Deportivos)
+`'`sql
+CREATE TABLE sports_permits (
+  id               SERIAL PRIMARY KEY,
+  pupil_id         INT NOT NULL REFERENCES pupils(id),
+  apoderado_id     INT NOT NULL REFERENCES users(id),
+  club_id          INT NOT NULL REFERENCES clubs(id),
+  event_id         INT REFERENCES events(id),
+  school_name      VARCHAR(120) NOT NULL,
+  grade            VARCHAR(30) NOT NULL,
+  notes            TEXT,
+  status           VARCHAR(20) NOT NULL DEFAULT 'pending',
+  certificate_url  VARCHAR(500),
+  reject_reason    TEXT,
+  processed_by     INT REFERENCES users(id),
+  processed_at     TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (pupil_id, event_id)
+);
+CREATE INDEX idx_sports_permits_club ON sports_permits(club_id, status);
+`'`
+
+---
+
+## REQUERIMIENTO 4 — MODELO DE NEGOCIO
+
+### 4.1  Visión General
+
+ClubDigi opera un modelo **freemium B2B2C**: el club paga una suscripción base que habilita la plataforma, y los apoderados acceden con funcionalidades progresivamente restringidas según su nivel de suscripción.
+
+Los tres pilares de monetización son:
+1. **Suscripción de Club (B2B)** — El club paga mensualmente para usar la plataforma.
+2. **Suscripción de Familia (B2C)** — Los apoderados pagan ~ USD/mes por funciones premium y sin publicidad.
+3. **Beneficios y Comercios Asociados** — Sponsors o comercios pagan por exposición a apoderados deportivos.
+
+---
+
+### 4.2  Planes y Funcionalidades
+
+#### Plan Gratuito (Familia)
+Acceso sin costo al apoderado. Incluye:
+- Visualizar asistencia mensual (sin descarga)
+- Comunicados del club
+- Carnet Digital (QR de identificación)
+- Horarios de entrenamiento
+- Ver sus justificativos (sin envío de archivos adjuntos)
+
+Limitaciones:
+- Publicidad visible (banners de comercios asociados)
+- Sin acceso a documentos para firmar
+- Sin historial detallado de pagos
+- Sin Permiso Deportivo
+- Sin descarga de certificados
+
+#### Plan Premium Familia (~ USD/mes ≈ .800 CLP/mes)
+Todo lo del plan gratuito, más:
+- Envío de justificativos con adjunto (foto/PDF)
+- Historial médico completo (Lesiones y Enfermedades)
+- Permiso Deportivo (solicitud y descarga de certificado)
+- Mis Justificativos (historial completo + filtros)
+- Historial completo de pagos + comprobantes
+- Documentos para firma digital
+- Sin publicidad
+- Notificaciones push prioritarias
+
+#### Plan Club (B2B — precio por acuerdo)
+Habilita la plataforma para el club. El precio varía según número de alumnos activos:
+- 1-50 alumnos: tarifa base
+- 51-150 alumnos: tarifa media  
+- 150+ alumnos: tarifa personalizada
+
+Incluye:
+- Panel de administración (comunicados, eventos, documentos, pagos)
+- Registro de asistencia (profesores)
+- Gestión de justificativos (aprobar/rechazar)
+- Gestión de Permisos Deportivos (aprobar y emitir certificado PDF)
+- Gestión de carnet y enrolamiento
+- Push notifications al club completo
+- Estadísticas de asistencia por categoría
+- Soporte prioritario
+
+---
+
+### 4.3  Publicidad y Beneficios para Usuarios Gratuitos
+
+Los usuarios del plan gratuito ven **banners de comercios asociados** en la pantalla principal (HomeScreen) y en la pantalla de Beneficios. Estos patrocinadores pagan al club o a ClubDigi directamente por exposición.
+
+Tipos de beneficios/publicidad:
+- Tiendas deportivas (descuentos en ropa, zapatillas, implementos)
+- Nutrición deportiva y suplementos para jóvenes atletas
+- Seguros deportivos infantiles
+- Academias de idiomas o educación complementaria
+- Servicios locales del sector (fisioterapia, fonoaudiología)
+
+El **Plan Premium** desactiva estos banners, reemplazándolos por un mensaje neutral.
+
+**Implementación backend requerida:**
+`'`
+GET /api/apoderado/benefits     — Lista de beneficios activos (ya existe)
+GET /api/apoderado/ads          — Lista de banners publicitarios activos (nuevo)
+POST /api/apoderado/ads/{id}/click  — Registrar click para analytics (nuevo)
+`'`
+
+---
+
+### 4.4  Suscripción de Familia — Flujo de Pago
+
+**Opción A (recomendada al inicio):** Pago manual vía link de transferencia o Webpay. El admin activa manualmente el plan premium del apoderado.
+
+**Opción B (escalable):** Integración con Mercado Pago Subscriptions o Stripe para pago recurrente automático.
+
+**Endpoint requerido:**
+`'`
+GET    /api/apoderado/me/subscription          — Estado actual (plan, vence_at, cancel_at)
+POST   /api/apoderado/me/subscription/upgrade  — Iniciar proceso de pago (devuelve URL de pago)
+POST   /api/apoderado/me/subscription/cancel   — Cancelar al vencimiento
+`'`
+
+**Respuesta GET subscription:**
+`'`json
+{
+  "plan": "free",
+  "expires_at": null,
+  "cancel_at_period_end": false,
+  "features": ["asistencia", "comunicados", "carnet", "horarios"]
+}
+`'`
+
+---
+
+### 4.5  Control de Acceso por Plan (Backend)
+
+El backend debe incluir un middleware de plan que bloquee endpoints premium cuando el apoderado tiene plan gratuito:
+
+`'`
+403 Forbidden
+{
+  "error": "PLAN_REQUIRED",
+  "message": "Esta función requiere el Plan Premium Familia.",
+  "upgrade_url": "https://clubdigital.cl/upgrade"
+}
+`'`
+
+**Endpoints que requieren Plan Premium:**
+- POST /apoderado/pupils/{id}/justificativos (con ile_base64)
+- GET/POST /apoderado/pupils/{id}/permisos-deportivos
+- GET /apoderado/pupils/{id}/documents
+- POST /apoderado/pupils/{id}/documents/{docId}/sign
+
+**Regla de negocio en backend:**
+`'`python
+def require_plan(plan_name: str):
+    def decorator(fn):
+        def wrapper(*args, **kwargs):
+            apoderado = get_current_apoderado()
+            if apoderado.plan < plan_name:
+                raise ForbiddenError(code='PLAN_REQUIRED')
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+`'`
+
+---
+
+### 4.6  Tabla de suscripciones (base de datos)
+
+`'`sql
+CREATE TABLE apoderado_subscriptions (
+  id               SERIAL PRIMARY KEY,
+  apoderado_id     INT NOT NULL UNIQUE REFERENCES users(id),
+  plan             VARCHAR(20) NOT NULL DEFAULT 'free',
+  started_at       TIMESTAMPTZ,
+  expires_at       TIMESTAMPTZ,
+  cancel_at_period BOOLEAN NOT NULL DEFAULT FALSE,
+  payment_method   VARCHAR(50),
+  external_sub_id  VARCHAR(100),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+`'`
+
+**Valores de plan:** ree, premium_family
+
+---
+
+### 4.7  Resumen de Revenue Streams
+
+| Fuente | Modelo | Quién paga |
+|--------|--------|-----------|
+| Suscripción Club | Mensual/anual por rango de alumnos | El club deportivo |
+| Suscripción Familia | ~ USD/mes cancelable en cualquier momento | El apoderado |
+| Beneficios/Sponsors | CPC o CPM acordado | Comercios y patrocinadores |
+| Comisiones de pago | % sobre transacciones procesadas vía app | Transparente al club |
+
+---
+
+### 4.8  Decisión de diseño: ¿Qué es gratis vs premium?
+
+**Principio:** El valor central gratuito es la **comunicación y visibilidad** (saber si tu hijo fue, leer avisos del club, mostrar el carnet). El valor premium es la **gestión y acción** (pagar, firmar documentos, enviar justificativos con certificado, permisos deportivos).
+
+Esta dicotomía hace que el plan gratuito sea útil pero tenga un techo natural que motiva el upgrade sin forzarlo.
+

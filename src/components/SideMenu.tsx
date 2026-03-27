@@ -33,6 +33,14 @@ const SECTIONS = [
     ],
   },
   {
+    title: 'Trámites',
+    items: [
+      { icon: 'document-outline', label: 'Mis Justificativos', screen: 'MisJustificativos' },
+      { icon: 'ribbon-outline',   label: 'Permiso Deportivo',  screen: 'PermisoDeportivo'  },
+      { icon: 'time-outline',     label: 'Horarios',           screen: 'Horarios'           },
+    ],
+  },
+  {
     title: 'Mi Cuenta',
     items: [
       { icon: 'person-outline', label: 'Perfil', screen: 'Perfil' },

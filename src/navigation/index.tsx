@@ -39,8 +39,11 @@ import CarnetEnrolarScreen     from '../screens/apoderado/CarnetEnrolarScreen';
 import PerfilScreen            from '../screens/apoderado/PerfilScreen';
 import EditarPupilo            from '../screens/apoderado/EditarPupilo';
 import ConfiguracionScreen     from '../screens/apoderado/ConfiguracionScreen';
-import JustificativoScreen      from '../screens/apoderado/JustificativoScreen';
-import HistorialLesionesScreen  from '../screens/apoderado/HistorialLesionesScreen';
+import JustificativoScreen       from '../screens/apoderado/JustificativoScreen';
+import HistorialLesionesScreen   from '../screens/apoderado/HistorialLesionesScreen';
+import HorariosScreen            from '../screens/apoderado/HorariosScreen';
+import PermisoDeportivoScreen    from '../screens/apoderado/PermisoDeportivoScreen';
+import MisJustificativosScreen   from '../screens/apoderado/MisJustificativosScreen';
 
 // ── Profesor ─────────────────────────────────────────────────
 import ProfesorHomeScreen from '../screens/profesor/HomeScreen';
@@ -126,8 +129,11 @@ function AppStack({ role }: { role: string }) {
       <Stack.Screen name="Perfil"            component={PerfilScreen} />
       <Stack.Screen name="EditarPupilo"      component={EditarPupilo} />
       <Stack.Screen name="Configuracion"     component={ConfiguracionScreen} />
-      <Stack.Screen name="Justificativo"       component={JustificativoScreen} />
-      <Stack.Screen name="HistorialLesiones"   component={HistorialLesionesScreen} />
+      <Stack.Screen name="Justificativo"        component={JustificativoScreen} />
+      <Stack.Screen name="HistorialLesiones"    component={HistorialLesionesScreen} />
+      <Stack.Screen name="Horarios"             component={HorariosScreen} />
+      <Stack.Screen name="PermisoDeportivo"     component={PermisoDeportivoScreen} />
+      <Stack.Screen name="MisJustificativos"    component={MisJustificativosScreen} />
 
       {/* ── Profesor ── */}
       <Stack.Screen name="ProfesorHome" component={ProfesorHomeScreen} />

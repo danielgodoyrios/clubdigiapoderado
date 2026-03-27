@@ -365,3 +365,47 @@ export const NotificationsAPI = {
   registerToken: (push_token: string) =>
     request<{ ok: boolean }>('POST', '/apoderado/me/devices', { push_token }),
 };
+
+// ── 12. HORARIO SEMANAL ───────────────────────────────────────
+export type ScheduleEntry = {
+  id: string;
+  day_of_week: number;   // 0=Dom, 1=Lun, ..., 6=Sáb
+  time_start: string;    // "18:00"
+  time_end: string;      // "20:00"
+  type: 'training' | 'match' | 'practice' | 'other';
+  venue: string;
+  notes?: string;
+};
+
+export const Schedule = {
+  list: (clubId: number, category?: string) => {
+    const q = category ? `?category=${encodeURIComponent(category)}` : '';
+    return request<ScheduleEntry[]>('GET', `/clubs/${clubId}/schedule${q}`);
+  },
+};
+
+// ── 13. PERMISOS DEPORTIVOS ───────────────────────────────────
+export type PermisoDeportivo = {
+  id: number;
+  event_id: number;
+  event_title: string;
+  event_date: string;
+  school_name: string;
+  grade: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  certificate_url?: string | null;
+  created_at: string;
+};
+
+export const PermisoDeportivos = {
+  list: (pupilId: number) =>
+    request<PermisoDeportivo[]>('GET', `/apoderado/pupils/${pupilId}/permisos-deportivos`),
+  submit: (pupilId: number, data: {
+    event_id: number;
+    school_name: string;
+    grade: string;
+    notes?: string;
+  }) =>
+    request<PermisoDeportivo>('POST', `/apoderado/pupils/${pupilId}/permisos-deportivos`, data),
+};
