@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Auth, Apoderado, Profesor, Admin, Pupils, getAccessToken, MeResponse, Pupil } from '../api';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 // ── Types ─────────────────────────────────────────────────────
 type AuthState =
@@ -36,6 +37,8 @@ export function useAuth(): AuthContextValue {
 // ── Provider ──────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
+
+  usePushNotifications(state.status === 'authenticated');
 
   // Al arrancar: comprobar si hay token guardado
   useEffect(() => {

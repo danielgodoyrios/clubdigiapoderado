@@ -349,3 +349,9 @@ export type Benefit = {
 export const Benefits = {
   list: () => request<Benefit[]>('GET', '/apoderado/benefits'),
 };
+
+// ── 11. PUSH NOTIFICATIONS ────────────────────────────────────
+export const NotificationsAPI = {
+  registerToken: (push_token: string) =>
+    request<{ ok: boolean }>('POST', '/apoderado/me/devices', { push_token }),
+};
