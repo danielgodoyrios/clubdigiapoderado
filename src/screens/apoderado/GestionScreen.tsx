@@ -17,29 +17,37 @@ const SECTIONS = [
   {
     title: 'Seguimiento',
     items: [
-      { id: 'asistencia', icon: 'clipboard-outline',    label: 'Asistencia',      sub: '92% este mes',         dot: Colors.ok,    screen: 'Asistencia'      },
-      { id: 'pagos',      icon: 'card-outline',          label: 'Pagos',           sub: '1 cuota pendiente',    dot: Colors.amber, screen: 'Pagos'           },
+      { id: 'asistencia', icon: 'clipboard-outline',    label: 'Asistencia',      sub: 'Ver historial mensual',        dot: Colors.ok,    screen: 'Asistencia',        active: true  },
+      { id: 'pagos',      icon: 'card-outline',          label: 'Pagos',           sub: 'Cuotas y estado de pago',      dot: Colors.amber, screen: 'Pagos',             active: true  },
+      { id: 'agenda',     icon: 'calendar-outline',      label: 'Agenda',          sub: 'Próximamente',                 dot: Colors.gray,  screen: null,                active: false },
     ],
   },
   {
     title: 'Comunicación',
     items: [
-      { id: 'comunicados', icon: 'chatbubble-outline',     label: 'Comunicados', sub: '2 sin leer',             dot: BLUE,         screen: 'Comunicados'     },
-      { id: 'documentos',  icon: 'document-text-outline',  label: 'Documentos',  sub: '1 firma pendiente',      dot: Colors.red,   screen: 'Documentos'      },
+      { id: 'comunicados', icon: 'chatbubble-outline',     label: 'Comunicados',  sub: 'Avisos del club',          dot: BLUE,         screen: 'Comunicados',       active: true  },
+      { id: 'documentos',  icon: 'document-text-outline',  label: 'Documentos',   sub: 'Próximamente',             dot: Colors.gray,  screen: null,                active: false },
+      { id: 'estadisticas',icon: 'bar-chart-outline',      label: 'Estadísticas', sub: 'Próximamente',             dot: Colors.gray,  screen: null,                active: false },
+    ],
+  },
+  {
+    title: 'Salud',
+    items: [
+      { id: 'lesiones', icon: 'medkit-outline', label: 'Lesiones y Enfermedades', sub: 'Historial médico del jugador', dot: Colors.red, screen: 'HistorialLesiones', active: true },
     ],
   },
   {
     title: 'Identificación',
     items: [
-      { id: 'carnet',  icon: 'card-outline',    label: 'Carnet Digital', sub: 'Ver QR + token',    dot: Colors.ok,   screen: 'Carnet'        },
-      { id: 'enrolar', icon: 'qr-code-outline', label: 'Enrolar en Liga', sub: 'Escanear código QR', dot: Colors.gray, screen: 'CarnetEnrolar' },
+      { id: 'carnet',  icon: 'card-outline',    label: 'Carnet Digital',  sub: 'Ver QR + token',     dot: Colors.ok,   screen: 'Carnet',        active: true },
+      { id: 'enrolar', icon: 'qr-code-outline', label: 'Enrolar en Liga', sub: 'Escanear código QR', dot: Colors.gray, screen: 'CarnetEnrolar', active: true },
     ],
   },
   {
     title: 'Mi Cuenta',
     items: [
-      { id: 'perfil', icon: 'person-outline',  label: 'Perfil',         sub: 'Datos del apoderado',         dot: Colors.gray, screen: 'Perfil'         },
-      { id: 'config', icon: 'settings-outline', label: 'Configuración', sub: 'Notificaciones · Logout',     dot: Colors.gray, screen: 'Configuracion'  },
+      { id: 'perfil', icon: 'person-outline',   label: 'Perfil',         sub: 'Datos del apoderado',         dot: Colors.gray, screen: 'Perfil',        active: true },
+      { id: 'config', icon: 'settings-outline', label: 'Configuración',  sub: 'Notificaciones · Logout',     dot: Colors.gray, screen: 'Configuracion', active: true },
     ],
   },
 ];
@@ -86,12 +94,13 @@ export default function GestionScreen({ navigation }: any) {
               {sec.items.map((item, i) => (
                 <TouchableOpacity
                   key={item.id}
-                  style={[styles.row, i > 0 && styles.rowBorder]}
-                  onPress={() => navigation.navigate(item.screen)}
+                  style={[styles.row, i > 0 && styles.rowBorder, !item.active && { opacity: 0.45 }]}
+                  onPress={item.active && item.screen ? () => navigation.navigate(item.screen!) : undefined}
+                  disabled={!item.active}
                   activeOpacity={0.7}
                 >
                   <View style={styles.rowIcon}>
-                    <Ionicons name={item.icon as any} size={18} color={BLUE} />
+                    <Ionicons name={item.icon as any} size={18} color={item.active ? BLUE : Colors.gray} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.rowLabel}>{item.label}</Text>

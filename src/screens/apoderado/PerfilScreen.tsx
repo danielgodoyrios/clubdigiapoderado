@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity, Image,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -71,7 +71,10 @@ export default function PerfilScreen({ navigation }: any) {
             activeOpacity={0.85}
           >
             <View style={styles.pupilAvatar}>
-              <Text style={styles.pupilAvatarTxt}>{p.name.split(' ').map((w: string) => w[0]).join('').slice(0,2).toUpperCase()}</Text>
+              {p.photo
+                ? <Image source={{ uri: p.photo }} style={styles.pupilPhoto} />
+                : <Text style={styles.pupilAvatarTxt}>{p.name.split(' ').map((w: string) => w[0]).join('').slice(0,2).toUpperCase()}</Text>
+              }
               <View style={styles.pupilDot} />
             </View>
             <View style={{ flex: 1 }}>
@@ -124,7 +127,8 @@ const styles = StyleSheet.create({
   rowLabel:       { fontSize: 12, color: Colors.gray, minWidth: 80 },
   rowValue:       { fontSize: 13, fontWeight: '600', color: Colors.black },
   pupilCard:      { backgroundColor: Colors.white, borderRadius: 12, borderWidth: 1, borderColor: Colors.light, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, marginBottom: 8 },
-  pupilAvatar:    { width: 44, height: 44, borderRadius: 22, backgroundColor: BLUE + '15', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  pupilAvatar:    { width: 44, height: 44, borderRadius: 22, backgroundColor: BLUE + '15', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
+  pupilPhoto:     { width: 44, height: 44, borderRadius: 22 },
   pupilAvatarTxt: { fontSize: 14, fontWeight: '800', color: BLUE },
   pupilDot:       { position: 'absolute', bottom: -1, right: -1, width: 11, height: 11, borderRadius: 6, backgroundColor: Colors.ok, borderWidth: 2, borderColor: Colors.white },
   pupilName:      { fontSize: 14, fontWeight: '700', color: Colors.black },

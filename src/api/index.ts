@@ -291,15 +291,25 @@ export const Comunicados = {
 // ── 8a. JUSTIFICATIVOS ───────────────────────────────────────
 export type Justificativo = {
   id: number;
-  date: string;    // "2026-03-19"
+  date: string;                                // "2026-03-19"
+  type: 'enfermedad' | 'lesion' | string;
   reason: string;
+  days: number;
+  file_url?: string | null;
   status: 'pending' | 'approved' | 'rejected';
 };
 
 export const Justificativos = {
   list: (pupilId: number) =>
     request<Justificativo[]>('GET', `/apoderado/pupils/${pupilId}/justificativos`),
-  submit: (pupilId: number, data: { date: string; reason: string }) =>
+  submit: (pupilId: number, data: {
+    date: string;
+    type: 'enfermedad' | 'lesion';
+    reason: string;
+    days: number;
+    file_base64?: string;
+    file_name?:   string;
+  }) =>
     request<Justificativo>('POST', `/apoderado/pupils/${pupilId}/justificativos`, data),
 };
 

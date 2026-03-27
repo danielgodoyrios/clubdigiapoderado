@@ -21,12 +21,12 @@ import {
 const BLUE = Colors.blue; // #1A3A7C
 
 const QUICK_ACTIONS = [
-  { id: 'att',     icon: 'clipboard-outline',   label: 'Asistencia', primary: true },
-  { id: 'pay',     icon: 'card-outline',         label: 'Pagos',      primary: true },
-  { id: 'cal',     icon: 'calendar-outline',     label: 'Agenda' },
-  { id: 'doc',     icon: 'document-text-outline',label: 'Documentos' },
-  { id: 'msg',     icon: 'chatbubble-outline',   label: 'Comunicados' },
-  { id: 'stats',   icon: 'bar-chart-outline',    label: 'Estadísticas' },
+  { id: 'att',   icon: 'clipboard-outline',    label: 'Asistencia',   screen: 'Asistencia',  active: true  },
+  { id: 'pay',   icon: 'card-outline',          label: 'Pagos',        screen: 'Pagos',       active: true  },
+  { id: 'msg',   icon: 'chatbubble-outline',    label: 'Comunicados',  screen: 'Comunicados', active: true  },
+  { id: 'cal',   icon: 'calendar-outline',      label: 'Agenda',       screen: null,          active: false },
+  { id: 'doc',   icon: 'document-text-outline', label: 'Documentos',   screen: null,          active: false },
+  { id: 'stats', icon: 'bar-chart-outline',     label: 'Estadísticas', screen: null,          active: false },
 ];
 
 export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
@@ -180,11 +180,18 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 9 }}>
           {QUICK_ACTIONS.map(a => (
-            <TouchableOpacity key={a.id} style={styles.qaItem}>
-              <View style={styles.qaCircle}>
-                <Ionicons name={a.icon as any} size={19} color={a.primary ? BLUE : Colors.gray} />
+            <TouchableOpacity
+              key={a.id}
+              style={styles.qaItem}
+              onPress={a.active && a.screen ? () => navigation.navigate(a.screen!) : undefined}
+              disabled={!a.active}
+              activeOpacity={a.active ? 0.7 : 1}
+            >
+              <View style={[styles.qaCircle, !a.active && styles.qaCircleOff]}>
+                <Ionicons name={a.icon as any} size={19} color={a.active ? BLUE : Colors.gray} />
               </View>
-              <Text style={styles.qaLabel}>{a.label}</Text>
+              <Text style={[styles.qaLabel, !a.active && { color: Colors.gray }]}>{a.label}</Text>
+              {!a.active && <Text style={styles.qaSoon}>Pronto</Text>}
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -346,7 +353,9 @@ const styles = StyleSheet.create({
   editBtn: { fontSize: 11, fontWeight: '600' },
   qaItem: { alignItems: 'center', gap: 5, width: 56, marginBottom: 4 },
   qaCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.light, alignItems: 'center', justifyContent: 'center' },
+  qaCircleOff: { opacity: 0.45 },
   qaLabel: { fontSize: 9, color: Colors.black, fontWeight: '500', textAlign: 'center', lineHeight: 12 },
+  qaSoon: { fontSize: 8, color: Colors.gray, fontStyle: 'italic' },
   section: { paddingHorizontal: 14, marginBottom: 8, marginTop: 4 },
   card: { backgroundColor: Colors.white, borderRadius: 12, padding: 11, borderWidth: 1, borderColor: Colors.light },
   matchTag: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 },

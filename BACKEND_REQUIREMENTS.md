@@ -533,7 +533,87 @@ GET /clubs/{club_id}/benefits
 
 ---
 
-## 11. NOTIFICACIONES (Push)
+## 11. JUSTIFICATIVOS MÉDICOS
+
+> Solo motivos médicos (`enfermedad` | `lesion`) son considerados justificados por el club.
+
+### 11.1 Listar justificativos de un pupilo
+```
+GET /apoderado/pupils/{pupil_id}/justificativos
+```
+**Response 200:**
+```json
+[
+  {
+    "id": 1,
+    "date": "2026-03-19",
+    "type": "enfermedad",
+    "reason": "Fiebre alta",
+    "days": 3,
+    "file_url": "https://api.clubdigital.cl/files/cert_001.jpg",
+    "status": "approved"
+  },
+  {
+    "id": 2,
+    "date": "2026-04-02",
+    "type": "lesion",
+    "reason": "Esguince tobillo derecho",
+    "days": 7,
+    "file_url": null,
+    "status": "pending"
+  }
+]
+```
+
+---
+
+### 11.2 Enviar justificativo médico
+```
+POST /apoderado/pupils/{pupil_id}/justificativos
+```
+**Body:**
+```json
+{
+  "date": "2026-04-10",
+  "type": "enfermedad",
+  "reason": "Bronquitis aguda",
+  "days": 5,
+  "file_base64": "base64_de_imagen_opcional",
+  "file_name": "certificado_2026-04-10.jpg"
+}
+```
+**Campos:**
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `date` | string (YYYY-MM-DD) | ✅ | Fecha de ausencia |
+| `type` | `'enfermedad'` \| `'lesion'` | ✅ | Tipo médico |
+| `reason` | string | ✅ | Descripción del motivo |
+| `days` | integer ≥ 1 | ✅ | Días de licencia médica |
+| `file_base64` | string (base64) | ❌ | Imagen del certificado |
+| `file_name` | string | ❌ | Nombre del archivo |
+
+**Notas de implementación:**
+- Si `file_base64` es enviado, el backend debe decodificarlo y guardarlo como imagen (JPG/PNG).
+- `file_url` en la respuesta debe ser una URL accesible (firmada o pública).
+- Al cambiar `status` a `approved` o `rejected`, enviar push notification al apoderado.
+- La sesión correspondiente a `date` en asistencia debe actualizarse: `justified: true` cuando `status = 'approved'`.
+
+**Response 201:**
+```json
+{
+  "id": 3,
+  "date": "2026-04-10",
+  "type": "enfermedad",
+  "reason": "Bronquitis aguda",
+  "days": 5,
+  "file_url": "https://api.clubdigital.cl/files/cert_003.jpg",
+  "status": "pending"
+}
+```
+
+---
+
+## 12. NOTIFICACIONES (Push)
 
 ### 11.1 Registrar dispositivo para push notifications
 ```
@@ -568,7 +648,7 @@ PUT /apoderado/me/notifications
 
 ---
 
-## 12. MANEJO DE ERRORES
+## 13. MANEJO DE ERRORES
 
 Todos los endpoints deben retornar errores con este formato:
 
@@ -594,7 +674,7 @@ Todos los endpoints deben retornar errores con este formato:
 
 ---
 
-## 13. SEGURIDAD
+## 14. SEGURIDAD
 
 - Todo tráfico por **HTTPS** (TLS 1.2+)
 - JWT con expiración máxima **24 horas** (access token) y **30 días** (refresh token)
@@ -605,7 +685,7 @@ Todos los endpoints deben retornar errores con este formato:
 
 ---
 
-## 14. RESUMEN DE ENDPOINTS
+## 15. RESUMEN DE ENDPOINTS
 
 | # | Método | Endpoint | Descripción |
 |---|--------|----------|-------------|
@@ -632,5 +712,7 @@ Todos los endpoints deben retornar errores con este formato:
 | 21 | GET | `/verify/{token}` | Verificar carnet (público) |
 | 22 | POST | `/pupils/{id}/carnet/enroll` | Enrolar carnet |
 | 23 | GET | `/clubs/{id}/benefits` | Listar beneficios |
-| 24 | POST | `/apoderado/me/devices` | Registrar push token |
-| 25 | PUT | `/apoderado/me/notifications` | Preferencias notificaciones |
+| 24 | GET | `/apoderado/pupils/{id}/justificativos` | Listar justificativos médicos |
+| 25 | POST | `/apoderado/pupils/{id}/justificativos` | Enviar justificativo médico |
+| 26 | POST | `/apoderado/me/devices` | Registrar push token |
+| 27 | PUT | `/apoderado/me/notifications` | Preferencias notificaciones |
