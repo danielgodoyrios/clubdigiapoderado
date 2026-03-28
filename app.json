@@ -2,7 +2,7 @@
   "expo": {
     "name": "ClubDigi",
     "slug": "clubdigi",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -26,7 +26,7 @@
         "backgroundColor": "#1A3A7C"
       },
       "package": "cl.idebasket.clubdigi",
-      "versionCode": 5,
+      "versionCode": 6,
       "googleServicesFile": "./google-services.json"
     },
     "web": {
