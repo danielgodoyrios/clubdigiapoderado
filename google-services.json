@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "490751022847",
+    "project_id": "clubdigi-1da24",
+    "storage_bucket": "clubdigi-1da24.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:490751022847:android:6ba785562291c0691edeca",
+        "android_client_info": {
+          "package_name": "cl.idebasket.clubdigi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3RlJsV9UxcK8uh4ggCFKl9WUBBu9V5i4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

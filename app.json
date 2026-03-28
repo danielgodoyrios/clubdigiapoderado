@@ -27,7 +27,7 @@
       },
       "package": "cl.idebasket.clubdigi",
       "versionCode": 6,
-      "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
