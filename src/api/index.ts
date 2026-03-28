@@ -105,6 +105,10 @@ export type MeResponse = {
   roles: string[];
   is_new: boolean;
   club_id: number;
+  initials?: string;
+  rut?: string | null;
+  email?: string | null;
+  photo_url?: string | null;
   profesor_info?: {
     coach_id: number;
     bio: string | null;
@@ -361,9 +365,21 @@ export const Benefits = {
 };
 
 // ── 11. PUSH NOTIFICATIONS ────────────────────────────────────
+export type NotifPrefs = {
+  pagos: boolean;
+  asistencia: boolean;
+  comunicados: boolean;
+  agenda: boolean;
+  justificativos: boolean;
+};
+
 export const NotificationsAPI = {
   registerToken: (push_token: string) =>
     request<{ ok: boolean }>('POST', '/apoderado/me/devices', { push_token }),
+  getPrefs: () =>
+    request<NotifPrefs>('GET', '/apoderado/me/notifications'),
+  updatePrefs: (prefs: Partial<NotifPrefs>) =>
+    request<NotifPrefs>('PATCH', '/apoderado/me/notifications', prefs),
 };
 
 // ── 12. HORARIO SEMANAL ───────────────────────────────────────

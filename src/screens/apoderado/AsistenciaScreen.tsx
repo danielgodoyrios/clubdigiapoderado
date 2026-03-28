@@ -24,7 +24,7 @@ export default function AsistenciaScreen({ navigation }: any) {
     ? `${state.activePupil.name}${state.activePupil.category ? ` · ${state.activePupil.category}` : ''}`
     : '';
 
-  const [months, setMonths] = useState<AttendanceMonth[]>([]);;
+  const [months, setMonths] = useState<AttendanceMonth[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

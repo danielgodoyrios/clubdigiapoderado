@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
+import { Carnet } from '../../api';
 
 const BLUE = Colors.blue;
 
@@ -29,15 +30,17 @@ export default function CarnetScreen({ navigation }: any) {
   const club      = pupil?.team ?? '';
   const licenseId = pupil?.rut ?? '';
 
-  const [token, setToken] = useState('7 4 3 2 1');
+  const [token, setToken] = useState('— — — — —');
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const digits = () => Array.from({ length: 5 }, () => Math.floor(Math.random() * 10)).join(' ');
-    setToken(digits());
-    const t = setInterval(() => setToken(digits()), 300000); // 5 min
+    if (!pupilId) return;
+    Carnet.get(pupilId).then(data => setToken(data.token)).catch(() => {});
+    const t = setInterval(() => {
+      Carnet.get(pupilId).then(data => setToken(data.token)).catch(() => {});
+    }, 300000);
     return () => clearInterval(t);
-  }, []);
+  }, [pupilId]);
 
   // Pulse animation on valid dot
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function CarnetScreen({ navigation }: any) {
           {/* Avatar + info */}
           <View style={styles.avatarRow}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarTxt}>CM</Text>
+              <Text style={styles.avatarTxt}>{initials}</Text>
               <View style={styles.avatarDot} />
             </View>
             <View style={styles.playerInfo}>

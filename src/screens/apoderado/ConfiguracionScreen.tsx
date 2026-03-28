@@ -1,12 +1,14 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Switch,
-  StyleSheet, ScrollView, Alert,
+  StyleSheet, ScrollView, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Colors } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
+import { NotificationsAPI, NotifPrefs } from '../../api';
 
 const BLUE = Colors.blue;
 
@@ -14,10 +16,27 @@ export default function ConfiguracionScreen({ navigation }: any) {
   const { logout, state } = useAuth();
   const roles = state.status === 'authenticated' ? (state.user?.roles ?? []) : [];
   const hasMultiRoles = roles.length > 1;
-  const [notifPartidos,    setNotifPartidos]    = useState(true);
-  const [notifEntrenam,    setNotifEntrenam]    = useState(true);
+  const [notifAgenda,      setNotifAgenda]      = useState(true);
+  const [notifAsistencia,  setNotifAsistencia]  = useState(true);
   const [notifComunicados, setNotifComunicados] = useState(true);
   const [notifPagos,       setNotifPagos]       = useState(true);
+  const [notifJustif,      setNotifJustif]      = useState(true);
+
+  useEffect(() => {
+    NotificationsAPI.getPrefs()
+      .then(prefs => {
+        setNotifAgenda(prefs.agenda);
+        setNotifAsistencia(prefs.asistencia);
+        setNotifComunicados(prefs.comunicados);
+        setNotifPagos(prefs.pagos);
+        setNotifJustif(prefs.justificativos);
+      })
+      .catch(() => {}); // Mantiene defaults si la API falla
+  }, []);
+
+  function togglePref(key: keyof NotifPrefs, value: boolean) {
+    NotificationsAPI.updatePrefs({ [key]: value }).catch(() => {});
+  }
 
   const handleLogout = () => {
     Alert.alert(
@@ -73,25 +92,58 @@ export default function ConfiguracionScreen({ navigation }: any) {
         {/* Notifications */}
         <Text style={styles.sectionLbl}>NOTIFICACIONES</Text>
         <View style={styles.card}>
-          <Row label="Partidos"      sub="Recordatorio 1h antes"          value={notifPartidos}    onToggle={setNotifPartidos}    />
-          <Row label="Entrenamientos" sub="Recordatorio 2h antes"         value={notifEntrenam}    onToggle={setNotifEntrenam}    />
-          <Row label="Comunicados"   sub="Nuevos mensajes del club"       value={notifComunicados} onToggle={setNotifComunicados} />
-          <Row label="Pagos"         sub="Cuotas pendientes y vencidas"   value={notifPagos}       onToggle={setNotifPagos}       last />
+          <Row label="Partidos y eventos"  sub="Recordatorio 1h antes"          value={notifAgenda}      onToggle={v => { setNotifAgenda(v);      togglePref('agenda', v);         }} />
+          <Row label="Entrenamientos"      sub="Inasistencias registradas"       value={notifAsistencia}  onToggle={v => { setNotifAsistencia(v);  togglePref('asistencia', v);     }} />
+          <Row label="Comunicados"         sub="Nuevos mensajes del club"        value={notifComunicados} onToggle={v => { setNotifComunicados(v); togglePref('comunicados', v);    }} />
+          <Row label="Pagos"               sub="Cuotas pendientes y vencidas"    value={notifPagos}       onToggle={v => { setNotifPagos(v);       togglePref('pagos', v);          }} />
+          <Row label="Justificativos"      sub="Aprobaciones y rechazos"         value={notifJustif}      onToggle={v => { setNotifJustif(v);      togglePref('justificativos', v); }} last />
         </View>
 
-        {/* App info */}
-        <Text style={[styles.sectionLbl, { marginTop: 16 }]}>INFORMACIÓN</Text>
+        {/* Soporte */}
+        <Text style={[styles.sectionLbl, { marginTop: 16 }]}>SOPORTE</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row} onPress={() => Linking.openURL('mailto:soporte@clubdigital.cl')} activeOpacity={0.7}>
+            <Ionicons name="mail-outline" size={16} color={Colors.gray} style={{ marginRight: 8 }} />
+            <Text style={[styles.rowLabel, { flex: 1 }]}>Contactar soporte</Text>
+            <Ionicons name="open-outline" size={14} color={Colors.light} />
+          </TouchableOpacity>
+          <View style={styles.rowBorder} />
+          <TouchableOpacity style={styles.row} onPress={() => Linking.openURL('https://clubdigital.cl/privacidad')} activeOpacity={0.7}>
+            <Ionicons name="document-text-outline" size={16} color={Colors.gray} style={{ marginRight: 8 }} />
+            <Text style={[styles.rowLabel, { flex: 1 }]}>Política de privacidad</Text>
+            <Ionicons name="open-outline" size={14} color={Colors.light} />
+          </TouchableOpacity>
+          <View style={styles.rowBorder} />
+          <TouchableOpacity style={styles.row} onPress={() => Linking.openURL('https://clubdigital.cl/terminos')} activeOpacity={0.7}>
+            <Ionicons name="shield-checkmark-outline" size={16} color={Colors.gray} style={{ marginRight: 8 }} />
+            <Text style={[styles.rowLabel, { flex: 1 }]}>Términos de uso</Text>
+            <Ionicons name="open-outline" size={14} color={Colors.light} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Acerca de */}
+        <Text style={[styles.sectionLbl, { marginTop: 16 }]}>ACERCA DE</Text>
         <View style={styles.card}>
           {[
-            { label: 'Versión',      value: '1.0.0' },
-            { label: 'Entorno',      value: 'Producción' },
-            { label: 'Última sync',  value: 'Hoy 09:42' },
+            { label: 'Versión',          value: `v${Constants.expoConfig?.version ?? '1.1.0'}` },
+            { label: 'App',              value: 'ClubDigi' },
+            { label: 'Desarrollado por', value: 'IdeBasket' },
           ].map((r, i) => (
             <View key={i} style={[styles.infoRow, i > 0 && styles.rowBorder]}>
               <Text style={styles.rowLabel}>{r.label}</Text>
               <Text style={styles.infoVal}>{r.value}</Text>
             </View>
           ))}
+          <View style={styles.rowBorder} />
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => Linking.openURL('https://play.google.com/store/apps/details?id=cl.idebasket.clubdigi')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="star-outline" size={16} color={Colors.gray} style={{ marginRight: 8 }} />
+            <Text style={[styles.rowLabel, { flex: 1 }]}>Calificar la app</Text>
+            <Ionicons name="open-outline" size={14} color={Colors.light} />
+          </TouchableOpacity>
         </View>
 
         {/* Role switch */}

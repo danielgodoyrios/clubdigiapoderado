@@ -18,15 +18,17 @@ interface Props {
   headerColor: string;
   position?: string;
   club?: string;
+  externalToken?: string;
 }
 
 const QR_PATTERN = [1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,0,1,1,0,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,1,0,1,0,1,0,0,1,1,1,0,1,1,1];
 
 export const CarnetModal: React.FC<Props> = ({
-  visible, onClose, role, name, initials, licenseId, headerColor, position, club,
+  visible, onClose, role, name, initials, licenseId, headerColor, position, club, externalToken,
 }) => {
   const slideAnim = useRef(new Animated.Value(SH)).current;
-  const [token, setToken] = useState('7 4 3 2 1');
+  const [internalToken, setInternalToken] = useState('— — — — —');
+  const token = externalToken ?? internalToken;
 
   useEffect(() => {
     Animated.spring(slideAnim, {
@@ -36,14 +38,14 @@ export const CarnetModal: React.FC<Props> = ({
     }).start();
   }, [visible]);
 
-  // Refresh token every 5 min
+  // Genera token interno solo cuando no hay token externo disponible
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || externalToken) return;
     const digits = () => Array.from({length:5}, () => Math.floor(Math.random()*10)).join(' ');
-    setToken(digits());
-    const t = setInterval(() => setToken(digits()), 300000);
+    setInternalToken(digits());
+    const t = setInterval(() => setInternalToken(digits()), 300000);
     return () => clearInterval(t);
-  }, [visible]);
+  }, [visible, externalToken]);
 
   const roleLabel = { coach: 'COACH', jugador: 'JUGADOR', arbitro: 'ÁRBITRO' }[role];
 

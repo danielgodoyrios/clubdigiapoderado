@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { Auth } from '../../api';
 
 const BLUE = Colors.blue;
 
@@ -67,15 +68,14 @@ export default function EnrollmentScreen({ navigation }: any) {
     navigation.goBack();
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (code.trim().length < 6) {
       Alert.alert('Código inválido', 'Ingresa el código completo.');
       return;
     }
     setLoading(true);
-    // Simular validación — reemplazar con llamada real a POST /auth/enroll
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await Auth.enroll(code.trim());
       Alert.alert(
         '¡Enrolamiento exitoso!',
         `Tu rol de ${selected?.label} fue activado correctamente.`,
@@ -83,7 +83,6 @@ export default function EnrollmentScreen({ navigation }: any) {
           {
             text: 'Continuar',
             onPress: () => {
-              // En producción: el backend actualiza roles[], luego navegamos a RoleSelector
               const navTarget =
                 selected?.key === 'apoderado' ? 'PupilSelector' :
                 selected?.key === 'profesor'  ? 'ProfesorHome'  :
@@ -93,7 +92,12 @@ export default function EnrollmentScreen({ navigation }: any) {
           },
         ],
       );
-    }, 1200);
+    } catch (err: any) {
+      const msg = err?.error ?? err?.message ?? 'Código inválido. Verifica e intenta de nuevo.';
+      Alert.alert('Error de enrolamiento', msg);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

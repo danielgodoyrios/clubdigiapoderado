@@ -16,6 +16,8 @@ export default function PerfilScreen({ navigation }: any) {
   const pupils = state.status === 'authenticated' ? state.pupils : [];
   if (!user) return null;
 
+  const initials = user.initials ?? user.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* ── Header ── */}
@@ -34,11 +36,11 @@ export default function PerfilScreen({ navigation }: any) {
         {/* Apoderado avatar */}
         <View style={styles.apodRow}>
           <View style={styles.apodAvatar}>
-            <Text style={styles.apodAvatarTxt}>{user.initials}</Text>
+            <Text style={styles.apodAvatarTxt}>{initials}</Text>
           </View>
           <View>
             <Text style={styles.apodName}>{user.name}</Text>
-            <Text style={styles.apodMeta}>Apoderado · {user.rut}</Text>
+            <Text style={styles.apodMeta}>Apoderado{user.rut ? ` · ${user.rut}` : ''}</Text>
             <Text style={styles.apodPhone}>{user.phone}</Text>
           </View>
         </View>
@@ -50,9 +52,9 @@ export default function PerfilScreen({ navigation }: any) {
         <View style={styles.card}>
           {[
             { label: 'Nombre',   value: user.name },
-            { label: 'RUT',      value: user.rut },
+            { label: 'RUT',      value: user.rut ?? '—' },
             { label: 'Teléfono', value: user.phone },
-            { label: 'Email',    value: user.email },
+            { label: 'Email',    value: user.email ?? '—' },
           ].map((r, i) => (
             <View key={i} style={[styles.row, i > 0 && styles.rowBorder]}>
               <Text style={styles.rowLabel}>{r.label}</Text>

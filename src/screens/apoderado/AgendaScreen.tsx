@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { CarnetIcon } from '../../components/CarnetIcon';
 import { CarnetModal } from '../../components/CarnetModal';
-import { Events, Event } from '../../api';
+import { Events, Event, Carnet } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import SideMenu from '../../components/SideMenu';
 
@@ -38,11 +38,14 @@ export default function AgendaScreen({ navigation }: any) {
   const [base,    setBase]    = useState(new Date());
   const [selected, setSelected] = useState(new Date());
   const [events,  setEvents]  = useState<Event[]>([]);
+  const [carnetToken, setCarnetToken] = useState<string | undefined>(undefined);
 
   const week    = buildWeek(base);
   const selStr  = fmtDate(selected);
   const todayStr = fmtDate(today);
   const dayEvents = events.filter(e => e.date === selStr);
+
+  const baseStr = fmtDate(base);
 
   useEffect(() => {
     if (!pupilId) return;
@@ -50,7 +53,12 @@ export default function AgendaScreen({ navigation }: any) {
     const from = fmtDate(weekStart[0]);
     const to   = fmtDate(weekStart[6]);
     Events.list(pupilId, from, to).then(setEvents).catch(() => {});
-  }, [pupilId, fmtDate(base)]);
+  }, [pupilId, baseStr]);
+
+  useEffect(() => {
+    if (!carnetVisible || !pupilId) return;
+    Carnet.get(pupilId).then(data => setCarnetToken(data.token)).catch(() => {});
+  }, [carnetVisible, pupilId]);
 
   const prevWeek = () => { const d = new Date(base); d.setDate(d.getDate() - 7); setBase(d); };
   const nextWeek = () => { const d = new Date(base); d.setDate(d.getDate() + 7); setBase(d); };
@@ -164,6 +172,7 @@ export default function AgendaScreen({ navigation }: any) {
         headerColor={BLUE}
         position={pupil ? (pupil.category ?? 'Jugador') : ''}
         club={pupil?.team ?? ''}
+        externalToken={carnetToken}
       />
     </SafeAreaView>
   );

@@ -6,11 +6,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { mockUser } from '../../mock/data';
+import { useAuth } from '../../context/AuthContext';
 
 const MAROON = '#7C1A3A';
 
 export default function AdminHomeScreen({ navigation }: any) {
+  const { state } = useAuth();
+  const user = state.status === 'authenticated' ? state.user : null;
+  const name = user?.name ?? 'Admin';
+  const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
@@ -31,11 +35,11 @@ export default function AdminHomeScreen({ navigation }: any) {
 
         <View style={styles.profileRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarTxt}>{mockUser.initials}</Text>
+            <Text style={styles.avatarTxt}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.rolePill}>ADMINISTRADOR</Text>
-            <Text style={styles.userName}>{mockUser.name}</Text>
+            <Text style={styles.userName}>{name}</Text>
             <Text style={styles.userMeta}>Panel de Administración</Text>
           </View>
         </View>

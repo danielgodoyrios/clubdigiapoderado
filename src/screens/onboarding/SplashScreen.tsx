@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { Colors } from '../../theme';
 
 export default function SplashScreen({ navigation }: any) {
@@ -28,7 +29,7 @@ export default function SplashScreen({ navigation }: any) {
         </View>
         <Text style={styles.tag}>Gestión Deportiva Digital</Text>
       </Animated.View>
-      <Text style={styles.ver}>v1.0.0</Text>
+      <Text style={styles.ver}>v{Constants.expoConfig?.version ?? '1.1.0'}</Text>
     </View>
   );
 }

@@ -6,12 +6,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { mockUser } from '../../mock/data';
+import { useAuth } from '../../context/AuthContext';
 
 const GREEN = '#0F7D4B';
 
 export default function ProfesorHomeScreen({ navigation }: any) {
-  const info = mockUser.profesorInfo;
+  const { state } = useAuth();
+  const user = state.status === 'authenticated' ? state.user : null;
+  const name = user?.name ?? 'Profesor';
+  const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const teams = user?.profesor_info?.teams ?? [];
+  const teamNames = teams.map(t => t.name);
+  const firstTeam = teamNames[0] ?? 'Club';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -34,22 +40,22 @@ export default function ProfesorHomeScreen({ navigation }: any) {
         {/* Profesor info */}
         <View style={styles.profileRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarTxt}>{mockUser.initials}</Text>
+            <Text style={styles.avatarTxt}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.rolePill}>PROFESOR / COACH</Text>
-            <Text style={styles.userName}>{mockUser.name}</Text>
-            <Text style={styles.userMeta}>{info.club} · Lic. {info.licenseNumber}</Text>
+            <Text style={styles.userName}>{name}</Text>
+            <Text style={styles.userMeta}>{firstTeam}</Text>
           </View>
         </View>
 
-        {/* Categorías */}
+        {/* Categorías / Equipos */}
         <View style={styles.tagsRow}>
-          {info.categories.map(cat => (
+          {teamNames.length > 0 ? teamNames.map(cat => (
             <View key={cat} style={styles.tag}>
               <Text style={styles.tagTxt}>{cat}</Text>
             </View>
-          ))}
+          )) : null}
         </View>
       </View>
 
