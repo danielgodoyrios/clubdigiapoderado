@@ -29,3 +29,33 @@ Actualizar `NotificationsAPI.registerToken` para aceptar los nuevos campos opcio
 **Dependencia:** Requiere instalar `expo-application` si no está disponible.
 
 ---
+
+## P-002 — Modal de cobranza al tocar notificación de pago
+
+**Prioridad:** Media (próxima versión)  
+**Versión objetivo:** v1.3.x o superior
+
+**Contexto:**  
+Cuando el apoderado toca una notificación de tipo **cobranza/pago**, en vez de ir directo a la pantalla de pagos, mostrar un modal intermedio que permita gestionar la situación.
+
+**Flujo propuesto:**
+
+1. Notificación tipo `cobranza` recibida → al tocar, mostrar **Modal de Cobranza**
+2. Modal pregunta: **"¿Ya realizaste el pago?"**
+   - **Sí** → registrar pago, cerrar modal, navegar a PagosScreen
+   - **No** → mostrar campo de fecha de regularización comprometida → guardar en backend
+3. Si el apoderado debe **más de 3 meses** → mostrar opción adicional: **"Realizar abono parcial"**
+   - Abono parcial integra flujo **Webpay** para pago en línea
+
+**Componentes nuevos necesarios:**
+- `CobranzaModal.tsx` — modal con los tres estados (pagó / no pagó + fecha / abono parcial)
+- Integración Webpay (SDK o WebView hacia pasarela) — requiere coordinación con backend
+
+**Backend necesita:**
+- Endpoint para registrar fecha de regularización comprometida
+- Endpoint para iniciar transacción Webpay y retornar URL de pago
+- Webhook/callback para confirmar pago exitoso desde Webpay
+
+**Nota:** La integración Webpay es la parte más compleja y se deja para una versión dedicada. El modal y la fecha de regularización pueden implementarse antes sin Webpay.
+
+---
