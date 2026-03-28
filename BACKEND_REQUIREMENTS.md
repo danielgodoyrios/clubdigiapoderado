@@ -2229,11 +2229,13 @@ El rol **no va en el body** — se infiere automáticamente del código en BD.
 
 ## REQUERIMIENTO 6 — INBOX DE NOTIFICACIONES (Frontend v1.2.0)
 
+> **Estado:** ✅ Implementado por backend en commit `5e7968a`
+
 El frontend ahora tiene una pantalla **Notificaciones** accesible desde el ícono de campana en los headers de Inicio, Agenda y Gestión. Necesita los siguientes endpoints:
 
 ---
 
-### 6.1  `GET /apoderado/me/inbox` — Listar notificaciones
+### 6.1  `GET /apoderado/me/inbox` — Listar notificaciones ✅
 
 **Auth:** Bearer token requerido.
 
@@ -2274,7 +2276,7 @@ El frontend ahora tiene una pantalla **Notificaciones** accesible desde el ícon
 
 ---
 
-### 6.2  `POST /apoderado/me/inbox/{id}/read` — Marcar una como leída
+### 6.2  `POST /apoderado/me/inbox/{id}/read` — Marcar una como leída ✅
 
 **Auth:** Bearer token requerido.
 **Path param:** `id` — ID de la notificación.
@@ -2293,7 +2295,7 @@ El frontend ahora tiene una pantalla **Notificaciones** accesible desde el ícon
 
 ---
 
-### 6.3  `POST /apoderado/me/inbox/read-all` — Marcar todas como leídas
+### 6.3  `POST /apoderado/me/inbox/read-all` — Marcar todas como leídas ✅
 
 **Auth:** Bearer token requerido.
 
@@ -2309,8 +2311,19 @@ Marca como `read = true` todas las notificaciones no leídas del apoderado auten
 ### 6.4  Notas adicionales
 
 - Las notificaciones se generan desde el backend en eventos relevantes (pago registrado, comunicado publicado, inasistencia, etc.). El frontend **no crea** notificaciones — solo las lee y las marca.
-- La campana en el header actualmente no muestra badge de conteo (el punto rojo en `HomeScreen` es visual fijo). Si en el futuro se quiere mostrar el número de no leídas, se puede agregar `GET /apoderado/me/inbox/unread-count` → `{ "count": 3 }`.
-- Filtro opcional: `GET /apoderado/me/inbox?read=false` para obtener solo no leídas (útil para el badge, si se implementa).
+- ✅ **`GET /apoderado/me/inbox/unread-count`** — ya implementado: `{ "count": N }`. Listo para conectar el badge numérico en la campana.
+- ✅ **Filtro `?read=false`** — ya soportado en `GET /apoderado/me/inbox`.
+- ✅ **Integración push → inbox**: `forPlayer()`, `forClub()`, `forGuardian()` insertan automáticamente filas en la tabla `guardian_notifications` con mapeo de topic → `type` (`pagos→pago`, `comunicados→comunicado`, `justificativos→justificativo`, `documentos→documento`, resto → `general`).
+
+**Archivos creados/modificados en backend:**
+
+| Archivo | Acción |
+|---------|--------|
+| `2026_03_27_000022_create_guardian_notifications_table.php` | Migración tabla `guardian_notifications` |
+| `GuardianNotification.php` | Modelo Eloquent |
+| `InboxController.php` | Controlador (list, markRead, markAllRead, unreadCount) |
+| `api.php` | 4 rutas inbox registradas |
+| `GuardianPushNotifier.php` | `writeInbox()` hookeado en envíos push |
 
 
 
