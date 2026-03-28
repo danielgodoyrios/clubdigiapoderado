@@ -1542,17 +1542,33 @@ Generar token temporal para mostrar QR.
 ### POST /apoderado/me/devices
 Registrar o actualizar el token de push notifications del dispositivo.
 
+> **Fix aplicado en commit `ecade99`:** `platform` era `required` → causaba 422 porque el frontend solo envía `push_token`. Ahora es nullable con default `android`.
+
+**Body mínimo (frontend actual):**
+```json
+{ "push_token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]" }
+```
+
+**Body completo (multi-device tracking futuro):**
+```json
+{
+  "push_token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+  "platform": "android",
+  "device_id": "uuid-v4-del-dispositivo"
+}
+```
+
 **Validaciones:**
 - `push_token` requerido · formato `ExponentPushToken[xxxx]` o `ExpoPushToken[xxxx]`
-- `platform` requerido · enum: `android` | `ios`
-- `device_id` requerido · UUID v4
+- `platform` opcional · enum: `android` | `ios` | `web` · default: `android`
+- `device_id` opcional · UUID v4 · nullable
 
 **Comportamiento:**
 - Si el `device_id` ya existe: **actualizar** el `push_token` (upsert, no duplicar)
 - Si el `push_token` ya está registrado en otro `device_id`: mover al nuevo
 - No fallar si el dispositivo ya tenía otro token (actualizar silenciosamente)
 
-**Response 200:** `{ "ok": true }`
+**Response 201:** nuevo registro · **Response 200:** token actualizado
 
 ---
 
