@@ -21,7 +21,7 @@ const TIPOS = [
 type TipoId = 'enfermedad' | 'lesion';
 
 export default function JustificativoScreen({ navigation, route }: any) {
-  const { date } = route.params ?? {};
+  const { date: routeDate } = route.params ?? {};
   const { state } = useAuth();
   const pupilId = state.status === 'authenticated' ? state.activePupil?.id : undefined;
 
@@ -31,8 +31,21 @@ export default function JustificativoScreen({ navigation, route }: any) {
   const [file,    setFile]    = useState<{ uri: string; name: string; base64: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const dateLabel = date
-    ? `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}`
+  // Campos de fecha manual (solo cuando no viene de AsistenciaDetalle)
+  const today = new Date();
+  const [manDay,   setManDay]   = useState(String(today.getDate()).padStart(2, '0'));
+  const [manMonth, setManMonth] = useState(String(today.getMonth() + 1).padStart(2, '0'));
+  const [manYear,  setManYear]  = useState(String(today.getFullYear()));
+
+  // Fecha efectiva usada al enviar
+  const date: string | undefined = routeDate
+    ? routeDate
+    : (manDay && manMonth && manYear && manDay.length <= 2 && manMonth.length <= 2 && manYear.length === 4)
+      ? `${manYear}-${manMonth.padStart(2, '0')}-${manDay.padStart(2, '0')}`
+      : undefined;
+
+  const dateLabel = routeDate
+    ? `${routeDate.slice(8, 10)}/${routeDate.slice(5, 7)}/${routeDate.slice(0, 4)}`
     : 'Fecha no especificada';
 
   const pickImage = async () => {
@@ -101,7 +114,7 @@ export default function JustificativoScreen({ navigation, route }: any) {
       return;
     }
     if (!pupilId || !date) {
-      Alert.alert('Error', 'Datos insuficientes para enviar la justificación.');
+      Alert.alert('Error', !date ? 'Ingresa una fecha válida (DD/MM/AAAA).' : 'Datos insuficientes para enviar la justificación.');
       return;
     }
     setLoading(true);
@@ -157,10 +170,56 @@ export default function JustificativoScreen({ navigation, route }: any) {
         </View>
 
         <Text style={styles.label}>FECHA DE AUSENCIA</Text>
-        <View style={styles.dateRow}>
-          <Ionicons name="calendar-outline" size={16} color={Colors.gray} />
-          <Text style={styles.dateVal}>{dateLabel}</Text>
-        </View>
+        {routeDate ? (
+          <View style={styles.dateRow}>
+            <Ionicons name="calendar-outline" size={16} color={Colors.gray} />
+            <Text style={styles.dateVal}>{dateLabel}</Text>
+          </View>
+        ) : (
+          <View style={styles.dateInputRow}>
+            <View style={styles.dateField}>
+              <Text style={styles.dateFieldLabel}>Día</Text>
+              <TextInput
+                style={styles.dateFieldInput}
+                value={manDay}
+                onChangeText={v => setManDay(v.replace(/[^0-9]/g, '').slice(0, 2))}
+                keyboardType="numeric"
+                maxLength={2}
+                placeholder="DD"
+                placeholderTextColor={Colors.gray}
+                editable={!loading}
+              />
+            </View>
+            <Text style={styles.dateSep}>/</Text>
+            <View style={styles.dateField}>
+              <Text style={styles.dateFieldLabel}>Mes</Text>
+              <TextInput
+                style={styles.dateFieldInput}
+                value={manMonth}
+                onChangeText={v => setManMonth(v.replace(/[^0-9]/g, '').slice(0, 2))}
+                keyboardType="numeric"
+                maxLength={2}
+                placeholder="MM"
+                placeholderTextColor={Colors.gray}
+                editable={!loading}
+              />
+            </View>
+            <Text style={styles.dateSep}>/</Text>
+            <View style={[styles.dateField, { flex: 2 }]}>
+              <Text style={styles.dateFieldLabel}>Año</Text>
+              <TextInput
+                style={styles.dateFieldInput}
+                value={manYear}
+                onChangeText={v => setManYear(v.replace(/[^0-9]/g, '').slice(0, 4))}
+                keyboardType="numeric"
+                maxLength={4}
+                placeholder="AAAA"
+                placeholderTextColor={Colors.gray}
+                editable={!loading}
+              />
+            </View>
+          </View>
+        )}
 
         <Text style={styles.label}>TIPO DE AUSENCIA</Text>
         <View style={styles.tiposRow}>
@@ -288,6 +347,11 @@ const styles = StyleSheet.create({
   label:            { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: '#888', marginBottom: 8, marginTop: 4 },
   dateRow:          { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#eee', padding: 14, marginBottom: 16 },
   dateVal:          { fontSize: 14, fontWeight: '600', color: '#111' },
+  dateInputRow:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#eee', paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16, gap: 6 },
+  dateField:        { flex: 1, alignItems: 'center' },
+  dateFieldLabel:   { fontSize: 9, fontWeight: '700', color: '#888', letterSpacing: 0.8, marginBottom: 2 },
+  dateFieldInput:   { fontSize: 16, fontWeight: '700', color: '#111', textAlign: 'center', padding: 0, minWidth: 36 },
+  dateSep:          { fontSize: 18, fontWeight: '300', color: '#ccc', marginTop: 12 },
   tiposRow:         { flexDirection: 'row', gap: 8, marginBottom: 20 },
   tipoCard:         { flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#eee', padding: 12, alignItems: 'center', gap: 4 },
   tipoCardSelected: { borderColor: '#1A3A7C', backgroundColor: '#1A3A7C08' },
