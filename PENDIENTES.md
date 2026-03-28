@@ -158,3 +158,32 @@ Al completar el formulario de justificativo y presionar "Enviar", aparece un men
 **Acción:** Verificar con el desarrollador backend que el endpoint existe, acepta estos campos y no tiene errores internos. Revisar logs del servidor al momento del envío.
 
 ---
+
+## P-007 — Manejo de errores centralizado desde el backend
+
+**Prioridad:** Media (calidad UX)  
+**Alcance:** Todos los endpoints — `src/api/index.ts`
+
+**Descripción:**  
+Actualmente cuando el backend devuelve un error, el frontend muestra directamente `err.message` que puede ser un mensaje técnico o en inglés. El manejo de errores debe ser responsabilidad del backend: devolver mensajes claros, en español, y con códigos HTTP apropiados.
+
+**Convención esperada del backend:**
+```json
+// Error de validación → 422
+{ "message": "La fecha de ausencia es requerida." }
+
+// Error de negocio → 400
+{ "message": "El pupilo no tiene sesiones registradas en esa fecha." }
+
+// No autorizado → 401
+{ "message": "Tu sesión ha expirado. Inicia sesión nuevamente." }
+
+// Error interno → 500
+{ "message": "Ocurrió un error inesperado. Intenta más tarde." }
+```
+
+**Lo que hace el frontend:** Muestra el `message` tal cual llega. Si el backend envía mensajes correctos, el usuario verá mensajes apropiados automáticamente en todas las pantallas sin cambios en el frontend.
+
+**Acción:** Coordinar con el desarrollador backend para estandarizar las respuestas de error en todos los endpoints con mensajes en español, descriptivos y orientados al usuario final.
+
+---
