@@ -87,3 +87,44 @@ setUnreadCount(data.count); // estado global o contexto
 **Nota:** El count debería actualizarse también cada vez que se marque una notificación como leída.
 
 ---
+
+## P-004 — BUG: Crash al entrar a pantalla Documentos
+
+**Prioridad:** Alta (bug en producción)  
+**Archivo:** `src/screens/apoderado/DocumentosScreen.tsx`
+
+**Descripción:**  
+Al tocar "Documentos" desde el menú o navegación, la app se cierra o rompe. El crash ocurre probablemente porque:
+- El backend devuelve un error o datos inesperados en `GET /apoderado/pupilos/{id}/documentos`
+- El campo `doc.type` o `doc.status` trae un valor no mapeado en `TYPE_ICON` / `STATUS_MAP`, causando render inválido
+- El endpoint aún no está implementado en el backend (devuelve 404/500)
+
+**Pasos para reproducir:**  
+1. Iniciar sesión como apoderado
+2. Tocar "Documentos" desde el menú lateral o pantalla de gestión
+
+**Investigación necesaria:**
+- Verificar si el endpoint `GET /apoderado/pupilos/{id}/documentos` existe en backend
+- Revisar logs del crash (Expo / logcat en Android)
+- Agregar manejo de errores defensivo en DocumentosScreen si falta
+
+---
+
+## P-005 — Imagen de jugadores no se muestra
+
+**Prioridad:** Media  
+**Archivos:** `src/api/index.ts` (campo `photo`), pantallas que muestran datos del pupilo
+
+**Descripción:**  
+Las fotos/imágenes de los jugadores (pupilos) no se muestran. Actualmente el carnet y el menú lateral muestran solo las iniciales del nombre en un avatar de texto.
+
+**Causa probable:**  
+- El campo `photo` llega como `null` desde el backend (no hay foto cargada para los jugadores)
+- O la URL de la imagen no es accesible (ruta relativa sin base URL, o sin permisos)
+
+**Investigación necesaria:**  
+- Verificar si el backend efectivamente devuelve un valor en `photo` para los pupilos
+- Si llega una URL, revisar que sea absoluta (con `https://`) y accesible
+- Implementar `<Image source={{ uri: pupil.photo }} />` en `CarnetModal` y `SideMenu` cuando `photo` exista, con fallback a las iniciales si es `null`
+
+---
