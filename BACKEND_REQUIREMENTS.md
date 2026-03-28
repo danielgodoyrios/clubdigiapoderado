@@ -2125,3 +2125,114 @@ CREATE TABLE apoderado_subscriptions (
 
 Esta dicotomía hace que el plan gratuito sea útil pero tenga un techo natural que motiva el upgrade sin forzarlo.
 
+---
+
+## REQUERIMIENTO 5 — CORRECCIONES Y ACLARACIONES (Frontend v1.1.0)
+
+> Esta sección recoge los puntos detectados durante la auditoría del frontend (27 Mar 2026) que afectan directamente al contrato de la API. Deben resolverse antes de la integración real.
+
+---
+
+### 5.1  `GET /apoderado/me` — Campos obligatorios en la respuesta
+
+El frontend consume `initials`, `rut`, `email` y `photo_url` directamente en `PerfilScreen`. El endpoint **debe retornar siempre estos campos** (con `null` si no están disponibles, nunca omitirlos).
+
+**Response esperado:**
+```json
+{
+  "id": 1,
+  "name": "Carlos Muñoz",
+  "phone": "+56987654321",
+  "roles": ["apoderado"],
+  "is_new": false,
+  "club_id": 1,
+  "initials": "CM",
+  "rut": "18.234.567-k",
+  "email": "carlos@email.com",
+  "photo_url": null
+}
+```
+
+> `initials` debe calcularse en el backend (primeras letras de cada palabra del nombre, máx 2 caracteres, mayúsculas). El frontend lo usa como fallback de avatar.
+
+---
+
+### 5.2  `GET /apoderado/pupils/{pupil_id}/carnet` — Ruta y campos
+
+**Problema:** Hay una discrepancia entre el documento (Módulo 9) y lo que el frontend llama:
+
+| | Módulo 9 | Frontend (src/api/index.ts) |
+|---|---|---|
+| Ruta | `/pupils/{id}/carnet/token` | `/apoderado/pupils/{id}/carnet` |
+| Campo QR | `qr_data` | `qr_payload` |
+
+**Decisión requerida:** Acordar una ruta y un nombre de campo. Se recomienda adoptar la ruta del frontend (más consistente con el patrón `/apoderado/pupils/...`) y el campo `qr_payload`.
+
+**Response acordado (propuesta):**
+```json
+{
+  "token": "CDIGI-LIC2026-0892-XK9F",
+  "qr_payload": "https://api.clubdigital.cl/verify/CDIGI-LIC2026-0892-XK9F",
+  "player_name": "Carlos Muñoz Jr.",
+  "team": "C.D. Santo Domingo",
+  "expires_at": "2026-03-27T16:05:00Z"
+}
+```
+
+> El frontend refresca el token cada 5 minutos llamando nuevamente a este endpoint. Cada llamada debe invalidar el token anterior.
+
+---
+
+### 5.3  `GET /apoderado/me/notifications` y `PATCH /apoderado/me/notifications` — Ahora se consumen
+
+Los toggles de notificación en `ConfiguracionScreen` ahora llaman al backend en tiempo real:
+
+- Al cargar la pantalla → `GET /apoderado/me/notifications`
+- Al cambiar cualquier toggle → `PATCH /apoderado/me/notifications` con solo el campo modificado
+
+Ya definido en el Módulo 12, pero se marca como **prioritario** ya que antes el frontend no lo consumía.
+
+**Response GET / body PATCH / Response PATCH:**
+```json
+{
+  "pagos":          true,
+  "asistencia":     true,
+  "comunicados":    true,
+  "agenda":         false,
+  "justificativos": true
+}
+```
+
+> `PATCH` es parcial: solo se envía el campo que cambió (ej. `{ "agenda": true }`). El backend debe responder con el objeto completo actualizado.
+
+---
+
+### 5.4  `POST /auth/enroll` — Endpoint de enrolamiento real
+
+El flujo de enrolamiento en `EnrollmentScreen` ahora llama al backend real. El frontend envía:
+
+```json
+{ "code": "APO-2026-XXXX" }
+```
+
+**Respuesta 200 esperada:**
+```json
+{ "roles": ["apoderado"] }
+```
+
+**Errores esperados:**
+
+| Caso | HTTP | code |
+|------|------|------|
+| Código no existe en BD | 400 | `CODE_NOT_FOUND` |
+| Código ya fue utilizado | 409 | `CODE_ALREADY_USED` |
+| Código expirado | 400 | `CODE_EXPIRED` |
+| Body sin `code` | 400 | `CODE_REQUIRED` |
+
+> Tras el enrolamiento exitoso, el frontend navega al flujo del rol activado (`PupilSelector` para apoderado, etc.). **El backend debe retornar el array `roles` actualizado** para que el frontend pueda usarlo sin necesidad de hacer otro `GET /apoderado/me`.
+
+
+
+
+
+
