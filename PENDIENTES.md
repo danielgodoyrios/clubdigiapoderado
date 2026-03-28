@@ -128,3 +128,33 @@ Las fotos/imágenes de los jugadores (pupilos) no se muestran. Actualmente el ca
 - Implementar `<Image source={{ uri: pupil.photo }} />` en `CarnetModal` y `SideMenu` cuando `photo` exista, con fallback a las iniciales si es `null`
 
 ---
+
+## P-006 — BUG: Envío de justificativo falla con "No se pudo enviar"
+
+**Prioridad:** Alta (flujo crítico)  
+**Archivo:** `src/screens/apoderado/JustificativoScreen.tsx` → `handleSubmit`
+
+**Descripción:**  
+Al completar el formulario de justificativo y presionar "Enviar", aparece un mensaje de error y no se envía. El mensaje proviene directamente del backend (`err.message`), por lo que el problema está en el servidor, no en el frontend.
+
+**Posibles causas a verificar en backend:**
+- El endpoint `POST /apoderado/pupilos/{id}/justificativos` no existe o tiene un error 500
+- Falla de validación (campo requerido que el frontend no envía, o formato incorrecto de fecha/datos)
+- El campo `file_base64` genera un error si el archivo es muy grande o tiene formato inesperado
+- Problema de permisos o autenticación en el endpoint
+
+**Frontend — lo que envía:**
+```json
+{
+  "date": "YYYY-MM-DD",
+  "type": "medico|deportivo|otro",
+  "reason": "texto",
+  "days": 1,
+  "file_base64": "...",  // opcional
+  "file_name": "..."     // opcional
+}
+```
+
+**Acción:** Verificar con el desarrollador backend que el endpoint existe, acepta estos campos y no tiene errores internos. Revisar logs del servidor al momento del envío.
+
+---
