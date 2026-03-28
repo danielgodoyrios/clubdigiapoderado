@@ -59,3 +59,31 @@ Cuando el apoderado toca una notificación de tipo **cobranza/pago**, en vez de 
 **Nota:** La integración Webpay es la parte más compleja y se deja para una versión dedicada. El modal y la fecha de regularización pueden implementarse antes sin Webpay.
 
 ---
+
+## P-003 — Badge de notificaciones no leídas
+
+**Prioridad:** Media  
+**Archivos:** `src/api/index.ts`, `src/components/Header.tsx` (o donde esté el ícono de campana)
+
+**Contexto:**  
+La pantalla de inbox (`NotificacionesScreen`), el `markRead` individual, el `markAllRead` y la navegación desde push ya están implementados. Lo que falta es mostrar un **badge con el número de no leídas** sobre el ícono de campana.
+
+**Implementación sugerida:**
+
+1. Agregar endpoint en la API:
+```typescript
+// api/index.ts
+unreadCount: () => request<{ count: number }>('GET', '/apoderado/me/inbox/unread-count'),
+```
+
+2. Llamar al iniciar sesión y al volver de `NotificacionesScreen`:
+```typescript
+const { data } = await InboxAPI.unreadCount();
+setUnreadCount(data.count); // estado global o contexto
+```
+
+3. Mostrar badge en el ícono de campana del Header con el número si `count > 0`.
+
+**Nota:** El count debería actualizarse también cada vez que se marque una notificación como leída.
+
+---
