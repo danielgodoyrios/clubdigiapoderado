@@ -33,7 +33,6 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
   const [carnetVisible, setCarnetVisible] = useState(false);
   const [menuVisible,  setMenuVisible]  = useState(false);
   const { state, setActivePupil, logout } = useAuth();
-  const [pupilIdx, setPupilIdx] = useState(0);
 
   const [nextMatch,    setNextMatch]    = useState<Event | null>(null);
   const [attMonth,     setAttMonth]     = useState<AttendanceMonth | null>(null);
@@ -42,11 +41,13 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
 
   // Usar datos reales del AuthContext
   const pupils = state.status === 'authenticated' ? state.pupils : [];
+  // Derivar el índice desde activePupil para que sea consistente con otras pantallas
+  const activePupil = state.status === 'authenticated' ? state.activePupil : null;
+  const pupilIdx = Math.max(0, pupils.findIndex(p => p.id === activePupil?.id));
   const pupil  = pupils[pupilIdx] ?? null;
 
   const cyclePupil = () => {
     const nextIdx = (pupilIdx + 1) % pupils.length;
-    setPupilIdx(nextIdx);
     setActivePupil(pupils[nextIdx]);
   };
 
