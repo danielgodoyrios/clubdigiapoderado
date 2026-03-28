@@ -382,7 +382,25 @@ export const NotificationsAPI = {
     request<NotifPrefs>('PATCH', '/apoderado/me/notifications', prefs),
 };
 
-// ── 12. HORARIO SEMANAL ───────────────────────────────────────
+// ── 12. INBOX DE NOTIFICACIONES ──────────────────────────────
+export type InboxNotif = {
+  id: number;
+  title: string;
+  body: string;
+  type: 'pago' | 'comunicado' | 'justificativo' | 'documento' | 'agenda' | 'asistencia' | 'general';
+  screen?: string;
+  params?: Record<string, unknown>;
+  read: boolean;
+  created_at: string;
+};
+
+export const InboxAPI = {
+  list: () => request<InboxNotif[]>('GET', '/apoderado/me/inbox'),
+  markRead: (id: number) => request<{ ok: boolean }>('POST', `/apoderado/me/inbox/${id}/read`),
+  markAllRead: () => request<{ ok: boolean }>('POST', '/apoderado/me/inbox/read-all'),
+};
+
+// ── 13. HORARIO SEMANAL ───────────────────────────────────────
 export type ScheduleEntry = {
   id: string;
   day_of_week: number;   // 0=Dom, 1=Lun, ..., 6=Sáb

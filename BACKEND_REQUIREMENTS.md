@@ -2225,6 +2225,94 @@ El rol **no va en el body** — se infiere automáticamente del código en BD.
 
 > Tras el enrolamiento exitoso el frontend navega al flujo del rol activado (`PupilSelector` para apoderado, etc.) usando el array `roles` retornado, sin necesidad de un `GET /apoderado/me` adicional.
 
+---
+
+## REQUERIMIENTO 6 — INBOX DE NOTIFICACIONES (Frontend v1.2.0)
+
+El frontend ahora tiene una pantalla **Notificaciones** accesible desde el ícono de campana en los headers de Inicio, Agenda y Gestión. Necesita los siguientes endpoints:
+
+---
+
+### 6.1  `GET /apoderado/me/inbox` — Listar notificaciones
+
+**Auth:** Bearer token requerido.
+
+**Response 200:**
+```json
+[
+  {
+    "id": 1,
+    "title": "Cuota de Abril pendiente",
+    "body": "Recuerda pagar la cuota de Abril antes del 30/04.",
+    "type": "pago",
+    "screen": "Pagos",
+    "params": {},
+    "read": false,
+    "created_at": "2026-04-15T10:30:00Z"
+  }
+]
+```
+
+**Campo `type`** (string enum):
+
+| Valor | Descripción |
+|-------|-------------|
+| `pago` | Aviso de pago pendiente o confirmado |
+| `comunicado` | Nuevo comunicado del club |
+| `justificativo` | Estado de justificativo actualizado |
+| `documento` | Documento disponible para firmar |
+| `agenda` | Evento próximo (partido, entreno) |
+| `asistencia` | Inasistencia registrada |
+| `general` | Aviso general del club |
+
+**Campo `screen`** (opcional): nombre de la pantalla de destino a la que navegará el frontend al tocar la notificación. Debe coincidir con los nombres de las rutas del stack:
+- `Pagos`, `PagoDetalle`, `Comunicados`, `ComunicadoDetalle`, `Documentos`, `DocumentoFirma`, `Justificativo`, `Asistencia`, `Agenda`
+
+**Campo `params`** (opcional, objeto plano): parámetros de navegación que se pasarán a la pantalla destino. Ej: `{ "pagoId": 42 }` para `PagoDetalle`.
+
+**Orden:** del más reciente al más antiguo (`ORDER BY created_at DESC`).
+
+---
+
+### 6.2  `POST /apoderado/me/inbox/{id}/read` — Marcar una como leída
+
+**Auth:** Bearer token requerido.
+**Path param:** `id` — ID de la notificación.
+
+**Response 200:**
+```json
+{ "ok": true }
+```
+
+**Errores:**
+
+| Caso | HTTP | Detalle |
+|------|------|---------|
+| Notificación no existe | 404 | — |
+| Notificación de otro usuario | 403 | — |
+
+---
+
+### 6.3  `POST /apoderado/me/inbox/read-all` — Marcar todas como leídas
+
+**Auth:** Bearer token requerido.
+
+Marca como `read = true` todas las notificaciones no leídas del apoderado autenticado.
+
+**Response 200:**
+```json
+{ "ok": true }
+```
+
+---
+
+### 6.4  Notas adicionales
+
+- Las notificaciones se generan desde el backend en eventos relevantes (pago registrado, comunicado publicado, inasistencia, etc.). El frontend **no crea** notificaciones — solo las lee y las marca.
+- La campana en el header actualmente no muestra badge de conteo (el punto rojo en `HomeScreen` es visual fijo). Si en el futuro se quiere mostrar el número de no leídas, se puede agregar `GET /apoderado/me/inbox/unread-count` → `{ "count": 3 }`.
+- Filtro opcional: `GET /apoderado/me/inbox?read=false` para obtener solo no leídas (útil para el badge, si se implementa).
+
+
 
 
 

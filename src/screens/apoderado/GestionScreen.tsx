@@ -81,7 +81,7 @@ export default function GestionScreen({ navigation }: any) {
             <Text style={styles.logoB}>DIGI</Text>
           </View>
           <View style={styles.hIcons}>
-            <TouchableOpacity style={styles.ic}>
+            <TouchableOpacity style={styles.ic} onPress={() => navigation.navigate('Notificaciones')}>
               <Ionicons name="notifications-outline" size={20} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
             <CarnetIcon onPress={() => setCarnetVisible(true)} headerColor={BLUE} />

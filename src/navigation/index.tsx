@@ -45,6 +45,9 @@ import HorariosScreen            from '../screens/apoderado/HorariosScreen';
 import PermisoDeportivoScreen    from '../screens/apoderado/PermisoDeportivoScreen';
 import MisJustificativosScreen   from '../screens/apoderado/MisJustificativosScreen';
 
+// ── Notificaciones ───────────────────────────────────────────
+import { NotificacionesScreen } from '../screens/apoderado/NotificacionesScreen';
+
 // ── Profesor ─────────────────────────────────────────────────
 import ProfesorHomeScreen from '../screens/profesor/HomeScreen';
 
@@ -134,6 +137,7 @@ function AppStack({ role }: { role: string }) {
       <Stack.Screen name="Horarios"             component={HorariosScreen} />
       <Stack.Screen name="PermisoDeportivo"     component={PermisoDeportivoScreen} />
       <Stack.Screen name="MisJustificativos"    component={MisJustificativosScreen} />
+      <Stack.Screen name="Notificaciones"        component={NotificacionesScreen} />
 
       {/* ── Profesor ── */}
       <Stack.Screen name="ProfesorHome" component={ProfesorHomeScreen} />
