@@ -151,6 +151,7 @@ export type Pupil = {
   birth_date: string | null;
   gender: string | null;
   status: string;
+  federado: boolean | null;
 };
 
 type PupilRaw = {
@@ -185,6 +186,7 @@ function mapPupil(raw: PupilRaw): Pupil {
     birth_date: raw.birth_date ?? null,
     gender:     raw.gender ?? null,
     status:     raw.status,
+    federado:   (raw as any).federado ?? ((raw as any).is_federated ?? null),
   };
 }
 

@@ -69,7 +69,7 @@ export default function PerfilScreen({ navigation }: any) {
           <TouchableOpacity
             key={p.id}
             style={styles.pupilCard}
-            onPress={() => navigation.navigate('EditarPupilo', { pupil: p })}
+            onPress={() => navigation.navigate('PupilPerfil', { pupil: p })}
             activeOpacity={0.85}
           >
             <View style={styles.pupilAvatar}>
@@ -84,7 +84,7 @@ export default function PerfilScreen({ navigation }: any) {
               <Text style={styles.pupilMeta}>{p.category} · {p.team}</Text>
               <Text style={styles.pupilLic}>{p.rut}</Text>
             </View>
-            <Ionicons name="create-outline" size={16} color={BLUE} />
+            <Ionicons name="chevron-forward" size={16} color={Colors.light} />
           </TouchableOpacity>
         ))}
 
