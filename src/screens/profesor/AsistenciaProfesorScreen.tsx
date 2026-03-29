@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   FlatList, ActivityIndicator, ScrollView, Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { Profesor, ProfesorTeam, AsistenciaSession, AsistenciaRegistro } from '../../api';
@@ -148,6 +148,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
     }
   };
 
+  const insets = useSafeAreaInsets();
   const presentCount = Array.from(records.values()).filter(r => r.present).length;
   const totalCount   = records.size;
 
@@ -240,6 +241,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         </View>
 
         <FlatList
+          style={{ flex: 1 }}
           data={recs}
           keyExtractor={r => String(r.pupil_id)}
           contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 8 }}
@@ -274,7 +276,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         />
 
         {/* Submit */}
-        <View style={styles.submitRow}>
+        <View style={[styles.submitRow, { paddingBottom: Math.max(insets.bottom, 14) }]}>
           <TouchableOpacity
             style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
             onPress={handleSubmit}
