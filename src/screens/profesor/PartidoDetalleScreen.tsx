@@ -8,10 +8,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { Profesor, AgendaItem, ConvocadoEstado } from '../../api';
 
-const RED   = '#991B1B';
-const GREEN = '#0F7D4B';
-const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const DAY_FULL = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const RED    = '#991B1B';
+const RED_BG = '#FEF2F2';
+const GREEN  = '#0F7D4B';
+const BLUE   = '#1D4ED8';
+
+const MONTHS   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const DAY_FULL = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 
 function fmtDate(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -24,12 +27,18 @@ function parseScore(score: string | null) {
   return { home: parts[0] ?? '', away: parts[1] ?? '' };
 }
 
-function StatItem({ icon, color, label, value }: { icon: string; color: string; label: string; value: number }) {
+function statusConfig(s: string) {
+  if (s === 'played' || s === 'finished') return { label: 'Finalizado', color: GREEN, bg: '#DCFCE7' };
+  if (s === 'scheduled')                  return { label: 'Programado', color: BLUE,  bg: '#EFF6FF' };
+  if (s === 'pending')                    return { label: 'Pendiente',  color: '#92400E', bg: '#FEF3C7' };
+  return                                         { label: 'Próximo',    color: '#6B7280', bg: '#F3F4F6' };
+}
+
+function InfoRow({ icon, text }: { icon: string; text: string }) {
   return (
-    <View style={styles.statItem}>
-      <Ionicons name={icon as any} size={22} color={color} />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.infoRow}>
+      <Ionicons name={icon as any} size={15} color={Colors.gray} />
+      <Text style={styles.infoTxt}>{text}</Text>
     </View>
   );
 }
@@ -38,15 +47,14 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
   const item: AgendaItem = route.params?.item;
   const initial = parseScore(item?.score ?? null);
 
-  const [homeGoals, setHomeGoals] = useState(initial.home);
-  const [awayGoals, setAwayGoals] = useState(initial.away);
-  const [saving,    setSaving]    = useState(false);
+  const [homeGoals,      setHomeGoals]      = useState(initial.home);
+  const [awayGoals,      setAwayGoals]      = useState(initial.away);
+  const [saving,         setSaving]         = useState(false);
   const [openingSession, setOpeningSession] = useState(false);
-  const [savedScore, setSavedScore] = useState<string | null>(item?.score ?? null);
-  const [roster,        setRoster]        = useState<ConvocadoEstado[]>([]);
-  const [rosterLoading, setRosterLoading] = useState(false);
+  const [savedScore,     setSavedScore]     = useState<string | null>(item?.score ?? null);
+  const [roster,         setRoster]         = useState<ConvocadoEstado[]>([]);
+  const [rosterLoading,  setRosterLoading]  = useState(false);
 
-  // Load convocatoria roster
   useEffect(() => {
     const eventId = item?.club_event_id;
     if (!eventId) return;
@@ -57,10 +65,16 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
       .finally(() => setRosterLoading(false));
   }, []);
 
-  // Split title "Team A vs Team B"
   const titleParts = item?.title?.split(/\s+vs\.?\s+/i) ?? [];
   const homeTeam = titleParts[0]?.trim() || item?.team_name || 'Local';
   const awayTeam = titleParts[1]?.trim() || 'Visita';
+
+  const status = statusConfig(item?.status ?? '');
+
+  const convocados = roster.filter(p => p.convocado);
+  const confirmed  = convocados.filter(p => p.status === 'confirmed');
+  const pending    = convocados.filter(p => p.status === 'pending' || (!p.status && p.status !== 'declined'));
+  const declined   = convocados.filter(p => p.status === 'declined');
 
   /* ── Guardar resultado ── */
   const handleSave = async () => {
@@ -79,7 +93,7 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
         await Profesor.updateMatchResult(item.match_id, score);
       }
       setSavedScore(score);
-      Alert.alert('¡Guardado!', `Resultado registrado: ${homeTeam} ${score.replace(':', ' – ')} ${awayTeam}`);
+      Alert.alert('¡Guardado!', `${homeTeam} ${homeGoals} – ${awayGoals} ${awayTeam}`);
     } catch (e: any) {
       Alert.alert('Error', e?.error ?? 'No se pudo guardar el resultado.');
     } finally {
@@ -87,13 +101,10 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
     }
   };
 
-  /* ── Abrir/navegar a asistencia ── */
+  /* ── Abrir asistencia ── */
   const openAttendance = async () => {
     if (item.session_id) {
-      navigation.navigate('AsistenciaProfesor', {
-        sessionId: item.session_id,
-        title:     item.title,
-      });
+      navigation.navigate('AsistenciaProfesor', { sessionId: item.session_id, title: item.title });
       return;
     }
     if (!item.team_id) {
@@ -119,254 +130,362 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
     }
   };
 
-  const statusLabel = (s: string) =>
-    s === 'played' ? 'Jugado' : s === 'scheduled' ? 'Programado' : s === 'finished' ? 'Finalizado' : 'Próximo';
+  const headerTitle = item?.title && item.title.length > 28
+    ? item.title.slice(0, 26) + '…'
+    : (item?.title ?? 'Partido');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      {/* Header */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={20} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Detalle de Partido</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{headerTitle}</Text>
         <View style={{ width: 36 }} />
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-          {/* Date / status */}
-          <View style={styles.dateRow}>
-            <Ionicons name="calendar-outline" size={14} color={Colors.gray} />
-            <Text style={styles.dateTxt}>
-              {fmtDate(item.date)}{item.time ? ` · ${item.time}` : ''}
-              {item.end_time ? ` – ${item.end_time}` : ''}
-            </Text>
-            <View style={[styles.statusChip, item.status === 'played' || item.status === 'finished' ? styles.statusDone : null]}>
-              <Text style={styles.statusTxt}>{statusLabel(item.status)}</Text>
-            </View>
-          </View>
-
-          {/* Scoreboard */}
-          <View style={styles.scoreBoard}>
-            <View style={styles.teamCol}>
-              <View style={[styles.teamShield, { borderColor: RED }]}>
-                <Ionicons name="shield" size={26} color={RED} />
+          {/* ── Hero card ── */}
+          <View style={styles.heroCard}>
+            {/* Status + date */}
+            <View style={styles.heroTopRow}>
+              <View style={[styles.statusChip, { backgroundColor: status.bg }]}>
+                <Text style={[styles.statusTxt, { color: status.color }]}>{status.label}</Text>
               </View>
-              <Text style={styles.teamName} numberOfLines={2}>{homeTeam}</Text>
-              <Text style={styles.teamLabel}>LOCAL</Text>
+              <Text style={styles.heroDate}>
+                {fmtDate(item.date)}{item.time ? ` · ${item.time}` : ''}
+              </Text>
             </View>
 
-            <View style={styles.scoreCenter}>
-              {savedScore ? (
-                <Text style={styles.scoreDisplay}>{savedScore.replace(':', ' – ')}</Text>
-              ) : (
-                <Text style={styles.scoreVs}>VS</Text>
-              )}
-            </View>
-
-            <View style={styles.teamCol}>
-              <View style={[styles.teamShield, { borderColor: Colors.light }]}>
-                <Ionicons name="shield" size={26} color={Colors.gray} />
+            {/* Scoreboard */}
+            <View style={styles.scoreboard}>
+              <View style={styles.teamBlock}>
+                <View style={[styles.teamShield, { borderColor: RED, backgroundColor: RED_BG }]}>
+                  <Ionicons name="shield" size={28} color={RED} />
+                </View>
+                <Text style={styles.teamName} numberOfLines={3}>{homeTeam}</Text>
+                <View style={[styles.localBadge, { backgroundColor: RED_BG }]}>
+                  <Text style={[styles.localTxt, { color: RED }]}>LOCAL</Text>
+                </View>
               </View>
-              <Text style={styles.teamName} numberOfLines={2}>{awayTeam}</Text>
-              <Text style={styles.teamLabel}>VISITA</Text>
-            </View>
-          </View>
 
-          {/* Location / team info */}
-          {item.location ? (
-            <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={15} color={Colors.gray} />
-              <Text style={styles.infoTxt}>{item.location}</Text>
+              <View style={styles.scoreCenter}>
+                {savedScore ? (
+                  <>
+                    <Text style={styles.scoreNum}>{savedScore.split(':')[0]}</Text>
+                    <Text style={styles.scoreSep}>–</Text>
+                    <Text style={styles.scoreNum}>{savedScore.split(':')[1]}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.vsText}>VS</Text>
+                )}
+              </View>
+
+              <View style={styles.teamBlock}>
+                <View style={[styles.teamShield, { borderColor: '#9CA3AF', backgroundColor: '#F9FAFB' }]}>
+                  <Ionicons name="shield" size={28} color="#9CA3AF" />
+                </View>
+                <Text style={styles.teamName} numberOfLines={3}>{awayTeam}</Text>
+                <View style={[styles.localBadge, { backgroundColor: '#F3F4F6' }]}>
+                  <Text style={[styles.localTxt, { color: '#6B7280' }]}>VISITA</Text>
+                </View>
+              </View>
             </View>
-          ) : null}
-          {item.team_name ? (
-            <View style={styles.infoRow}>
-              <Ionicons name="shield-outline" size={15} color={Colors.gray} />
-              <Text style={styles.infoTxt}>{item.team_name}</Text>
-            </View>
-          ) : null}
-          {item.subtitle ? (
-            <View style={styles.infoRow}>
-              <Ionicons name="information-circle-outline" size={15} color={Colors.gray} />
-              <Text style={styles.infoTxt}>{item.subtitle}</Text>
-            </View>
-          ) : null}
+
+            {/* Location / competition rows inside card */}
+            {(item.location || item.subtitle || (item.team_name && item.team_name !== homeTeam)) ? (
+              <View style={styles.heroInfo}>
+                {item.location ? <InfoRow icon="location-outline" text={item.location} /> : null}
+                {item.subtitle ? <InfoRow icon="trophy-outline" text={item.subtitle} /> : null}
+                {item.team_name && item.team_name !== homeTeam
+                  ? <InfoRow icon="people-outline" text={item.team_name} />
+                  : null}
+              </View>
+            ) : null}
+          </View>
 
           {/* ── Resultado ── */}
-          <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>Resultado</Text>
-          <Text style={styles.sectionSub}>
-            {savedScore ? `Resultado actual: ${savedScore.replace(':', ' – ')} — puedes actualizarlo.` : 'Ingresa los goles de cada equipo.'}
-          </Text>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="stats-chart" size={16} color={RED} />
+              <Text style={styles.sectionTitle}>Resultado del partido</Text>
+            </View>
+            <Text style={styles.sectionSub}>
+              {savedScore
+                ? `Marcador actual: ${savedScore.replace(':', ' – ')} — toca para actualizar.`
+                : 'Registra el marcador final del partido.'}
+            </Text>
 
-          <View style={styles.scoreInputRow}>
-            <View style={styles.scoreInputBox}>
-              <Text style={styles.scoreInputLabel} numberOfLines={1}>{homeTeam}</Text>
-              <TextInput
-                style={styles.scoreInput}
-                keyboardType="number-pad"
-                maxLength={2}
-                value={homeGoals}
-                onChangeText={setHomeGoals}
-                placeholder="0"
-                placeholderTextColor={Colors.gray}
-              />
+            <View style={styles.scoreInputRow}>
+              <View style={styles.scoreInputBlock}>
+                <Text style={styles.scoreInputTeam} numberOfLines={2}>{homeTeam}</Text>
+                <TextInput
+                  style={[styles.scoreInput, homeGoals !== '' && styles.scoreInputActive]}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  value={homeGoals}
+                  onChangeText={setHomeGoals}
+                  placeholder="0"
+                  placeholderTextColor="#D1D5DB"
+                />
+              </View>
+              <View style={styles.scoreDashBlock}>
+                <Text style={styles.scoreDash}>–</Text>
+              </View>
+              <View style={styles.scoreInputBlock}>
+                <Text style={styles.scoreInputTeam} numberOfLines={2}>{awayTeam}</Text>
+                <TextInput
+                  style={[styles.scoreInput, awayGoals !== '' && styles.scoreInputActive]}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  value={awayGoals}
+                  onChangeText={setAwayGoals}
+                  placeholder="0"
+                  placeholderTextColor="#D1D5DB"
+                />
+              </View>
             </View>
-            <Text style={styles.scoreDash}>–</Text>
-            <View style={styles.scoreInputBox}>
-              <Text style={styles.scoreInputLabel} numberOfLines={1}>{awayTeam}</Text>
-              <TextInput
-                style={styles.scoreInput}
-                keyboardType="number-pad"
-                maxLength={2}
-                value={awayGoals}
-                onChangeText={setAwayGoals}
-                placeholder="0"
-                placeholderTextColor={Colors.gray}
-              />
-            </View>
+
+            <TouchableOpacity
+              style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <>
+                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                    <Text style={styles.saveBtnTxt}>
+                      {savedScore ? 'Actualizar Resultado' : 'Guardar Resultado'}
+                    </Text>
+                  </>
+              }
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.8}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                <Text style={styles.saveBtnTxt}>Guardar Resultado</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
           {/* ── Nómina ── */}
-          <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>Nómina</Text>
-          {rosterLoading ? (
-            <ActivityIndicator color={RED} style={{ marginVertical: 8 }} />
-          ) : roster.filter(p => p.convocado).length > 0 ? (
-            roster.filter(p => p.convocado).map(p => (
-              <View key={p.pupil_id} style={styles.playerRow}>
-                <View style={styles.playerNumber}>
-                  <Text style={styles.playerNumberTxt}>{p.number ?? '—'}</Text>
-                </View>
-                <Text style={styles.playerName} numberOfLines={1}>{p.name}</Text>
-                {p.position ? <Text style={styles.playerPos}>{p.position}</Text> : null}
-                <View style={[
-                  styles.rosterChip,
-                  p.status === 'confirmed'  ? { backgroundColor: GREEN + '20' } :
-                  p.status === 'declined'   ? { backgroundColor: RED   + '20' } :
-                  { backgroundColor: '#F3F4F6' },
-                ]}>
-                  <Text style={[
-                    styles.rosterChipTxt,
-                    p.status === 'confirmed' ? { color: GREEN } :
-                    p.status === 'declined'  ? { color: RED   } : { color: Colors.gray },
-                  ]}>
-                    {p.status === 'confirmed' ? 'Confirmado' :
-                     p.status === 'declined'  ? 'No asiste'  : 'Pendiente'}
-                  </Text>
-                </View>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="people" size={16} color={BLUE} />
+              <Text style={styles.sectionTitle}>
+                {'Nómina'}
+                {convocados.length > 0
+                  ? <Text style={styles.sectionBadge}> {convocados.length}</Text>
+                  : null}
+              </Text>
+            </View>
+
+            {rosterLoading ? (
+              <View style={styles.emptyBox}>
+                <ActivityIndicator color={RED} />
+                <Text style={styles.emptyTxt}>Cargando nómina…</Text>
               </View>
-            ))
-          ) : (
-            <Text style={styles.emptyTxt}>Sin nómina registrada</Text>
-          )}
+            ) : convocados.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Ionicons name="people-outline" size={32} color="#D1D5DB" />
+                <Text style={styles.emptyTxt}>Sin nómina registrada para este partido</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {confirmed.length > 0 && (
+                  <RosterGroup
+                    label={`Confirmados · ${confirmed.length}`}
+                    color={GREEN}
+                    icon="checkmark-circle"
+                    players={confirmed}
+                  />
+                )}
+                {pending.length > 0 && (
+                  <RosterGroup
+                    label={`Pendiente · ${pending.length}`}
+                    color="#92400E"
+                    icon="time-outline"
+                    players={pending}
+                  />
+                )}
+                {declined.length > 0 && (
+                  <RosterGroup
+                    label={`No asiste · ${declined.length}`}
+                    color={RED}
+                    icon="close-circle"
+                    players={declined}
+                  />
+                )}
+              </View>
+            )}
+          </View>
 
           {/* ── Asistencia ── */}
-          <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>Asistencia</Text>
-
-          {item.attendance_stats ? (
-            <View style={styles.statsCard}>
-              <StatItem icon="checkmark-circle" color={GREEN}      label="Presentes" value={item.attendance_stats.present} />
-              <StatItem icon="close-circle"     color={RED}        label="Ausentes"  value={item.attendance_stats.absent} />
-              <StatItem icon="people"           color="#2563EB"    label="Total"     value={item.attendance_stats.total} />
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="clipboard" size={16} color={GREEN} />
+              <Text style={styles.sectionTitle}>Asistencia</Text>
             </View>
-          ) : null}
 
-          <TouchableOpacity
-            style={[styles.attendBtn, openingSession && { opacity: 0.6 }]}
-            onPress={openAttendance}
-            disabled={openingSession}
-            activeOpacity={0.8}
-          >
-            {openingSession ? (
-              <ActivityIndicator size="small" color={GREEN} />
+            {item.attendance_stats ? (
+              <View style={styles.statsRow}>
+                <StatBadge value={item.attendance_stats.present} label="Presentes" color={GREEN} bg="#DCFCE7" />
+                <StatBadge value={item.attendance_stats.absent}  label="Ausentes"  color={RED}   bg={RED_BG} />
+                <StatBadge value={item.attendance_stats.total}   label="Total"     color={BLUE}  bg="#EFF6FF" />
+              </View>
             ) : (
-              <Ionicons name="clipboard-outline" size={18} color={GREEN} />
+              <Text style={styles.sectionSub}>Aún no hay registros de asistencia para este partido.</Text>
             )}
-            <Text style={styles.attendBtnTxt}>
-              {item.session_id ? 'Ver Asistencia' : 'Abrir Sesión de Asistencia'}
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={GREEN} />
-          </TouchableOpacity>
 
+            <TouchableOpacity
+              style={[styles.attendBtn, openingSession && { opacity: 0.6 }]}
+              onPress={openAttendance}
+              disabled={openingSession}
+              activeOpacity={0.8}
+            >
+              <View style={styles.attendIcon}>
+                {openingSession
+                  ? <ActivityIndicator size="small" color={GREEN} />
+                  : <Ionicons name="clipboard-outline" size={20} color={GREEN} />
+                }
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.attendBtnTitle}>
+                  {item.session_id ? 'Ver Asistencia' : 'Abrir Sesión de Asistencia'}
+                </Text>
+                <Text style={styles.attendBtnSub}>
+                  {item.session_id
+                    ? 'Sesión ya iniciada — ver registros'
+                    : 'Crea una sesión y marca asistentes'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={GREEN} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 16 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+/* ── Sub-components ───────────────────────────────────────── */
+
+function RosterGroup({ label, color, icon, players }: {
+  label: string; color: string; icon: string; players: ConvocadoEstado[];
+}) {
+  return (
+    <View style={rg.wrap}>
+      <View style={rg.header}>
+        <Ionicons name={icon as any} size={13} color={color} />
+        <Text style={[rg.label, { color }]}>{label}</Text>
+      </View>
+      {players.map(p => (
+        <View key={p.pupil_id} style={rg.row}>
+          <View style={[rg.numBadge, { backgroundColor: color + '20' }]}>
+            <Text style={[rg.numTxt, { color }]}>{p.number ?? '—'}</Text>
+          </View>
+          <Text style={rg.name} numberOfLines={1}>{p.name}</Text>
+          {p.position ? <Text style={rg.pos}>{p.position}</Text> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function StatBadge({ value, label, color, bg }: {
+  value: number; label: string; color: string; bg: string;
+}) {
+  return (
+    <View style={[sb.box, { backgroundColor: bg }]}>
+      <Text style={[sb.num, { color }]}>{value}</Text>
+      <Text style={[sb.lbl, { color }]}>{label}</Text>
+    </View>
+  );
+}
+
+/* ── Styles ───────────────────────────────────────────────── */
+
 const styles = StyleSheet.create({
-  safe:             { flex: 1, backgroundColor: Colors.surf },
-  header:           { backgroundColor: RED, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backBtn:          { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle:      { flex: 1, fontSize: 16, fontWeight: '800', color: '#fff', textAlign: 'center' },
-  scroll:           { paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
+  safe:   { flex: 1, backgroundColor: '#F1F5F9' },
+  scroll: { paddingHorizontal: 16, paddingTop: 16, gap: 14 },
 
-  dateRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dateTxt:          { flex: 1, fontSize: 12, color: Colors.gray },
-  statusChip:       { backgroundColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  statusDone:       { backgroundColor: GREEN + '20' },
-  statusTxt:        { fontSize: 10, fontWeight: '800', color: Colors.gray },
+  /* Header */
+  header:      { backgroundColor: RED, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  backBtn:     { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, fontSize: 15, fontWeight: '800', color: '#fff', textAlign: 'center' },
 
-  scoreBoard:       { backgroundColor: '#fff', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Colors.light, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  teamCol:          { flex: 1, alignItems: 'center', gap: 6 },
-  teamShield:       { width: 52, height: 52, borderRadius: 26, borderWidth: 2, backgroundColor: Colors.surf, alignItems: 'center', justifyContent: 'center' },
-  teamName:         { fontSize: 12, fontWeight: '700', color: Colors.black, textAlign: 'center', maxWidth: 100 },
-  teamLabel:        { fontSize: 9, fontWeight: '800', color: Colors.gray, letterSpacing: 0.5 },
-  scoreCenter:      { paddingHorizontal: 12, alignItems: 'center' },
-  scoreDisplay:     { fontSize: 26, fontWeight: '900', color: Colors.black },
-  scoreVs:          { fontSize: 18, fontWeight: '900', color: Colors.gray },
+  /* Hero card */
+  heroCard:    { backgroundColor: '#fff', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 10, elevation: 3, gap: 16 },
+  heroTopRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statusChip:  { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  statusTxt:   { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  heroDate:    { fontSize: 12, color: Colors.gray, fontWeight: '500' },
 
-  infoRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  infoTxt:          { fontSize: 13, color: Colors.gray, flex: 1 },
+  scoreboard:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  teamBlock:   { flex: 1, alignItems: 'center', gap: 8 },
+  teamShield:  { width: 60, height: 60, borderRadius: 30, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  teamName:    { fontSize: 13, fontWeight: '800', color: Colors.black, textAlign: 'center', lineHeight: 18 },
+  localBadge:  { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  localTxt:    { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
 
-  divider:          { height: 1, backgroundColor: Colors.light, marginVertical: 4 },
-  sectionTitle:     { fontSize: 14, fontWeight: '800', color: Colors.black },
-  sectionSub:       { fontSize: 12, color: Colors.gray, marginTop: -4 },
+  scoreCenter: { alignItems: 'center', paddingHorizontal: 8 },
+  scoreNum:    { fontSize: 42, fontWeight: '900', color: Colors.black, lineHeight: 46 },
+  scoreSep:    { fontSize: 20, fontWeight: '400', color: Colors.gray, lineHeight: 24 },
+  vsText:      { fontSize: 22, fontWeight: '900', color: '#D1D5DB' },
 
-  scoreInputRow:    { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 16 },
-  scoreInputBox:    { alignItems: 'center', gap: 6 },
-  scoreInputLabel:  { fontSize: 11, color: Colors.gray, fontWeight: '600', maxWidth: 90, textAlign: 'center' },
-  scoreInput:       { width: 80, height: 80, borderRadius: 14, backgroundColor: '#fff', borderWidth: 2, borderColor: Colors.light, fontSize: 34, fontWeight: '900', color: Colors.black, textAlign: 'center' },
-  scoreDash:        { fontSize: 26, fontWeight: '900', color: Colors.gray, paddingBottom: 24 },
+  heroInfo:    { gap: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 12 },
+  infoRow:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  infoTxt:     { fontSize: 13, color: Colors.gray, flex: 1 },
 
-  saveBtn:          { backgroundColor: RED, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
-  saveBtnTxt:       { fontSize: 15, fontWeight: '800', color: '#fff' },
+  /* Section */
+  section:       { backgroundColor: '#fff', borderRadius: 16, padding: 18, gap: 14, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionTitle:  { fontSize: 15, fontWeight: '800', color: Colors.black },
+  sectionBadge:  { fontSize: 15, fontWeight: '400', color: Colors.gray },
+  sectionSub:    { fontSize: 12, color: Colors.gray, lineHeight: 18, marginTop: -6 },
 
-  statsCard:        { backgroundColor: '#fff', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-around', borderWidth: 1, borderColor: Colors.light },
-  statItem:         { alignItems: 'center', gap: 4 },
-  statValue:        { fontSize: 22, fontWeight: '900', color: Colors.black },
-  statLabel:        { fontSize: 10, color: Colors.gray, fontWeight: '600' },
+  /* Score inputs */
+  scoreInputRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  scoreInputBlock: { flex: 1, alignItems: 'center', gap: 8 },
+  scoreInputTeam:  { fontSize: 12, fontWeight: '700', color: Colors.gray, textAlign: 'center', lineHeight: 16 },
+  scoreInput:      { width: '100%', height: 88, borderRadius: 16, backgroundColor: '#F9FAFB', borderWidth: 2, borderColor: '#E5E7EB', fontSize: 40, fontWeight: '900', color: Colors.black, textAlign: 'center' },
+  scoreInputActive: { borderColor: RED, backgroundColor: RED_BG },
+  scoreDashBlock:  { paddingBottom: 20 },
+  scoreDash:       { fontSize: 30, fontWeight: '300', color: '#D1D5DB' },
 
-  attendBtn:        { backgroundColor: '#fff', borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderWidth: 1, borderColor: GREEN + '40' },
-  attendBtnTxt:     { flex: 1, fontSize: 14, fontWeight: '700', color: GREEN },
+  saveBtn:    { backgroundColor: RED, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15 },
+  saveBtnTxt: { fontSize: 15, fontWeight: '800', color: '#fff' },
 
-  playerRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: Colors.light },
-  playerNumber:     { width: 30, height: 30, borderRadius: 15, backgroundColor: RED + '15', alignItems: 'center', justifyContent: 'center' },
-  playerNumberTxt:  { fontSize: 12, fontWeight: '900', color: RED },
-  playerName:       { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.black },
-  playerPos:        { fontSize: 11, color: Colors.gray },
-  rosterChip:       { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
-  rosterChipTxt:    { fontSize: 10, fontWeight: '700' },
-  emptyTxt:         { fontSize: 12, color: Colors.gray, textAlign: 'center', paddingVertical: 8 },
+  /* Stats */
+  statsRow: { flexDirection: 'row', gap: 10 },
+
+  /* Attend button */
+  attendBtn:      { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: GREEN + '50', borderRadius: 14, padding: 14 },
+  attendIcon:     { width: 40, height: 40, borderRadius: 20, backgroundColor: GREEN + '15', alignItems: 'center', justifyContent: 'center' },
+  attendBtnTitle: { fontSize: 14, fontWeight: '800', color: GREEN },
+  attendBtnSub:   { fontSize: 11, color: Colors.gray, marginTop: 1 },
+
+  /* Empty */
+  emptyBox: { alignItems: 'center', gap: 8, paddingVertical: 12 },
+  emptyTxt: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
 });
+
+const rg = StyleSheet.create({
+  wrap:     { gap: 6 },
+  header:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  label:    { fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
+  row:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F9FAFB', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
+  numBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  numTxt:   { fontSize: 12, fontWeight: '900' },
+  name:     { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.black },
+  pos:      { fontSize: 11, color: Colors.gray },
+});
+
+const sb = StyleSheet.create({
+  box: { flex: 1, alignItems: 'center', borderRadius: 12, paddingVertical: 12, gap: 4 },
+  num: { fontSize: 26, fontWeight: '900' },
+  lbl: { fontSize: 10, fontWeight: '700' },
+});
+
+
