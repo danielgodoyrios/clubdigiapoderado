@@ -245,6 +245,26 @@ export type ScheduleSessionResult = {
   created: boolean;
 };
 
+export type AgendaItem = {
+  item_type: 'training' | 'match_session' | 'event_session' | 'match' | 'club_event' | 'pending_schedule';
+  date: string;                  // "YYYY-MM-DD"
+  time: string | null;           // "HH:MM"
+  end_time: string | null;
+  title: string;
+  subtitle: string | null;
+  location: string | null;
+  team_id: number | null;
+  team_name: string | null;
+  status: 'upcoming' | 'finished' | 'cancelled' | 'scheduled' | 'played' | 'pending';
+  session_id: number | null;
+  match_id: number | null;
+  club_event_id: number | null;
+  schedule_id: number | null;
+  can_take_attendance: boolean;
+  attendance_stats: { total: number; present: number; absent: number } | null;
+  score: string | null;
+};
+
 function mapProfesorPlayer(raw: any): ProfesorPlayer {
   return {
     id:             raw.id ?? raw.pupil_id,
@@ -422,6 +442,31 @@ export const Profesor = {
 
   createScheduleSession: (slotId: number, data: { date: string; team_id?: number }): Promise<ScheduleSessionResult> =>
     request<ScheduleSessionResult>('POST', `/profesor/schedule/${slotId}/session`, data),
+
+  // Agenda unificada (S.10)
+  agenda: async (from: string, to: string): Promise<AgendaItem[]> => {
+    const res = await request<any>('GET', `/profesor/agenda?from=${from}&to=${to}`);
+    const arr = Array.isArray(res) ? res : (res.data ?? []);
+    return arr.map((r: any): AgendaItem => ({
+      item_type:          r.item_type ?? 'training',
+      date:               r.date ?? '',
+      time:               r.time ?? null,
+      end_time:           r.end_time ?? null,
+      title:              r.title ?? '',
+      subtitle:           r.subtitle ?? null,
+      location:           r.location ?? null,
+      team_id:            r.team_id ?? null,
+      team_name:          r.team_name ?? null,
+      status:             r.status ?? 'upcoming',
+      session_id:         r.session_id ?? null,
+      match_id:           r.match_id ?? null,
+      club_event_id:      r.club_event_id ?? null,
+      schedule_id:        r.schedule_id ?? null,
+      can_take_attendance: r.can_take_attendance ?? false,
+      attendance_stats:   r.attendance_stats ?? null,
+      score:              r.score ?? null,
+    }));
+  },
 };
 
 export const Admin = {
