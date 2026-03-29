@@ -3018,3 +3018,374 @@ Actualiza m�ltiples m�dulos en una sola llamada.
 4. **M�dulos sin configurar:** si el endpoint responde vac�o o falla, la app muestra todos los m�dulos (modo degradado � fail open).
 
 ---
+
+---
+
+## Sección 8: ROL PROFESOR (Coach)
+
+Esta sección describe todos los endpoints necesarios para el rol de **Profesor / Entrenador** en ClubDigi. El profesor puede gestionar equipos asignados, pasar asistencia, crear eventos, convocar jugadores y registrar lesiones.
+
+**Autenticación:** Bearer token. El backend debe verificar que el usuario tiene rol `profesor` en el club indicado. El club ID se infiere del token o se pasa via header `X-Club-Id`.
+
+---
+
+### 8.1 Mis Equipos
+
+```
+GET /api/profesor/teams
+```
+**Auth:** Bearer `profesor`  
+**Response 200:**
+```json
+[
+  {
+    "id": 1,
+    "name": "Sub-15 Masculino",
+    "category": "Sub-15",
+    "sport": "Fútbol",
+    "player_count": 22,
+    "next_event_date": "2025-02-10"
+  }
+]
+```
+
+---
+
+### 8.2 Jugadores de un equipo
+
+```
+GET /api/profesor/teams/{team_id}/players
+```
+**Auth:** Bearer `profesor`  
+**Response 200:**
+```json
+[
+  {
+    "id": 101,
+    "name": "Martín López",
+    "rut": "12.345.678-9",
+    "photo": "https://cdn.example.com/foto.jpg",
+    "number": 10,
+    "position": "Delantero",
+    "birth_date": "2010-03-22",
+    "gender": "M",
+    "status": "active",
+    "is_federado": true,
+    "injuries_count": 0
+  }
+]
+```
+**`status` valores posibles:** `active`, `inactive`, `injured`
+
+---
+
+### 8.3 Eventos / Agenda del equipo
+
+```
+GET /api/profesor/teams/{team_id}/events?from={YYYY-MM-DD}&to={YYYY-MM-DD}
+```
+**Auth:** Bearer `profesor`  
+**Response 200:**
+```json
+[
+  {
+    "id": 55,
+    "type": "match",
+    "title": "Club A vs Club B",
+    "date": "2025-02-15",
+    "time": "18:00",
+    "location": "Estadio Municipal",
+    "venue": null,
+    "team_id": 1,
+    "team_name": "Sub-15 Masculino",
+    "home_team": "Club A",
+    "away_team": "Club B",
+    "status": "upcoming",
+    "convocados": 16,
+    "confirmados": 12
+  }
+]
+```
+**`type` valores:** `training`, `match`, `event`  
+**`status` valores:** `upcoming`, `live`, `finished`
+
+```
+GET /api/profesor/events?from={YYYY-MM-DD}&to={YYYY-MM-DD}
+```
+Igual que el anterior pero devuelve eventos de **todos** los equipos del profesor.
+
+---
+
+### 8.4 Crear evento
+
+```
+POST /api/profesor/events
+```
+**Auth:** Bearer `profesor`  
+**Body:**
+```json
+{
+  "team_id": 1,
+  "type": "match",
+  "title": "Sub-15 vs Rival FC",
+  "date": "2025-02-20",
+  "time": "15:30",
+  "location": "Estadio Municipal",
+  "home_team": "Sub-15 Masculino",
+  "away_team": "Rival FC"
+}
+```
+**Response 201:**
+```json
+{ "id": 56, "title": "Sub-15 vs Rival FC", "date": "2025-02-20" }
+```
+
+---
+
+### 8.5 Asistencia — Listar sesiones
+
+```
+GET /api/profesor/teams/{team_id}/attendance
+```
+**Auth:** Bearer `profesor`  
+**Response 200:**
+```json
+[
+  {
+    "id": 10,
+    "date": "2025-02-05",
+    "type": "training",
+    "title": "Entrenamiento",
+    "team_id": 1,
+    "submitted": true,
+    "total": 22,
+    "present_count": 18,
+    "absent_count": 4
+  }
+]
+```
+
+---
+
+### 8.6 Asistencia — Detalle de sesión
+
+```
+GET /api/profesor/attendance/{session_id}
+```
+**Auth:** Bearer `profesor`  
+**Response 200:**
+```json
+{
+  "id": 10,
+  "date": "2025-02-05",
+  "type": "training",
+  "title": "Entrenamiento",
+  "team_id": 1,
+  "submitted": false,
+  "total": 22,
+  "present_count": 0,
+  "absent_count": 0,
+  "records": [
+    {
+      "pupil_id": 101,
+      "name": "Martín López",
+      "photo": null,
+      "present": false,
+      "late": false,
+      "notes": null
+    }
+  ]
+}
+```
+
+---
+
+### 8.7 Asistencia — Crear sesión
+
+```
+POST /api/profesor/teams/{team_id}/attendance
+```
+**Auth:** Bearer `profesor`  
+**Body:**
+```json
+{
+  "date": "2025-02-06",
+  "type": "training",
+  "title": "Entrenamiento tarde"
+}
+```
+**Response 201:** Mismo formato que detalle de sesión (con `records` poblados desde el roster del equipo).
+
+---
+
+### 8.8 Asistencia — Enviar registros
+
+```
+POST /api/profesor/attendance/{session_id}/submit
+```
+**Auth:** Bearer `profesor`  
+**Body:**
+```json
+{
+  "records": [
+    { "pupil_id": 101, "present": true,  "late": false, "notes": null },
+    { "pupil_id": 102, "present": false, "late": false, "notes": "Permiso" },
+    { "pupil_id": 103, "present": true,  "late": true,  "notes": null }
+  ]
+}
+```
+**Response 200:**
+```json
+{ "ok": true, "session_id": 10, "present": 18, "absent": 4 }
+```
+
+---
+
+### 8.9 Convocatoria — Ver estado
+
+```
+GET /api/profesor/events/{event_id}/convocatoria
+```
+**Auth:** Bearer `profesor`  
+**Response 200:**
+```json
+[
+  {
+    "pupil_id": 101,
+    "name": "Martín López",
+    "photo": null,
+    "number": 10,
+    "position": "Delantero",
+    "convocado": true,
+    "status": "confirmed"
+  },
+  {
+    "pupil_id": 102,
+    "name": "Lucas Rodríguez",
+    "photo": null,
+    "number": 5,
+    "position": "Defensa",
+    "convocado": false,
+    "status": "pending"
+  }
+]
+```
+**`status` valores (solo aplica si `convocado: true`):** `pending`, `confirmed`, `declined`
+
+---
+
+### 8.10 Convocatoria — Actualizar
+
+```
+PUT /api/profesor/events/{event_id}/convocatoria
+```
+**Auth:** Bearer `profesor`  
+**Body:**
+```json
+{ "pupil_ids": [101, 103, 107, 110] }
+```
+**Response 200:**
+```json
+{ "ok": true, "convocados": 4 }
+```
+El backend reemplaza la lista completa de convocados. Los jugadores convocados recibirán una notificación push.
+
+---
+
+### 8.11 Lesiones — Por equipo
+
+```
+GET /api/profesor/teams/{team_id}/injuries
+```
+**Auth:** Bearer `profesor`  
+**Response 200:**
+```json
+[
+  {
+    "id": 1,
+    "pupil_id": 101,
+    "pupil_name": "Martín López",
+    "pupil_photo": null,
+    "type": "muscular",
+    "zone": "muslo",
+    "severity": "moderada",
+    "date_start": "2025-01-20",
+    "date_end": null,
+    "is_active": true,
+    "notes": "Desgarro grado 2"
+  }
+]
+```
+
+---
+
+### 8.12 Lesiones — Por jugador
+
+```
+GET /api/profesor/players/{pupil_id}/injuries
+```
+**Auth:** Bearer `profesor`  
+**Response 200:** Mismo formato que 8.11 (array de lesiones del jugador).
+
+---
+
+### 8.13 Lesiones — Registrar
+
+```
+POST /api/profesor/injuries
+```
+**Auth:** Bearer `profesor`  
+**Body:**
+```json
+{
+  "pupil_id": 101,
+  "team_id": 1,
+  "type": "muscular",
+  "zone": "muslo",
+  "severity": "moderada",
+  "date_start": "2025-02-06",
+  "notes": "Desgarro en entrenamiento"
+}
+```
+**`severity` valores:** `leve`, `moderada`, `grave`  
+**Response 201:**
+```json
+{ "id": 2, "pupil_id": 101, "is_active": true }
+```
+
+---
+
+### 8.14 Lesiones — Dar de alta
+
+```
+PATCH /api/profesor/injuries/{injury_id}/close
+```
+**Auth:** Bearer `profesor`  
+**Body:**
+```json
+{
+  "date_end": "2025-02-20",
+  "notes": "Alta médica. Retorna a actividad normal."
+}
+```
+**Response 200:**
+```json
+{ "ok": true, "injury_id": 2, "is_active": false }
+```
+
+---
+
+### 8.15 Restricciones de módulos para el rol profesor
+
+Los módulos de la Sección 7 aplican también al rol profesor. La app oculta las secciones según las claves habilitadas:
+
+| Módulo (clave)    | Qué se oculta en el rol Profesor        |
+|-------------------|-----------------------------------------|
+| `asistencia`      | Acceso rápido "Pasar Asistencia", tab   |
+| `convocatorias`   | Acción "Convocar" y `ConvocatoriaGestion` |
+| `agenda`          | Tab "Agenda" completo                   |
+| `lesiones`        | Sección lesiones en Home, LesionesEquipo |
+
+Los endpoints del profesor siempre están disponibles en el backend; es la app quien filtra la UI según los módulos.
+
+---

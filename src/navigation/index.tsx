@@ -57,13 +57,53 @@ import EventoDetalleScreen       from '../screens/apoderado/EventoDetalleScreen'
 import { NotificacionesScreen } from '../screens/apoderado/NotificacionesScreen';
 
 // ── Profesor ─────────────────────────────────────────────────
-import ProfesorHomeScreen from '../screens/profesor/HomeScreen';
+import ProfesorHomeScreen         from '../screens/profesor/HomeScreen';
+import MisEquiposScreen           from '../screens/profesor/MisEquiposScreen';
+import ProfesorAgendaScreen       from '../screens/profesor/ProfesorAgendaScreen';
+import AsistenciaProfesorScreen   from '../screens/profesor/AsistenciaProfesorScreen';
+import ConvocatoriaGestionScreen  from '../screens/profesor/ConvocatoriaGestionScreen';
+import LesionesEquipoScreen       from '../screens/profesor/LesionesEquipoScreen';
+import RegistroLesionScreen       from '../screens/profesor/RegistroLesionScreen';
+import CrearEventoScreen          from '../screens/profesor/CrearEventoScreen';
 
 // ── Admin ─────────────────────────────────────────────────────
 import AdminHomeScreen from '../screens/admin/HomeScreen';
 
 const Stack = createStackNavigator();
 const Tab   = createBottomTabNavigator();
+
+const PROFESOR_GREEN = '#0F7D4B';
+
+function ProfesorTabs() {
+  const insets = useSafeAreaInsets();
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: {
+          borderTopColor: Colors.light,
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
+        },
+        tabBarActiveTintColor:   PROFESOR_GREEN,
+        tabBarInactiveTintColor: Colors.gray,
+        tabBarLabelStyle: { fontSize: 9, fontWeight: '700' },
+        tabBarIcon: ({ color }) => {
+          const icons: Record<string, string> = {
+            Inicio:   'home-outline',
+            Equipos:  'shield-outline',
+            Agenda:   'calendar-outline',
+          };
+          return <Ionicons name={(icons[route.name] ?? 'ellipse-outline') as any} size={20} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Inicio"  component={ProfesorHomeScreen} />
+      <Tab.Screen name="Equipos" component={MisEquiposScreen} />
+      <Tab.Screen name="Agenda"  component={ProfesorAgendaScreen} />
+    </Tab.Navigator>
+  );
+}
 
 function ApoderadoTabs() {
   const insets = useSafeAreaInsets();
@@ -114,7 +154,7 @@ function AuthStack() {
 // ── App stack (autenticado) ───────────────────────────────────
 function AppStack({ role }: { role: string }) {
   const initialRoute =
-    role === 'profesor' ? 'ProfesorHome' :
+    role === 'profesor' ? 'ProfesorTabs' :
     role === 'admin'    ? 'AdminHome'    :
     'AppTabs';
 
@@ -156,7 +196,13 @@ function AppStack({ role }: { role: string }) {
       <Stack.Screen name="Notificaciones"        component={NotificacionesScreen} />
 
       {/* ── Profesor ── */}
-      <Stack.Screen name="ProfesorHome" component={ProfesorHomeScreen} />
+      <Stack.Screen name="ProfesorTabs"           component={ProfesorTabs} />
+      <Stack.Screen name="ProfesorHome"           component={ProfesorHomeScreen} />
+      <Stack.Screen name="AsistenciaProfesor"     component={AsistenciaProfesorScreen} />
+      <Stack.Screen name="ConvocatoriaGestion"    component={ConvocatoriaGestionScreen} />
+      <Stack.Screen name="LesionesEquipo"         component={LesionesEquipoScreen} />
+      <Stack.Screen name="RegistroLesion"         component={RegistroLesionScreen} />
+      <Stack.Screen name="CrearEvento"            component={CrearEventoScreen} />
 
       {/* ── Admin ── */}
       <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
