@@ -59,8 +59,8 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
     const to   = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
 
     Events.list(id, from, to, 'match')
-      .then(evs => setNextMatch(evs[0] ?? null))
-      .catch(() => {});
+      .then(evs => { console.log('[Home] events:', JSON.stringify(evs)); setNextMatch(evs[0] ?? null); })
+      .catch(err => console.warn('[Home] Events error:', JSON.stringify(err)));
 
     Attendance.summary(id)
       .then(data => {

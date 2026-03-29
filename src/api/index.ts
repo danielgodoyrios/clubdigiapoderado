@@ -244,7 +244,10 @@ export const Events = {
     const params = new URLSearchParams({ type });
     if (from) params.append('from', from);
     if (to)   params.append('to', to);
-    const res = await request<any[] | { data: any[] }>('GET', `/apoderado/pupils/${pupilId}/events?${params}`);
+    const url = `/apoderado/pupils/${pupilId}/events?${params}`;
+    console.log('[Events] GET', url);
+    const res = await request<any[] | { data: any[] }>('GET', url);
+    console.log('[Events] raw response:', JSON.stringify(res));
     const raw = Array.isArray(res) ? res : ((res as any).data ?? []);
     return raw.filter((e: any) => e && e.id != null).map(mapEvent);
   },
