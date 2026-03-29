@@ -81,7 +81,7 @@ export default function PerfilScreen({ navigation }: any) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.pupilName}>{p.name}</Text>
-              <Text style={styles.pupilMeta}>{p.category} · {p.team}</Text>
+              <Text style={styles.pupilMeta}>{[p.category, p.team].filter(Boolean).join(' · ') || 'Sin categoría'}</Text>
               <Text style={styles.pupilLic}>{p.rut}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.light} />

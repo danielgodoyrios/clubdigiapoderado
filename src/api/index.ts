@@ -175,13 +175,21 @@ function toAbsoluteUrl(url: string | null | undefined): string | null {
   return STORAGE_BASE + (url.startsWith('/') ? '' : '/') + url;
 }
 
+function toStr(v: any): string | null {
+  if (v == null) return null;
+  if (typeof v === 'string') return v || null;
+  // Backend may return object { id, name, ... } instead of plain string
+  if (typeof v === 'object') return v.name ?? v.label ?? v.category ?? String(v) || null;
+  return String(v) || null;
+}
+
 function mapPupil(raw: PupilRaw): Pupil {
   return {
     id:         raw.id,
     name:       raw.full_name ?? `${raw.name} ${raw.lastname}`.trim(),
     rut:        raw.rut,
-    team:       raw.team ?? null,
-    category:   raw.category ?? null,
+    team:       toStr(raw.team),
+    category:   toStr(raw.category),
     photo:      toAbsoluteUrl((raw as any).photo_url ?? raw.photo),
     birth_date: raw.birth_date ?? null,
     gender:     raw.gender ?? null,
