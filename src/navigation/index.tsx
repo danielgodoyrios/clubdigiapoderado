@@ -50,6 +50,7 @@ import TiendaScreen              from '../screens/apoderado/TiendaScreen';
 import InfoInstitucionalScreen   from '../screens/apoderado/InfoInstitucionalScreen';
 import ConsultasScreen           from '../screens/apoderado/ConsultasScreen';
 import PupilPerfilScreen         from '../screens/apoderado/PupilPerfilScreen';
+import MisDeportistasScreen      from '../screens/apoderado/MisDeportistasScreen';
 
 // ── Notificaciones ───────────────────────────────────────────
 import { NotificacionesScreen } from '../screens/apoderado/NotificacionesScreen';
@@ -149,6 +150,7 @@ function AppStack({ role }: { role: string }) {
       <Stack.Screen name="InfoInstitucional"    component={InfoInstitucionalScreen} />
       <Stack.Screen name="Consultas"            component={ConsultasScreen} />
       <Stack.Screen name="PupilPerfil"          component={PupilPerfilScreen} />
+      <Stack.Screen name="MisDeportistas"       component={MisDeportistasScreen} />
       <Stack.Screen name="Notificaciones"        component={NotificacionesScreen} />
 
       {/* ── Profesor ── */}

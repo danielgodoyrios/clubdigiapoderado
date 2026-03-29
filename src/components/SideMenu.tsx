@@ -41,6 +41,12 @@ const SECTIONS = [
     ],
   },
   {
+    title: 'Mis Deportistas',
+    items: [
+      { icon: 'people-outline', label: 'Mis Deportistas', screen: 'MisDeportistas' },
+    ],
+  },
+  {
     title: 'Mi Cuenta',
     items: [
       { icon: 'person-outline', label: 'Perfil', screen: 'Perfil' },
