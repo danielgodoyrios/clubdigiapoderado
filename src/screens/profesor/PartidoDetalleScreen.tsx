@@ -65,14 +65,12 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
       .finally(() => setRosterLoading(false));
   }, []);
 
+  // LOCAL = equipo del club (team_name), VISITA = rival ingresado por el usuario
+  // Prioridad: home_team/away_team del backend → parseo de título "A vs B" → fallbacks
   const titleParts = item?.title?.split(/\s+vs\.?\s+/i) ?? [];
-  const homeTeam = titleParts[0]?.trim() || item?.team_name || 'Local';
-  const awayTeam = titleParts[1]?.trim() || 'Visita';
-
-  console.log('[PartidoDetalle] item.title:', item?.title);
-  console.log('[PartidoDetalle] item.team_name:', item?.team_name);
-  console.log('[PartidoDetalle] titleParts[0] → homeTeam (LOCAL, shield ROJO):', homeTeam);
-  console.log('[PartidoDetalle] titleParts[1] → awayTeam (VISITA, shield GRIS):', awayTeam);
+  const hasTitleVs = titleParts.length >= 2;
+  const homeTeam = item?.home_team ?? item?.team_name ?? (hasTitleVs ? titleParts[0]?.trim() : null) ?? 'Local';
+  const awayTeam = item?.away_team ?? (hasTitleVs ? titleParts[1]?.trim() : null) ?? 'Visita';
 
   const status = statusConfig(item?.status ?? '');
 

@@ -263,6 +263,8 @@ export type AgendaItem = {
   can_take_attendance: boolean;
   attendance_stats: { total: number; present: number; absent: number } | null;
   score: string | null;
+  home_team: string | null;
+  away_team: string | null;
 };
 
 function mapProfesorPlayer(raw: any): ProfesorPlayer {
@@ -465,6 +467,8 @@ export const Profesor = {
       can_take_attendance: r.can_take_attendance ?? false,
       attendance_stats:   r.attendance_stats ?? null,
       score:              r.score ?? null,
+      home_team:          r.home_team ?? null,
+      away_team:          r.away_team ?? null,
     }));
   },
 
