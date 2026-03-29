@@ -223,6 +223,13 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
                     </Text>
                   </View>
                   <View style={{ flex: 1, marginLeft: 10 }}>
+                    {/* Día en palabras arriba */}
+                    {nextMatch.date && (() => {
+                      const [y, m, d] = nextMatch.date.split('-').map(Number);
+                      const dow = new Date(y, m - 1, d).getDay();
+                      const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+                      return <Text style={styles.matchDayName}>{dias[dow]}</Text>;
+                    })()}
                     {nextMatch.home_team && nextMatch.away_team ? (
                       <View style={styles.vsInline}>
                         <Text style={styles.matchTeamTxt} numberOfLines={1}>{nextMatch.home_team}</Text>
@@ -412,6 +419,7 @@ const styles = StyleSheet.create({
   matchDateBadge: { width: 40, alignItems: 'center', backgroundColor: BLUE + '12', borderRadius: 8, paddingVertical: 5 },
   matchDateDay:   { fontSize: 18, fontWeight: '900', color: BLUE, lineHeight: 22 },
   matchDateMon:   { fontSize: 8, fontWeight: '700', color: BLUE, letterSpacing: 0.5 },
+  matchDayName:   { fontSize: 10, fontWeight: '700', color: Colors.amber, letterSpacing: 0.3, marginBottom: 3 },
   vsInline:       { flexDirection: 'row', alignItems: 'center', gap: 6 },
   matchTeamTxt:   { flex: 1, fontSize: 12, fontWeight: '800', color: Colors.black },
   vsChip:         { backgroundColor: Colors.surf, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },

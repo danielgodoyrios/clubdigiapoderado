@@ -222,6 +222,11 @@ export type Event = {
   away_team?: string;
   status?: 'upcoming' | 'live' | 'finished';
   my_status?: 'confirmed' | 'pending' | 'declined' | null;
+  jersey_color?: string | null;       // color camiseta para el partido
+  jersey_color_hex?: string | null;   // hex del color, ej. "#FF0000"
+  presentation_time?: string | null;  // hora presentación, ej. "18:30"
+  home_away?: 'home' | 'away' | null; // si jugamos de local o visita
+  notes?: string | null;              // instrucciones del DT
 };
 
 export type RosterPlayer = {
@@ -241,18 +246,23 @@ function mapEvent(raw: any): Event {
     ? rawDate.slice(11, 16)   // "20:00" from "2026-03-25T20:00:00Z"
     : (raw.time ?? undefined);
   return {
-    id:        raw.id,
-    type:      raw.type ?? 'event',
-    title:     raw.title ?? raw.label ?? raw.name ?? 'Evento',
-    date:      dateOnly,
-    time:      timeOnly,
-    location:  raw.location ?? raw.venue ?? undefined,
-    venue:     raw.venue ?? raw.location ?? undefined,
-    league:    raw.league ?? undefined,
-    home_team: raw.home_team ?? undefined,
-    away_team: raw.away_team ?? undefined,
-    status:    raw.status ?? 'upcoming',
-    my_status: raw.my_status ?? raw.convocatoria_status ?? null,
+    id:                raw.id,
+    type:              raw.type ?? 'event',
+    title:             raw.title ?? raw.label ?? raw.name ?? 'Evento',
+    date:              dateOnly,
+    time:              timeOnly,
+    location:          raw.location ?? raw.venue ?? undefined,
+    venue:             raw.venue ?? raw.location ?? undefined,
+    league:            raw.league ?? undefined,
+    home_team:         raw.home_team ?? undefined,
+    away_team:         raw.away_team ?? undefined,
+    status:            raw.status ?? 'upcoming',
+    my_status:         raw.my_status ?? raw.convocatoria_status ?? null,
+    jersey_color:      raw.jersey_color ?? raw.color_camiseta ?? null,
+    jersey_color_hex:  raw.jersey_color_hex ?? raw.color_hex ?? null,
+    presentation_time: raw.presentation_time ?? raw.hora_presentacion ?? null,
+    home_away:         raw.home_away ?? raw.local_visita ?? null,
+    notes:             raw.notes ?? raw.instrucciones ?? raw.description ?? null,
   };
 }
 

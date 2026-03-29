@@ -10,11 +10,13 @@ import { Events, Event, RosterPlayer } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 
 const BLUE  = Colors.blue;
+const DAYS_ES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 function fmtDateLong(dateStr: string): string {
-  const [, mm, dd] = dateStr.split('-');
-  return `${parseInt(dd)} ${MONTHS_SHORT[parseInt(mm) - 1]}`;
+  const [y, mm, dd] = dateStr.split('-').map(Number);
+  const dow = new Date(y, mm - 1, dd).getDay();
+  return `${DAYS_ES[dow]}, ${parseInt(String(dd))} ${MONTHS_SHORT[mm - 1]}`;
 }
 
 function getTypeLabel(type: string) {
@@ -150,9 +152,19 @@ export default function EventoDetalleScreen({ route, navigation }: any) {
         {/* VS / Título */}
         {isMatch && event.home_team && event.away_team ? (
           <View style={styles.vsRow}>
-            <Text style={styles.teamTxt} numberOfLines={2}>{event.home_team}</Text>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              {event.home_away === 'home' && (
+                <View style={styles.localChip}><Text style={styles.localChipTxt}>LOCAL</Text></View>
+              )}
+              <Text style={styles.teamTxt} numberOfLines={2}>{event.home_team}</Text>
+            </View>
             <View style={styles.vsBubble}><Text style={styles.vsTxt}>VS</Text></View>
-            <Text style={styles.teamTxt} numberOfLines={2}>{event.away_team}</Text>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              {event.home_away === 'away' && (
+                <View style={[styles.localChip, { backgroundColor: 'rgba(255,255,255,0.12)' }]}><Text style={styles.localChipTxt}>VISITA</Text></View>
+              )}
+              <Text style={styles.teamTxt} numberOfLines={2}>{event.away_team}</Text>
+            </View>
           </View>
         ) : (
           <Text style={styles.eventTitle}>{event.title}</Text>
@@ -174,6 +186,70 @@ export default function EventoDetalleScreen({ route, navigation }: any) {
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+
+        {/* ── Info rápida del partido ── */}
+        {(event.presentation_time || event.jersey_color || event.home_away || event.notes) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLbl}>DETALLES DEL PARTIDO</Text>
+            <View style={styles.card}>
+
+              {/* Hora de presentación */}
+              {event.presentation_time && (
+                <View style={styles.detailRow}>
+                  <View style={[styles.detailIcon, { backgroundColor: Colors.amber + '20' }]}>
+                    <Ionicons name="time-outline" size={16} color={Colors.amber} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.detailLabel}>Hora de presentación</Text>
+                    <Text style={styles.detailValue}>{event.presentation_time} hrs</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Color de camiseta */}
+              {event.jersey_color && (
+                <View style={[styles.detailRow, { marginTop: event.presentation_time ? 12 : 0 }]}>
+                  <View style={[styles.detailIcon, { backgroundColor: event.jersey_color_hex ? event.jersey_color_hex + '30' : Colors.blue + '20' }]}>
+                    <Ionicons name="shirt-outline" size={16} color={event.jersey_color_hex ?? Colors.blue} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.detailLabel}>Color de camiseta</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                      {event.jersey_color_hex && (
+                        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: event.jersey_color_hex, borderWidth: 1.5, borderColor: Colors.light }} />
+                      )}
+                      <Text style={styles.detailValue}>{event.jersey_color}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Local / Visita */}
+              {event.home_away && (
+                <View style={[styles.detailRow, { marginTop: (event.presentation_time || event.jersey_color) ? 12 : 0 }]}>
+                  <View style={[styles.detailIcon, { backgroundColor: Colors.blue + '20' }]}>
+                    <Ionicons name={event.home_away === 'home' ? 'home-outline' : 'airplane-outline'} size={16} color={Colors.blue} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.detailLabel}>Condición</Text>
+                    <Text style={styles.detailValue}>{event.home_away === 'home' ? 'Partido de Local' : 'Partido de Visita'}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Notas del DT */}
+              {event.notes && (
+                <View style={[styles.notesBox, { marginTop: (event.presentation_time || event.jersey_color || event.home_away) ? 12 : 0 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <Ionicons name="megaphone-outline" size={14} color={Colors.blue} />
+                    <Text style={[styles.detailLabel, { color: Colors.blue }]}>Instrucciones del DT</Text>
+                  </View>
+                  <Text style={styles.notesTxt}>{event.notes}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* ── Convocatoria ── */}
         {myStatus !== null && (
@@ -302,6 +378,8 @@ const styles = StyleSheet.create({
   headerDate:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '600', marginBottom: 14 },
   vsRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   teamTxt:      { flex: 1, fontSize: 16, fontWeight: '800', color: '#fff', textAlign: 'center', lineHeight: 22 },
+  localChip:    { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4 },
+  localChipTxt: { fontSize: 8, fontWeight: '800', color: '#fff', letterSpacing: 1 },
   vsBubble:     { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   vsTxt:        { fontSize: 11, fontWeight: '900', color: '#fff' },
   eventTitle:   { fontSize: 18, fontWeight: '800', color: '#fff', marginBottom: 14, lineHeight: 24 },
@@ -351,4 +429,12 @@ const styles = StyleSheet.create({
   groupHeader:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   groupDot:     { width: 7, height: 7, borderRadius: 4 },
   groupLbl:     { fontSize: 11, fontWeight: '700', color: Colors.gray },
+
+  // Detalles partido
+  detailRow:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  detailIcon:   { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  detailLabel:  { fontSize: 10, fontWeight: '700', color: Colors.gray, letterSpacing: 0.5, textTransform: 'uppercase' },
+  detailValue:  { fontSize: 14, fontWeight: '700', color: Colors.black, marginTop: 1 },
+  notesBox:     { backgroundColor: Colors.blue + '08', borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: Colors.blue },
+  notesTxt:     { fontSize: 13, color: Colors.mid, lineHeight: 19 },
 });
