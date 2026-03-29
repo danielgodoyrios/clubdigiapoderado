@@ -69,6 +69,11 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
   const homeTeam = titleParts[0]?.trim() || item?.team_name || 'Local';
   const awayTeam = titleParts[1]?.trim() || 'Visita';
 
+  console.log('[PartidoDetalle] item.title:', item?.title);
+  console.log('[PartidoDetalle] item.team_name:', item?.team_name);
+  console.log('[PartidoDetalle] titleParts[0] → homeTeam (LOCAL, shield ROJO):', homeTeam);
+  console.log('[PartidoDetalle] titleParts[1] → awayTeam (VISITA, shield GRIS):', awayTeam);
+
   const status = statusConfig(item?.status ?? '');
 
   const convocados = roster.filter(p => p.convocado);
