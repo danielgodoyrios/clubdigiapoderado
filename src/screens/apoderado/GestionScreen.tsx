@@ -21,6 +21,7 @@ const SECTIONS = [
       { id: 'pagos',      icon: 'card-outline',          label: 'Pagos',           sub: 'Cuotas y estado de pago',           dot: Colors.amber, screen: 'Pagos',             active: true  },
       { id: 'horarios',   icon: 'time-outline',          label: 'Horarios',        sub: 'Programación de entrenamientos',    dot: BLUE,         screen: 'Horarios',          active: true  },
       { id: 'agenda',     icon: 'calendar-outline',      label: 'Agenda',          sub: 'Próximamente',                      dot: Colors.gray,  screen: null,                active: false },
+      { id: 'convocatorias', icon: 'megaphone-outline',  label: 'Convocatorias',   sub: 'Confirma tu asistencia',            dot: Colors.amber, screen: 'Convocatorias',     active: true  },
     ],
   },
   {
@@ -33,9 +34,18 @@ const SECTIONS = [
   {
     title: 'Comunicación',
     items: [
-      { id: 'comunicados', icon: 'chatbubble-outline',     label: 'Comunicados',  sub: 'Avisos del club',          dot: BLUE,         screen: 'Comunicados',       active: true  },
-      { id: 'documentos',  icon: 'document-text-outline',  label: 'Documentos',   sub: 'Próximamente',             dot: Colors.gray,  screen: null,                active: false },
-      { id: 'estadisticas',icon: 'bar-chart-outline',      label: 'Estadísticas', sub: 'Próximamente',             dot: Colors.gray,  screen: null,                active: false },
+      { id: 'comunicados', icon: 'chatbubble-outline',     label: 'Comunicados',    sub: 'Avisos del club',             dot: BLUE,         screen: 'Comunicados',         active: true  },
+      { id: 'consultas',   icon: 'help-circle-outline',    label: 'Consultas',      sub: 'Envía preguntas al club',     dot: BLUE,         screen: 'Consultas',           active: true  },
+      { id: 'encuestas',   icon: 'bar-chart-outline',      label: 'Encuestas',      sub: 'Participa y opina',           dot: Colors.green, screen: 'Encuestas',           active: true  },
+      { id: 'documentos',  icon: 'document-text-outline',  label: 'Documentos',     sub: 'Próximamente',                dot: Colors.gray,  screen: null,                  active: false },
+    ],
+  },
+  {
+    title: 'Club',
+    items: [
+      { id: 'institucional', icon: 'people-outline',  label: 'El Club',          sub: 'Directiva y cuerpo técnico',   dot: BLUE,         screen: 'InfoInstitucional',   active: true  },
+      { id: 'encuestas2',    icon: 'pricetag-outline', label: 'Beneficios',       sub: 'Descuentos y ventajas',        dot: Colors.green, screen: null,                  active: false },
+      { id: 'tienda',        icon: 'bag-outline',      label: 'Tienda',           sub: 'Indumentaria del club',        dot: Colors.amber, screen: 'Tienda',              active: true  },
     ],
   },
   {

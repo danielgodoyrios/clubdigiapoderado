@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../theme';
-import { InboxAPI, InboxNotif } from '../../api';
+import { InboxAPI, InboxArchiveAPI, InboxNotif } from '../../api';
 
 const BLUE = Colors.blue;
 
@@ -35,6 +35,8 @@ function fmtDate(iso: string): string {
 
 export const NotificacionesScreen: React.FC<any> = ({ navigation }) => {
   const [items, setItems]         = useState<InboxNotif[]>([]);
+  const [archived, setArchived]   = useState<InboxNotif[]>([]);
+  const [tab, setTab]             = useState<'activas' | 'archivadas'>('activas');
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
@@ -42,8 +44,12 @@ export const NotificacionesScreen: React.FC<any> = ({ navigation }) => {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const data = await InboxAPI.list();
+      const [data, arch] = await Promise.all([
+        InboxAPI.list(),
+        InboxArchiveAPI.listArchived(),
+      ]);
       setItems(data);
+      setArchived(arch);
     } catch {
       // silently fail — keep existing list
     } finally {
@@ -79,6 +85,16 @@ export const NotificacionesScreen: React.FC<any> = ({ navigation }) => {
     }
   };
 
+  const handleArchive = async (item: InboxNotif) => {
+    try {
+      await InboxArchiveAPI.archive(item.id);
+      setItems(prev => prev.filter(n => n.id !== item.id));
+      setArchived(prev => [{ ...item, read: true }, ...prev]);
+    } catch {
+      // silently fail
+    }
+  };
+
   const unread = items.filter(n => !n.read).length;
 
   const renderItem = ({ item }: { item: InboxNotif }) => {
@@ -87,6 +103,8 @@ export const NotificacionesScreen: React.FC<any> = ({ navigation }) => {
       <TouchableOpacity
         style={[styles.item, !item.read && styles.itemUnread]}
         onPress={() => handleTap(item)}
+        onLongPress={tab === 'activas' ? () => handleArchive(item) : undefined}
+        delayLongPress={500}
         activeOpacity={0.75}
       >
         <View style={[styles.iconWrap, { backgroundColor: ic.color + '1A' }]}>
@@ -100,6 +118,9 @@ export const NotificacionesScreen: React.FC<any> = ({ navigation }) => {
             <Text style={styles.itemDate}>{fmtDate(item.created_at)}</Text>
           </View>
           <Text style={styles.itemText} numberOfLines={2}>{item.body}</Text>
+          {tab === 'activas' && (
+            <Text style={styles.archiveHint}>Mantén presionado para archivar</Text>
+          )}
         </View>
         {!item.read && <View style={styles.unreadDot} />}
       </TouchableOpacity>
@@ -114,7 +135,7 @@ export const NotificacionesScreen: React.FC<any> = ({ navigation }) => {
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notificaciones</Text>
-        {unread > 0 ? (
+        {tab === 'activas' && unread > 0 ? (
           <TouchableOpacity style={styles.markAllBtn} onPress={handleMarkAll} disabled={markingAll}>
             {markingAll
               ? <ActivityIndicator size="small" color="rgba(255,255,255,0.8)" />
@@ -126,19 +147,42 @@ export const NotificacionesScreen: React.FC<any> = ({ navigation }) => {
         )}
       </View>
 
+      {/* TABS */}
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === 'activas' && styles.tabBtnActive]}
+          onPress={() => setTab('activas')}
+        >
+          <Text style={[styles.tabTxt, tab === 'activas' && styles.tabTxtActive]}>Activas</Text>
+          {unread > 0 && <View style={styles.tabBadge}><Text style={styles.tabBadgeTxt}>{unread}</Text></View>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === 'archivadas' && styles.tabBtnActive]}
+          onPress={() => setTab('archivadas')}
+        >
+          <Text style={[styles.tabTxt, tab === 'archivadas' && styles.tabTxtActive]}>Archivadas</Text>
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={BLUE} />
         </View>
-      ) : items.length === 0 ? (
+      ) : tab === 'activas' && items.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="notifications-off-outline" size={52} color={Colors.light} />
           <Text style={styles.emptyTitle}>Sin notificaciones</Text>
           <Text style={styles.emptyText}>Aquí aparecerán los avisos del club.</Text>
         </View>
+      ) : tab === 'archivadas' && archived.length === 0 ? (
+        <View style={styles.center}>
+          <Ionicons name="archive-outline" size={52} color={Colors.light} />
+          <Text style={styles.emptyTitle}>Sin archivadas</Text>
+          <Text style={styles.emptyText}>Las notificaciones archivadas aparecerán aquí.</Text>
+        </View>
       ) : (
         <FlatList
-          data={items}
+          data={tab === 'activas' ? items : archived}
           keyExtractor={n => String(n.id)}
           renderItem={renderItem}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
@@ -209,6 +253,16 @@ const styles = StyleSheet.create({
     backgroundColor: BLUE,
     flexShrink: 0,
   },
+
+  archiveHint: { fontSize: 9, color: Colors.gray, marginTop: 2 },
+
+  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.light },
+  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
+  tabBtnActive: { borderBottomWidth: 2, borderBottomColor: BLUE },
+  tabTxt: { fontSize: 13, fontWeight: '600', color: Colors.gray },
+  tabTxtActive: { color: BLUE },
+  tabBadge: { backgroundColor: BLUE, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
+  tabBadgeTxt: { color: '#fff', fontSize: 10, fontWeight: '700' },
 
   sep: { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB' },
 });

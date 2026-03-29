@@ -13,23 +13,24 @@ import { useAuth } from '../../context/AuthContext';
 const BLUE = Colors.blue;
 
 const TIPOS = [
-  { id: 'enfermedad', label: 'Enfermedad',  icon: 'thermometer-outline',  valid: true,  desc: 'Requiere certificado médico' },
-  { id: 'lesion',     label: 'Lesión',       icon: 'medkit-outline',       valid: true,  desc: 'Requiere informe médico' },
-  { id: 'otro',       label: 'Otro motivo',  icon: 'close-circle-outline', valid: false, desc: 'No válido para el club' },
+  { id: 'enfermedad', label: 'Enfermedad',  icon: 'thermometer-outline',   desc: 'Requiere certificado médico' },
+  { id: 'lesion',     label: 'Lesión',       icon: 'medkit-outline',        desc: 'Requiere informe médico' },
+  { id: 'otros',      label: 'Otro motivo',  icon: 'help-circle-outline',   desc: 'Describe el motivo con detalle' },
 ] as const;
 
-type TipoId = 'enfermedad' | 'lesion';
+type TipoId = 'enfermedad' | 'lesion' | 'otros';
 
 export default function JustificativoScreen({ navigation, route }: any) {
   const { date: routeDate } = route.params ?? {};
   const { state } = useAuth();
   const pupilId = state.status === 'authenticated' ? state.activePupil?.id : undefined;
 
-  const [tipo,    setTipo]    = useState<TipoId | null>(null);
-  const [reason,  setReason]  = useState('');
-  const [days,    setDays]    = useState('');
-  const [file,    setFile]    = useState<{ uri: string; name: string; base64: string } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [tipo,        setTipo]       = useState<TipoId | null>(null);
+  const [reason,      setReason]     = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [days,        setDays]       = useState('');
+  const [file,        setFile]       = useState<{ uri: string; name: string; base64: string } | null>(null);
+  const [loading,     setLoading]    = useState(false);
 
   // Campos de fecha manual (solo cuando no viene de AsistenciaDetalle)
   const today = new Date();
@@ -109,6 +110,10 @@ export default function JustificativoScreen({ navigation, route }: any) {
       Alert.alert('Campo requerido', 'Describe brevemente el motivo.');
       return;
     }
+    if (tipo === 'otros' && !descripcion.trim()) {
+      Alert.alert('Descripción requerida', 'Al seleccionar "Otro motivo" debes ingresar una descripción detallada.');
+      return;
+    }
     if (!days || isNaN(Number(days)) || Number(days) < 1) {
       Alert.alert('Días requeridos', 'Indica los días de licencia médica (mínimo 1).');
       return;
@@ -121,8 +126,8 @@ export default function JustificativoScreen({ navigation, route }: any) {
     try {
       await Justificativos.submit(pupilId, {
         date,
-        type:        tipo,
-        reason:      reason.trim(),
+        type:        tipo === 'otros' ? ('otros' as any) : tipo,
+        reason:      tipo === 'otros' ? descripcion.trim() : reason.trim(),
         days:        Number(days),
         file_base64: file?.base64,
         file_name:   file?.name,
@@ -225,31 +230,20 @@ export default function JustificativoScreen({ navigation, route }: any) {
         <View style={styles.tiposRow}>
           {TIPOS.map(t => {
             const isSelected = tipo === t.id;
-            const isDisabled = !t.valid;
             return (
               <TouchableOpacity
                 key={t.id}
-                style={[
-                  styles.tipoCard,
-                  isSelected && styles.tipoCardSelected,
-                  isDisabled && styles.tipoCardDisabled,
-                ]}
-                onPress={isDisabled ? undefined : () => setTipo(t.id as TipoId)}
-                disabled={isDisabled}
+                style={[styles.tipoCard, isSelected && styles.tipoCardSelected]}
+                onPress={() => setTipo(t.id as TipoId)}
                 activeOpacity={0.75}
               >
                 <Ionicons
                   name={t.icon as any}
                   size={22}
-                  color={isDisabled ? Colors.gray : isSelected ? BLUE : Colors.dark}
+                  color={isSelected ? BLUE : Colors.dark}
                 />
-                <Text style={[styles.tipoLabel, isDisabled && { color: Colors.gray }]}>{t.label}</Text>
-                <Text style={[styles.tipoDesc,  isDisabled && { color: Colors.gray }]}>{t.desc}</Text>
-                {!t.valid && (
-                  <View style={styles.tipoInvalidBadge}>
-                    <Text style={styles.tipoInvalidTxt}>No válido</Text>
-                  </View>
-                )}
+                <Text style={styles.tipoLabel}>{t.label}</Text>
+                <Text style={styles.tipoDesc}>{t.desc}</Text>
               </TouchableOpacity>
             );
           })}
@@ -285,6 +279,25 @@ export default function JustificativoScreen({ navigation, route }: any) {
           editable={!loading}
         />
         <Text style={styles.charCount}>{reason.length}/500</Text>
+
+        {tipo === 'otros' && (
+          <>
+            <Text style={styles.label}>DESCRIPCIÓN DETALLADA DEL MOTIVO *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Explica con detalle el motivo de la ausencia..."
+              placeholderTextColor={Colors.gray}
+              value={descripcion}
+              onChangeText={setDescripcion}
+              multiline
+              numberOfLines={4}
+              maxLength={800}
+              textAlignVertical="top"
+              editable={!loading}
+            />
+            <Text style={styles.charCount}>{descripcion.length}/800</Text>
+          </>
+        )}
 
         <Text style={styles.label}>CERTIFICADO MÉDICO</Text>
         {file ? (

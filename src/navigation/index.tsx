@@ -44,6 +44,11 @@ import HistorialLesionesScreen   from '../screens/apoderado/HistorialLesionesScr
 import HorariosScreen            from '../screens/apoderado/HorariosScreen';
 import PermisoDeportivoScreen    from '../screens/apoderado/PermisoDeportivoScreen';
 import MisJustificativosScreen   from '../screens/apoderado/MisJustificativosScreen';
+import EncuestasScreen           from '../screens/apoderado/EncuestasScreen';
+import ConvocatoriasScreen       from '../screens/apoderado/ConvocatoriasScreen';
+import TiendaScreen              from '../screens/apoderado/TiendaScreen';
+import InfoInstitucionalScreen   from '../screens/apoderado/InfoInstitucionalScreen';
+import ConsultasScreen           from '../screens/apoderado/ConsultasScreen';
 
 // ── Notificaciones ───────────────────────────────────────────
 import { NotificacionesScreen } from '../screens/apoderado/NotificacionesScreen';
@@ -137,6 +142,11 @@ function AppStack({ role }: { role: string }) {
       <Stack.Screen name="Horarios"             component={HorariosScreen} />
       <Stack.Screen name="PermisoDeportivo"     component={PermisoDeportivoScreen} />
       <Stack.Screen name="MisJustificativos"    component={MisJustificativosScreen} />
+      <Stack.Screen name="Encuestas"            component={EncuestasScreen} />
+      <Stack.Screen name="Convocatorias"        component={ConvocatoriasScreen} />
+      <Stack.Screen name="Tienda"               component={TiendaScreen} />
+      <Stack.Screen name="InfoInstitucional"    component={InfoInstitucionalScreen} />
+      <Stack.Screen name="Consultas"            component={ConsultasScreen} />
       <Stack.Screen name="Notificaciones"        component={NotificacionesScreen} />
 
       {/* ── Profesor ── */}

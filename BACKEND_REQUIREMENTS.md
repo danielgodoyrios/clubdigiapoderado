@@ -2348,3 +2348,339 @@ Marca como `read = true` todas las notificaciones no leÃ­das del apoderado auten
 
 
 
+
+---
+
+## SECCIÓN 4 — Nuevos endpoints (US01–US19, revisión app Apoderado)
+
+> Todos los endpoints requieren `Authorization: Bearer <token>` salvo indicación contraria.  
+> El backend debe validar que `hijo_id` pertenezca al apoderado autenticado en cada request que lo reciba (403 si no corresponde).
+
+---
+
+### 4.1 Club — Información básica (US01)
+```
+GET /api/club/:club_id/info-basica
+```
+**Response 200:**
+```json
+{ "nombre": "Club Basket", "logo_url": "https://...", "telefono": "+56912345678", "email": "club@email.com", "direccion": "Calle 123" }
+```
+
+---
+
+### 4.2 Club — Módulos habilitados (US09)
+```
+GET /api/club/:club_id/modulos-habilitados
+```
+**Response 200:**
+```json
+{ "modulos": ["pagos", "tienda", "encuestas", "beneficios", "convocatorias", "consultas"] }
+```
+> Se consulta al iniciar sesión y al cambiar de hijo activo.  
+> Los módulos no listados no deben renderizarse en la app (no solo ocultarse).
+
+---
+
+### 4.3 Club — Configuración (US04, US15)
+```
+GET /api/club/:club_id/configuracion
+```
+**Response 200:**
+```json
+{
+  "notificaciones_ttl_dias": 60,
+  "convocatoria_recordatorio_horas": 6,
+  "resultados_encuestas_visibles": false
+}
+```
+
+---
+
+### 4.4 Club — Información institucional (US14)
+```
+GET /api/club/:club_id/institucional
+```
+**Response 200:**
+```json
+{
+  "descripcion": "Club fundado en 2001...",
+  "logo_url": "https://...",
+  "historia": "Historia del club...",
+  "directiva": [
+    { "nombre": "Juan Pérez", "cargo": "Presidente", "foto_url": null }
+  ],
+  "coaches": [
+    { "nombre": "Pedro García", "cargo": "Head Coach", "certificacion": "FIBA Level 2", "foto_url": null }
+  ]
+}
+```
+
+---
+
+### 4.5 Club — Horarios del club (US10)
+```
+GET /api/club/:club_id/horarios
+```
+**Response 200:**
+```json
+[{ "id": 1, "dia": "Lunes", "hora_inicio": "18:00", "hora_fin": "20:00", "lugar": "Gimnasio A", "categoria": "Sub-14", "descripcion": "Entrenamiento técnico" }]
+```
+
+---
+
+### 4.6 Apoderado — Horarios del hijo (US10)
+```
+GET /api/apoderado/horarios?hijo_id=:id
+```
+**Response 200:**
+```json
+[{ "id": 1, "dia": "Lunes", "hora_inicio": "18:00", "hora_fin": "20:00", "lugar": "Gimnasio A", "categoria": "Sub-14" }]
+```
+
+---
+
+### 4.7 Inbox — Archivar notificación (US04)
+```
+PATCH /api/apoderado/me/inbox/:id/archivar
+```
+**Response 200:** `{ "ok": true }`
+
+Eliminación automática de notificaciones (archivadas y no archivadas) luego de `notificaciones_ttl_dias` días — implementar con job/cron en backend.
+
+---
+
+### 4.8 Inbox — Listado archivadas (US04)
+```
+GET /api/apoderado/me/inbox/archivadas
+```
+**Response 200:**
+```json
+[{ "id": 1, "title": "...", "body": "...", "type": "general", "read": true, "created_at": "2026-03-01T10:00:00Z" }]
+```
+
+---
+
+### 4.9 Consultas al club (US06)
+```
+POST /api/club/:club_id/consultas
+```
+**Body:** `{ "asunto": "...", "mensaje": "...", "hijo_id": 5 }`  
+**Response 201:** `{ "id": 1, "created_at": "...", "estado": "enviado" }`
+
+```
+GET /api/apoderado/consultas?club_id=:id
+```
+**Response 200:**
+```json
+[{ "id": 1, "asunto": "...", "mensaje": "...", "created_at": "...", "estado": "enviado" }]
+```
+`estado` posibles: `enviado | leido | respondido`
+
+---
+
+### 4.10 Justificativos v2 — Motivos flexibles (US07)
+```
+POST /api/justificativos
+```
+**Body:**
+```json
+{ "actividad_id": 10, "hijo_id": 5, "motivo": "otros", "descripcion": "Viaje familiar" }
+```
+`motivo` posibles: `enfermedad | lesion | otros`  
+Si `motivo = "otros"`, `descripcion` es **requerido**.  
+**Response 201:** `{ "id": 1, "estado": "pendiente", "created_at": "..." }`
+
+```
+DELETE /api/justificativos/:id
+```
+Solo permitido si `estado = "pendiente"` (sin acuse del club).  
+**Response 200:** `{ "ok": true }`  
+**Error 403:** `{ "error": "Justificativo ya acusado, no se puede eliminar" }`
+
+```
+GET /api/justificativos/:id
+```
+**Response 200:**
+```json
+{ "id": 1, "motivo": "otros", "descripcion": "...", "estado": "pendiente", "acusado_at": null }
+```
+
+---
+
+### 4.11 Justificativos — PDF (US08)
+```
+POST /api/justificativos/:id/generar-pdf
+```
+**Response 200:** `{ "pdf_url": "https://...", "generated_at": "..." }`  
+**Error 409:** `{ "error": "Ya existe un PDF generado para este justificativo" }`
+
+```
+GET /api/justificativos/:id/pdf-status
+```
+**Response 200:** `{ "tiene_pdf": true, "pdf_url": "https://...", "generated_at": "..." }`
+
+---
+
+### 4.12 Encuestas (US11)
+```
+GET /api/encuestas?club_id=:id&hijo_id=:id
+```
+**Response 200:**
+```json
+[{ "id": 1, "titulo": "¿Cambio de horario?", "estado": "abierta", "fecha_cierre": "2026-04-15", "respondida": false }]
+```
+
+```
+GET /api/encuestas/:id
+```
+**Response 200:**
+```json
+{
+  "id": 1,
+  "titulo": "...",
+  "estado": "abierta",
+  "resultados_visibles": false,
+  "preguntas": [
+    { "id": 1, "tipo": "opcion_multiple", "texto": "¿Estás de acuerdo?", "opciones": ["Sí", "No", "Tal vez"], "requerida": true }
+  ]
+}
+```
+`tipo` posibles: `opcion_multiple | texto_libre | escala`
+
+```
+POST /api/encuestas/:id/respuestas
+```
+**Body:** `{ "respuestas": [{ "pregunta_id": 1, "valor": "Sí" }] }`  
+**Error 403:** `{ "error": "Encuesta cerrada" }`
+
+```
+GET /api/encuestas/:id/mis-respuestas
+```
+**Response 200:** `{ "respuestas": [{ "pregunta_id": 1, "valor": "Sí" }] }`
+
+```
+GET /api/encuestas/:id/resultados
+```
+Solo disponible si `resultados_visibles = true`.  
+**Response 200:** `{ "resumen": [{ "pregunta_id": 1, "distribucion": { "Sí": 10, "No": 3, "Tal vez": 2 } }] }`  
+**Error 403:** `{ "error": "Resultados no habilitados" }`
+
+---
+
+### 4.13 Convocatorias (US15)
+```
+GET /api/convocatorias?hijo_id=:id
+```
+**Response 200:**
+```json
+[{ "id": 1, "evento": "Partido vs Club Norte", "fecha": "2026-04-10T15:00:00Z", "fecha_limite": "2026-04-08T23:59:59Z", "respuesta": "sin_respuesta" }]
+```
+`respuesta` posibles: `si | no | sin_respuesta`  
+Si vence el plazo sin respuesta, el estado queda `sin_respuesta` — **el backend no asume "no asiste"**.
+
+```
+PATCH /api/convocatorias/:id/respuesta
+```
+**Body:** `{ "respuesta": "si" }`  
+**Response 200:** `{ "ok": true }`  
+**Error 403:** `{ "error": "Plazo de respuesta vencido" }`
+
+> **Recordatorios automáticos:** El backend debe enviar push notification cada `convocatoria_recordatorio_horas` horas mientras `respuesta = sin_respuesta` y no haya vencido el plazo. Los recordatorios se detienen al responder o vencer el plazo.
+
+---
+
+### 4.14 Tienda (US17)
+```
+GET /api/club/:club_id/tienda/productos
+```
+**Response 200:**
+```json
+[{ "id": 1, "nombre": "Camiseta Oficial", "descripcion": "...", "precio": 25000, "stock": 10, "imagen_url": "https://...", "tallas": ["S", "M", "L", "XL"] }]
+```
+
+```
+POST /api/tienda/solicitudes
+```
+**Body:** `{ "hijo_id": 5, "items": [{ "producto_id": 1, "cantidad": 2, "talla": "L" }] }`  
+**Response 201:** `{ "id": 1, "estado": "pendiente", "created_at": "..." }`
+
+```
+GET /api/apoderado/tienda/solicitudes
+```
+**Response 200:**
+```json
+[{ "id": 1, "items": [{ "producto_id": 1, "nombre": "Camiseta", "precio": 25000, "cantidad": 2, "talla": "L" }], "estado": "pendiente", "created_at": "...", "acusado_at": null }]
+```
+
+```
+PUT /api/tienda/solicitudes/:id
+```
+**Body:** `{ "items": [...] }`  
+Solo permitido si `acusado_at` es null.  
+**Error 403:** `{ "error": "Solicitud ya acusada" }`
+
+```
+DELETE /api/tienda/solicitudes/:id
+```
+Solo permitido si `acusado_at` es null.  
+**Error 403:** `{ "error": "Solicitud ya acusada" }`
+
+---
+
+### 4.15 Beneficios v2 (US18)
+```
+GET /api/beneficios?club_id=:id
+```
+**Response 200:**
+```json
+[{ "id": 1, "titulo": "20% en farmacia", "descripcion": "...", "condiciones": "Solo socios activos", "origen": "club", "vigencia_hasta": "2026-12-31", "imagen_url": null }]
+```
+`origen` posibles: `club | plataforma`  
+El backend filtra por `vigencia_hasta >= hoy`.
+
+---
+
+### 4.16 Publicidad / Ads (US19)
+```
+GET /api/ads?club_id=:id&hijo_id=:id
+```
+**Response 200:**
+```json
+[{ "id": 1, "imagen_url": "https://...", "url_destino": "https://...", "vigencia_hasta": "2026-06-30" }]
+```
+> El backend **no retorna ads** si el apoderado tiene plan Pro (la segmentación ocurre en servidor).  
+> El cliente simplemente no muestra modal si la respuesta es lista vacía.
+
+---
+
+### 4.17 Dispositivos — Token push (US13)
+```
+POST /api/apoderado/dispositivos/token
+```
+**Body:** `{ "push_token": "ExponentPushToken[...]", "plataforma": "android" }`  
+**Response 200:** `{ "ok": true }`  
+> Se llama al iniciar sesión. Reemplaza token existente del dispositivo si ya existe.
+
+---
+
+### 4.18 Notificaciones accionables (US03)
+El campo `accion_modulo` en las notificaciones indica qué módulo debe estar habilitado para mostrar el botón de acción.  
+Si el módulo está deshabilitado, la notificación se muestra como solo-informativa (sin botón de acción).
+
+Considerar agregar a `GET /api/apoderado/me/inbox`:
+```json
+{ ..., "accion_ruta": "Pagos", "accion_modulo": "pagos", "hijo_id": 5 }
+```
+
+---
+
+### Reglas generales de seguridad y consistencia
+
+| Regla | Detalle |
+|-------|---------|
+| `hijo_id` ownership | Validar en backend que `hijo_id` pertenece al apoderado autenticado — 403 si no |
+| Estado pendiente/acusado | `justificativos`, `tienda/solicitudes`: editable solo mientras `acusado_at = null` |
+| Módulos vs. roles | Endpoints exclusivos de `coach/admin` retornan 403 si token es de apoderado |
+| Cache-Control | Respuestas críticas (pagos, asistencia) deben incluir `Cache-Control: no-store` |
+| TTL notificaciones | Eliminar notificaciones (archivadas y activas) tras `notificaciones_ttl_dias` días con cron |

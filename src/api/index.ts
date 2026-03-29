@@ -443,3 +443,284 @@ export const PermisoDeportivos = {
   }) =>
     request<PermisoDeportivo>('POST', `/apoderado/pupils/${pupilId}/permisos-deportivos`, data),
 };
+
+// ── 14. CLUB (info pública, módulos, configuración, institucional) ──
+export type ClubInfoBasica = {
+  nombre: string;
+  logo_url: string | null;
+  telefono: string | null;
+  email: string | null;
+  direccion: string | null;
+};
+
+export type ClubModulos = {
+  modulos: string[];   // e.g. ["pagos", "tienda", "encuestas", "beneficios", "convocatorias"]
+};
+
+export type ClubConfiguracion = {
+  notificaciones_ttl_dias: number;
+  convocatoria_recordatorio_horas: number;
+  resultados_encuestas_visibles: boolean;
+};
+
+export type ClubInstitucional = {
+  descripcion: string | null;
+  logo_url: string | null;
+  historia: string | null;
+  directiva: Array<{ nombre: string; cargo: string; foto_url: string | null }>;
+  coaches: Array<{ nombre: string; cargo: string; certificacion: string | null; foto_url: string | null }>;
+};
+
+export const Club = {
+  infoBasica:       (clubId: number) =>
+    request<ClubInfoBasica>('GET', `/club/${clubId}/info-basica`),
+  modulosHabilitados: (clubId: number) =>
+    request<ClubModulos>('GET', `/club/${clubId}/modulos-habilitados`),
+  configuracion:    (clubId: number) =>
+    request<ClubConfiguracion>('GET', `/club/${clubId}/configuracion`),
+  institucional:    (clubId: number) =>
+    request<ClubInstitucional>('GET', `/club/${clubId}/institucional`),
+};
+
+// ── 15. INBOX — extensión con archivado (US03, US04) ─────────
+// Extiende InboxAPI ya existente
+export const InboxArchiveAPI = {
+  archive:    (id: number) =>
+    request<{ ok: boolean }>('PATCH', `/apoderado/me/inbox/${id}/archivar`),
+  listArchived: () =>
+    request<InboxNotif[]>('GET', '/apoderado/me/inbox/archivadas'),
+};
+
+// ── 16. CONSULTAS al club (US06) ─────────────────────────────
+export type Consulta = {
+  id: number;
+  asunto: string;
+  mensaje: string;
+  created_at: string;
+  estado: 'enviado' | 'leido' | 'respondido';
+};
+
+export const Consultas = {
+  enviar: (clubId: number, data: { asunto: string; mensaje: string; hijo_id: number }) =>
+    request<{ id: number; created_at: string; estado: 'enviado' }>(
+      'POST', `/club/${clubId}/consultas`, data,
+    ),
+  historial: (clubId: number) =>
+    request<Consulta[]>('GET', `/apoderado/consultas?club_id=${clubId}`),
+};
+
+// ── 17. JUSTIFICATIVOS — extensión (US07, US08) ──────────────
+// Tipos extendidos sobre el Justificativo ya existente
+export type JustificativoMotivo = 'enfermedad' | 'lesion' | 'otros';
+
+export type JustificativoV2 = {
+  id: number;
+  actividad_id: number | null;
+  hijo_id: number;
+  motivo: JustificativoMotivo;
+  descripcion: string | null;
+  estado: 'pendiente' | 'acusado';
+  acusado_at: string | null;
+  tiene_pdf: boolean;
+  pdf_url: string | null;
+  created_at: string;
+};
+
+export const JustificativosV2 = {
+  submit: (data: {
+    actividad_id?: number;
+    hijo_id: number;
+    motivo: JustificativoMotivo;
+    descripcion?: string;
+  }) =>
+    request<JustificativoV2>('POST', '/api/justificativos', data),
+
+  delete: (id: number) =>
+    request<{ ok: boolean }>('DELETE', `/api/justificativos/${id}`),
+
+  get: (id: number) =>
+    request<JustificativoV2>('GET', `/api/justificativos/${id}`),
+
+  pdfStatus: (id: number) =>
+    request<{ tiene_pdf: boolean; pdf_url: string | null; generated_at: string | null }>(
+      'GET', `/api/justificativos/${id}/pdf-status`,
+    ),
+
+  generarPdf: (id: number) =>
+    request<{ pdf_url: string; generated_at: string }>(
+      'POST', `/api/justificativos/${id}/generar-pdf`,
+    ),
+};
+
+// ── 18. ENCUESTAS (US11) ──────────────────────────────────────
+export type EncuestaResumen = {
+  id: number;
+  titulo: string;
+  estado: 'abierta' | 'cerrada';
+  fecha_cierre: string | null;
+  respondida: boolean;
+};
+
+export type PreguntaTipo = 'opcion_multiple' | 'texto_libre' | 'escala';
+
+export type Pregunta = {
+  id: number;
+  tipo: PreguntaTipo;
+  texto: string;
+  opciones?: string[];
+  requerida: boolean;
+};
+
+export type EncuestaDetalle = {
+  id: number;
+  titulo: string;
+  preguntas: Pregunta[];
+  estado: 'abierta' | 'cerrada';
+  resultados_visibles: boolean;
+};
+
+export type RespuestaItem = { pregunta_id: number; valor: string | number };
+
+export const Encuestas = {
+  list: (clubId: number, hijoId: number) =>
+    request<EncuestaResumen[]>('GET', `/encuestas?club_id=${clubId}&hijo_id=${hijoId}`),
+
+  get: (id: number) =>
+    request<EncuestaDetalle>('GET', `/encuestas/${id}`),
+
+  submit: (id: number, respuestas: RespuestaItem[]) =>
+    request<{ ok: boolean }>('POST', `/encuestas/${id}/respuestas`, { respuestas }),
+
+  misRespuestas: (id: number) =>
+    request<{ respuestas: RespuestaItem[] }>('GET', `/encuestas/${id}/mis-respuestas`),
+
+  resultados: (id: number) =>
+    request<{ resumen: Array<{ pregunta_id: number; distribucion: Record<string, number> }> }>(
+      'GET', `/encuestas/${id}/resultados`,
+    ),
+};
+
+// ── 19. CONVOCATORIAS (US15) ──────────────────────────────────
+export type ConvocatoriaRespuesta = 'si' | 'no' | 'sin_respuesta';
+
+export type Convocatoria = {
+  id: number;
+  evento: string;
+  fecha: string;
+  fecha_limite: string;
+  respuesta: ConvocatoriaRespuesta;
+};
+
+export const Convocatorias = {
+  list: (hijoId: number) =>
+    request<Convocatoria[]>('GET', `/convocatorias?hijo_id=${hijoId}`),
+
+  responder: (id: number, respuesta: 'si' | 'no') =>
+    request<{ ok: boolean }>('PATCH', `/convocatorias/${id}/respuesta`, { respuesta }),
+};
+
+// ── 20. TIENDA (US17) ─────────────────────────────────────────
+export type ProductoTienda = {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  stock: number;
+  imagen_url: string | null;
+  tallas?: string[];
+};
+
+export type SolicitudTiendaItem = {
+  producto_id: number;
+  cantidad: number;
+  talla?: string;
+};
+
+export type SolicitudTienda = {
+  id: number;
+  items: Array<SolicitudTiendaItem & { nombre: string; precio: number }>;
+  estado: 'pendiente' | 'acusado';
+  created_at: string;
+  acusado_at: string | null;
+};
+
+export const Tienda = {
+  catalogo: (clubId: number) =>
+    request<ProductoTienda[]>('GET', `/club/${clubId}/tienda/productos`),
+
+  crearSolicitud: (data: { hijo_id: number; items: SolicitudTiendaItem[] }) =>
+    request<{ id: number; estado: 'pendiente'; created_at: string }>(
+      'POST', '/tienda/solicitudes', data,
+    ),
+
+  misSolicitudes: () =>
+    request<SolicitudTienda[]>('GET', '/apoderado/tienda/solicitudes'),
+
+  editarSolicitud: (id: number, items: SolicitudTiendaItem[]) =>
+    request<SolicitudTienda>('PUT', `/tienda/solicitudes/${id}`, { items }),
+
+  eliminarSolicitud: (id: number) =>
+    request<{ ok: boolean }>('DELETE', `/tienda/solicitudes/${id}`),
+};
+
+// ── 21. BENEFICIOS — extensión con origen y condiciones (US18) ─
+export type BeneficioV2 = {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  condiciones: string;
+  origen: 'club' | 'plataforma';
+  vigencia_hasta: string;
+  imagen_url: string | null;
+};
+
+export const BeneficiosV2 = {
+  list: (clubId: number) =>
+    request<BeneficioV2[]>('GET', `/beneficios?club_id=${clubId}`),
+};
+
+// ── 22. ADS / PUBLICIDAD (US19) ───────────────────────────────
+export type Ad = {
+  id: number;
+  imagen_url: string;
+  url_destino: string | null;
+  vigencia_hasta: string;
+};
+
+export const AdsAPI = {
+  list: (clubId: number, hijoId: number) =>
+    request<Ad[]>('GET', `/ads?club_id=${clubId}&hijo_id=${hijoId}`),
+};
+
+// ── 23. DISPOSITIVOS / TOKEN PUSH (US13) ─────────────────────
+export const DispositivosAPI = {
+  registerToken: (push_token: string, plataforma: 'android' | 'ios') =>
+    request<{ ok: boolean }>('POST', '/apoderado/dispositivos/token', { push_token, plataforma }),
+};
+
+// ── 24. HORARIOS DEL CLUB (US10) ──────────────────────────────
+export type HorarioClub = {
+  id: number;
+  dia: string;
+  hora_inicio: string;
+  hora_fin: string;
+  lugar: string;
+  categoria: string;
+  descripcion?: string;
+};
+
+export type HorarioHijo = {
+  id: number;
+  dia: string;
+  hora_inicio: string;
+  hora_fin: string;
+  lugar: string;
+  categoria: string;
+};
+
+export const Horarios = {
+  misHorarios: (hijoId: number) =>
+    request<HorarioHijo[]>('GET', `/apoderado/horarios?hijo_id=${hijoId}`),
+  horariosClub: (clubId: number) =>
+    request<HorarioClub[]>('GET', `/club/${clubId}/horarios`),
+};

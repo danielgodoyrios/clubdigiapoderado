@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Auth, Apoderado, Profesor, Admin, Pupils, getAccessToken, MeResponse, Pupil } from '../api';
+import { Auth, Apoderado, Profesor, Admin, Pupils, Club, getAccessToken, MeResponse, Pupil } from '../api';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 
 // ── Types ─────────────────────────────────────────────────────
@@ -23,6 +23,12 @@ interface AuthContextValue {
   refreshPupils: () => Promise<void>;
   /** Cierra sesión */
   logout: () => Promise<void>;
+  /** Módulos habilitados por el club */
+  modulosHabilitados: string[];
+  /** Verifica si un módulo está activo */
+  isModuloHabilitado: (modulo: string) => boolean;
+  /** Recarga módulos del club */
+  loadModulosHabilitados: (clubId: number) => Promise<void>;
 }
 
 // ── Context ───────────────────────────────────────────────────
@@ -37,6 +43,7 @@ export function useAuth(): AuthContextValue {
 // ── Provider ──────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
+  const [modulosHabilitados, setModulosHabilitados] = useState<string[]>([]);
 
   usePushNotifications(state.status === 'authenticated');
 
@@ -150,14 +157,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const loadModulosHabilitados = useCallback(async (clubId: number) => {
+    try {
+      const res = await Club.modulosHabilitados(clubId);
+      setModulosHabilitados(res.modulos);
+    } catch {
+      // Mantener módulos previos si falla la carga
+    }
+  }, []);
+
+  const isModuloHabilitado = useCallback((modulo: string): boolean => {
+    // Si no se han cargado módulos aún, mostrar todo (modo degradado)
+    if (modulosHabilitados.length === 0) return true;
+    return modulosHabilitados.includes(modulo);
+  }, [modulosHabilitados]);
+
   const logout = useCallback(async () => {
     await Auth.logout();
     await AsyncStorage.removeItem('active_role');
+    setModulosHabilitados([]);
     setState({ status: 'unauthenticated' });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ state, requestOTP, verifyOTP, setActiveRole, setActivePupil, refreshPupils, logout }}>
+    <AuthContext.Provider value={{ state, requestOTP, verifyOTP, setActiveRole, setActivePupil, refreshPupils, logout, modulosHabilitados, isModuloHabilitado, loadModulosHabilitados }}>
       {children}
     </AuthContext.Provider>
   );
