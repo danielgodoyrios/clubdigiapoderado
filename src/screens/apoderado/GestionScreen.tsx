@@ -20,24 +20,25 @@ const SECTIONS = [
       { id: 'asistencia', icon: 'clipboard-outline',    label: 'Asistencia',      sub: 'Ver historial mensual',             dot: Colors.ok,    screen: 'Asistencia',        active: true  },
       { id: 'pagos',      icon: 'card-outline',          label: 'Pagos',           sub: 'Cuotas y estado de pago',           dot: Colors.amber, screen: 'Pagos',             active: true  },
       { id: 'horarios',   icon: 'time-outline',          label: 'Horarios',        sub: 'Programación de entrenamientos',    dot: BLUE,         screen: 'Horarios',          active: true  },
-      { id: 'agenda',     icon: 'calendar-outline',      label: 'Agenda',          sub: 'Próximamente',                      dot: Colors.gray,  screen: null,                active: false },
+      { id: 'agenda',     icon: 'calendar-outline',      label: 'Agenda',          sub: 'Calendario de eventos',             dot: Colors.gray,  screen: 'Agenda',            active: true  },
       { id: 'convocatorias', icon: 'megaphone-outline',  label: 'Convocatorias',   sub: 'Confirma tu asistencia',            dot: Colors.amber, screen: 'Convocatorias',     active: true  },
     ],
   },
   {
     title: 'Trámites',
     items: [
-      { id: 'misjust', icon: 'document-outline',  label: 'Mis Justificativos',  sub: 'Historial de justificaciones',         dot: Colors.amber, screen: 'MisJustificativos', active: true },
-      { id: 'permiso', icon: 'ribbon-outline',    label: 'Permiso Deportivo',   sub: 'Actividad oficial · Ausencia escolar', dot: BLUE,         screen: 'PermisoDeportivo',  active: true },
+      { id: 'justificativo', icon: 'add-circle-outline', label: 'Nuevo Justificativo', sub: 'Enviar ausencia al club',              dot: Colors.ok,    screen: 'Justificativo',     active: true },
+      { id: 'misjust',      icon: 'document-outline',   label: 'Mis Justificativos', sub: 'Historial de justificaciones',         dot: Colors.amber, screen: 'MisJustificativos', active: true },
+      { id: 'permiso',      icon: 'ribbon-outline',     label: 'Permiso Deportivo',  sub: 'Actividad oficial · Ausencia escolar', dot: BLUE,         screen: 'PermisoDeportivo',  active: true },
     ],
   },
   {
     title: 'Comunicación',
     items: [
-      { id: 'comunicados', icon: 'chatbubble-outline',     label: 'Comunicados',    sub: 'Avisos del club',             dot: BLUE,         screen: 'Comunicados',         active: true  },
-      { id: 'consultas',   icon: 'help-circle-outline',    label: 'Consultas',      sub: 'Envía preguntas al club',     dot: BLUE,         screen: 'Consultas',           active: true  },
-      { id: 'encuestas',   icon: 'bar-chart-outline',      label: 'Encuestas',      sub: 'Participa y opina',           dot: Colors.green, screen: 'Encuestas',           active: true  },
-      { id: 'documentos',  icon: 'document-text-outline',  label: 'Documentos',     sub: 'Próximamente',                dot: Colors.gray,  screen: null,                  active: false },
+      { id: 'comunicados', icon: 'chatbubble-outline',     label: 'Comunicados',    sub: 'Avisos del club',             dot: BLUE,         screen: 'Comunicados',  active: true },
+      { id: 'consultas',   icon: 'help-circle-outline',    label: 'Consultas',      sub: 'Envía preguntas al club',     dot: BLUE,         screen: 'Consultas',    active: true },
+      { id: 'encuestas',   icon: 'bar-chart-outline',      label: 'Encuestas',      sub: 'Participa y opina',           dot: Colors.green, screen: 'Encuestas',    active: true },
+      { id: 'documentos',  icon: 'document-text-outline',  label: 'Documentos',     sub: 'Autorizaciones y contratos',  dot: BLUE,         screen: 'Documentos',   active: true },
     ],
   },
   {
