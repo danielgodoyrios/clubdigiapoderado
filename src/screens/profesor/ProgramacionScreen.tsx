@@ -98,6 +98,32 @@ export default function ProgramacionScreen({ navigation }: any) {
     if (tab === 'semanal' && !semanalLoaded) loadSemanal();
   }, [tab]);
 
+  // ── Slot actions (Semanal tab) ────────────────────────────────
+  const [slotCreating, setSlotCreating] = useState<number | null>(null);
+
+  const openSlotSession = async (slot: ScheduleSlot) => {
+    setSlotCreating(slot.id);
+    try {
+      const today    = new Date();
+      const diff     = slot.day_of_week - today.getDay();
+      const target   = new Date(today);
+      target.setDate(today.getDate() + diff);
+      const dateStr  = target.toISOString().slice(0, 10);
+      const result   = await Profesor.createScheduleSession(slot.id, {
+        date:    dateStr,
+        team_id: slot.target_ids[0],
+      });
+      navigation.navigate('AsistenciaProfesor', {
+        sessionId: result.session_id,
+        title:     result.title ?? slot.title,
+      });
+    } catch (e: any) {
+      Alert.alert('Error', e?.error ?? 'No se pudo crear la sesión.');
+    } finally {
+      setSlotCreating(null);
+    }
+  };
+
   // ── Actions ──────────────────────────────────────────────────
   const isMatchItem = (item: AgendaItem) =>
     item.item_type === 'match' || item.item_type === 'match_session';
@@ -344,25 +370,49 @@ export default function ProgramacionScreen({ navigation }: any) {
                     </View>
                     <Text style={[styles.dayName, isToday && styles.dayNameToday]}>{DAY_FULL[dow]}</Text>
                   </View>
-                  {daySlots.map((slot, idx) => (
-                    <View key={slot.id} style={[styles.slotCard, idx === 0 && { borderTopWidth: 0 }]}>
-                      <View style={[styles.eventStrip, { backgroundColor: GREEN }]} />
-                      <View style={styles.eventBody}>
-                        <View style={styles.eventTopRow}>
-                          <Text style={styles.eventTime}>{slot.start_time}</Text>
-                          {slot.end_time ? <Text style={styles.eventTimeSep}>–</Text> : null}
-                          {slot.end_time ? <Text style={styles.eventTime}>{slot.end_time}</Text> : null}
-                        </View>
-                        <Text style={styles.eventTitle} numberOfLines={1}>{slot.title}</Text>
-                        {(slot.location || slot.venue?.name) ? (
-                          <View style={styles.metaRow}>
-                            <Ionicons name="location-outline" size={11} color={Colors.gray} />
-                            <Text style={styles.metaTxt}>{slot.venue?.name ?? slot.location}</Text>
+                  {daySlots.map((slot, idx) => {
+                    const isBusy = slotCreating === slot.id;
+                    return (
+                      <TouchableOpacity
+                        key={slot.id}
+                        style={[styles.slotCard, idx === 0 && { borderTopWidth: 0 }]}
+                        onPress={() => openSlotSession(slot)}
+                        disabled={isBusy}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.eventStrip, { backgroundColor: GREEN }]} />
+                        <View style={styles.eventBody}>
+                          <View style={styles.eventTopRow}>
+                            <Text style={styles.eventTime}>{slot.start_time}</Text>
+                            {slot.end_time ? <Text style={styles.eventTimeSep}>–</Text> : null}
+                            {slot.end_time ? <Text style={styles.eventTime}>{slot.end_time}</Text> : null}
                           </View>
-                        ) : null}
-                      </View>
-                    </View>
-                  ))}
+                          <Text style={styles.eventTitle} numberOfLines={1}>{slot.title}</Text>
+                          {(slot.location || slot.venue?.name) ? (
+                            <View style={styles.metaRow}>
+                              <Ionicons name="location-outline" size={11} color={Colors.gray} />
+                              <Text style={styles.metaTxt}>{slot.venue?.name ?? slot.location}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.listBtn, styles.listBtnSolid, isBusy && { opacity: 0.6 }]}
+                          onPress={() => openSlotSession(slot)}
+                          disabled={isBusy}
+                          activeOpacity={0.8}
+                        >
+                          {isBusy ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <>
+                              <Ionicons name="clipboard-outline" size={14} color="#fff" />
+                              <Text style={styles.listBtnTxt}>Lista</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               );
             })}
