@@ -10,7 +10,7 @@ import { Profesor, ProfesorTeam, AsistenciaSession, AsistenciaRegistro } from '.
 
 const GREEN = '#0F7D4B';
 
-export default function AsistenciaProfesorScreen({ navigation }: any) {
+export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   const [teams,       setTeams]       = useState<ProfesorTeam[]>([]);
   const [activeTeam,  setActiveTeam]  = useState<ProfesorTeam | null>(null);
   const [sessions,    setSessions]    = useState<AsistenciaSession[]>([]);
@@ -20,7 +20,30 @@ export default function AsistenciaProfesorScreen({ navigation }: any) {
   const [submitting,  setSubmitting]  = useState(false);
   const [step,        setStep]        = useState<'team' | 'session' | 'attendance'>('team');
 
+  // Whether we jumped directly to a session (from Programacion screen)
+  const directSessionId: number | undefined = route?.params?.sessionId;
+  const directTitle: string | undefined = route?.params?.title;
+
   useEffect(() => {
+    if (directSessionId) {
+      // Skip team + session selection, load session directly
+      Profesor.attendanceDetail(directSessionId)
+        .then(detail => {
+          setActiveSession(detail);
+          const map = new Map<number, { present: boolean; late: boolean }>();
+          detail.records.forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
+          setRecords(map);
+          setStep('attendance');
+        })
+        .catch(() => {
+          Alert.alert('Error', 'No se pudo cargar la sesión.', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
+
     Profesor.teams()
       .then(ts => {
         setTeams(ts);
@@ -268,12 +291,17 @@ export default function AsistenciaProfesorScreen({ navigation }: any) {
   };
 
   const backStep = () => {
+    if (directSessionId) { navigation.goBack(); return; }
     if (step === 'attendance') { setStep('session'); setActiveSession(null); }
     else if (step === 'session') { setStep('team'); setActiveTeam(null); }
     else navigation.goBack();
   };
 
-  const stepTitle = step === 'team' ? 'Elegir Equipo' : step === 'session' ? activeTeam?.name ?? 'Elegir Sesión' : activeSession?.title ?? 'Pasar Asistencia';
+  const stepTitle = directTitle ?? (
+    step === 'team' ? 'Elegir Equipo' :
+    step === 'session' ? activeTeam?.name ?? 'Elegir Sesión' :
+    activeSession?.title ?? 'Pasar Asistencia'
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -285,20 +313,22 @@ export default function AsistenciaProfesorScreen({ navigation }: any) {
         <View style={{ width: 36 }} />
       </View>
 
-      {/* Step indicator */}
-      <View style={styles.stepRow}>
-        {['Equipo','Sesión','Asistencia'].map((s, i) => {
-          const idx = ['team','session','attendance'].indexOf(step);
-          return (
-            <React.Fragment key={s}>
-              <View style={[styles.stepDot, i <= idx && { backgroundColor: GREEN }]}>
-                <Text style={[styles.stepDotTxt, i <= idx && { color: '#fff' }]}>{i + 1}</Text>
-              </View>
-              {i < 2 && <View style={[styles.stepLine, i < idx && { backgroundColor: GREEN }]} />}
-            </React.Fragment>
-          );
-        })}
-      </View>
+      {/* Step indicator — hidden when jumping directly via schedule */}
+      {!directSessionId && (
+        <View style={styles.stepRow}>
+          {['Equipo','Sesión','Asistencia'].map((s, i) => {
+            const idx = ['team','session','attendance'].indexOf(step);
+            return (
+              <React.Fragment key={s}>
+                <View style={[styles.stepDot, i <= idx && { backgroundColor: GREEN }]}>
+                  <Text style={[styles.stepDotTxt, i <= idx && { color: '#fff' }]}>{i + 1}</Text>
+                </View>
+                {i < 2 && <View style={[styles.stepLine, i < idx && { backgroundColor: GREEN }]} />}
+              </React.Fragment>
+            );
+          })}
+        </View>
+      )}
 
       {loading
         ? <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={GREEN} /></View>

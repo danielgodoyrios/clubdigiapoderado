@@ -153,7 +153,7 @@ export default function ProfesorHomeScreen({ navigation }: any) {
         {/* Pasar Asistencia — CTA prominente siempre visible */}
         <TouchableOpacity
           style={styles.ctaAsistencia}
-          onPress={() => navigate('AsistenciaProfesor')}
+          onPress={() => navigate('Programacion')}
           activeOpacity={0.85}
         >
           <View style={styles.ctaIconWrap}>

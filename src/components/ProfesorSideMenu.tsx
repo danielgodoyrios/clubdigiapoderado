@@ -21,9 +21,9 @@ const SECTIONS = [
   {
     title: 'Gestión',
     items: [
-      { icon: 'people-outline',     label: 'Mis Equipos',      screen: 'MisEquipos',         modulo: null },
-      { icon: 'clipboard-outline',  label: 'Pasar Asistencia', screen: 'AsistenciaProfesor', modulo: null },
-      { icon: 'megaphone-outline',  label: 'Convocatorias',    screen: 'ProfesorAgenda',     modulo: 'convocatorias' },
+      { icon: 'people-outline',         label: 'Mis Equipos',    screen: 'MisEquipos',     modulo: null },
+      { icon: 'calendar-number-outline', label: 'Programación',   screen: 'Programacion',   modulo: null },
+      { icon: 'megaphone-outline',       label: 'Convocatorias',  screen: 'ProfesorAgenda', modulo: 'convocatorias' },
     ],
   },
   {

@@ -221,6 +221,30 @@ export type ConvocadoEstado = {
   status: 'confirmed' | 'pending' | 'declined' | null;
 };
 
+export type ScheduleSlot = {
+  id: number;
+  day_of_week: number;   // 0=Domingo … 6=Sábado
+  day_name: string;
+  title: string;
+  start_time: string;    // "HH:MM"
+  end_time: string;      // "HH:MM"
+  scope_type: 'team' | 'category';
+  target_ids: number[];
+  location: string | null;
+  venue: { id: number; name: string } | null;
+  coach: { id: number; name: string } | null;
+  backup_coach: { id: number; name: string } | null;
+  is_mine: boolean;
+};
+
+export type ScheduleSessionResult = {
+  session_id: number;
+  title: string;
+  date: string;
+  status: 'upcoming' | 'finished' | 'cancelled';
+  created: boolean;
+};
+
 function mapProfesorPlayer(raw: any): ProfesorPlayer {
   return {
     id:             raw.id ?? raw.pupil_id,
@@ -374,6 +398,30 @@ export const Profesor = {
 
   closeInjury: (injuryId: number, data: { date_end: string; notes?: string }): Promise<Lesion> =>
     request<Lesion>('PATCH', `/profesor/injuries/${injuryId}/close`, data),
+
+  // Programación semanal (S.1 + S.2)
+  schedule: async (): Promise<ScheduleSlot[]> => {
+    const res = await request<any>('GET', '/profesor/schedule');
+    const arr = Array.isArray(res) ? res : (res.data ?? []);
+    return arr.map((r: any): ScheduleSlot => ({
+      id:           r.id,
+      day_of_week:  r.day_of_week ?? 0,
+      day_name:     r.day_name ?? '',
+      title:        r.title ?? '',
+      start_time:   r.start_time ?? '',
+      end_time:     r.end_time ?? '',
+      scope_type:   r.scope_type ?? 'team',
+      target_ids:   r.target_ids ?? [],
+      location:     r.location ?? null,
+      venue:        r.venue ?? null,
+      coach:        r.coach ?? null,
+      backup_coach: r.backup_coach ?? null,
+      is_mine:      r.is_mine ?? false,
+    }));
+  },
+
+  createScheduleSession: (slotId: number, data: { date: string; team_id?: number }): Promise<ScheduleSessionResult> =>
+    request<ScheduleSessionResult>('POST', `/profesor/schedule/${slotId}/session`, data),
 };
 
 export const Admin = {

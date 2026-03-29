@@ -61,6 +61,7 @@ import ProfesorHomeScreen         from '../screens/profesor/HomeScreen';
 import MisEquiposScreen           from '../screens/profesor/MisEquiposScreen';
 import ProfesorAgendaScreen       from '../screens/profesor/ProfesorAgendaScreen';
 import AsistenciaProfesorScreen   from '../screens/profesor/AsistenciaProfesorScreen';
+import ProgramacionScreen         from '../screens/profesor/ProgramacionScreen';
 import ConvocatoriaGestionScreen  from '../screens/profesor/ConvocatoriaGestionScreen';
 import LesionesEquipoScreen       from '../screens/profesor/LesionesEquipoScreen';
 import RegistroLesionScreen       from '../screens/profesor/RegistroLesionScreen';
@@ -201,6 +202,7 @@ function AppStack({ role }: { role: string }) {
       <Stack.Screen name="MisEquipos"             component={MisEquiposScreen} />
       <Stack.Screen name="ProfesorAgenda"         component={ProfesorAgendaScreen} />
       <Stack.Screen name="AsistenciaProfesor"     component={AsistenciaProfesorScreen} />
+      <Stack.Screen name="Programacion"           component={ProgramacionScreen} />
       <Stack.Screen name="ConvocatoriaGestion"    component={ConvocatoriaGestionScreen} />
       <Stack.Screen name="LesionesEquipo"         component={LesionesEquipoScreen} />
       <Stack.Screen name="RegistroLesion"         component={RegistroLesionScreen} />
