@@ -138,7 +138,7 @@ export default function PupilPerfilScreen({ route, navigation }: any) {
             { label: 'RUT',              value: pupil.rut },
             { label: 'Fecha nacimiento', value: formatDate(pupil.birth_date) },
             { label: 'Edad',             value: calcEdad(pupil.birth_date) },
-            { label: 'Género',           value: pupil.gender === 'M' ? 'Masculino' : pupil.gender === 'F' ? 'Femenino' : pupil.gender ?? '—' },
+            { label: 'Género',           value: (pupil.gender === 'M' || pupil.gender === 'H') ? 'Masculino' : pupil.gender === 'F' ? 'Femenino' : pupil.gender ?? '—' },
             { label: 'Categoría',        value: pupil.category ?? '—' },
             { label: 'Equipo',           value: pupil.team ?? '—' },
             { label: 'Estado',           value: pupil.status ?? '—' },

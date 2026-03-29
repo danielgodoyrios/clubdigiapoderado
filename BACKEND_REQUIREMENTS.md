@@ -2715,3 +2715,24 @@ En el modelo Pupil (o donde se serialice el campo photo), usar Storage::url() pa
 O si se guarda la ruta relativa en BD, asegurarse que Storage::url() genere https://api.clubdigital.cl/storage/... y **no** incluya /api/ en la ruta.
 
 **Verificar también en:** cualquier otro modelo que tenga photo_url, imagen_url, oto_url — aplicar la misma corrección para que todas las imágenes del sistema devuelvan URLs públicas válidas sin el prefijo /api.
+
+---
+
+### 5.2 Campo category null en respuesta de pupilos
+
+**Endpoint:** GET /apoderado/me/pupils
+
+**Problema:** El campo category llega como 
+ull para todos los pupilos aunque exista la relación en BD.
+
+**Respuesta actual:**
+`json
+{ "id": 78, "category": null, "team": null, ... }
+`
+
+**Corrección requerida:** incluir la categoría del jugador en el response. Ejemplo:
+`json
+{ "id": 78, "category": "Sub-8", "team": "Escuelita CDSD", ... }
+`
+
+El campo category debe ser un **string con el nombre de la categoría** (ej. "Sub-8", "Sub-10", "Senior", etc.), no un objeto ni un ID numérico.

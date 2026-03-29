@@ -179,22 +179,23 @@ function toStr(v: any): string | null {
   if (v == null) return null;
   if (typeof v === 'string') return v || null;
   // Backend may return object { id, name, ... } instead of plain string
-  if (typeof v === 'object') return v.name ?? v.label ?? v.category ?? String(v) || null;
+  if (typeof v === 'object') return (v.name ?? v.label ?? v.category ?? String(v)) || null;
   return String(v) || null;
 }
 
 function mapPupil(raw: PupilRaw): Pupil {
+  const anyRaw = raw as any;
   return {
     id:         raw.id,
     name:       raw.full_name ?? `${raw.name} ${raw.lastname}`.trim(),
     rut:        raw.rut,
-    team:       toStr(raw.team),
-    category:   toStr(raw.category),
-    photo:      toAbsoluteUrl((raw as any).photo_url ?? raw.photo),
+    team:       toStr(raw.team ?? anyRaw.equipo ?? anyRaw.team_name),
+    category:   toStr(raw.category ?? anyRaw.categoria ?? anyRaw.feba_category ?? anyRaw.age_group ?? anyRaw.division),
+    photo:      toAbsoluteUrl(anyRaw.photo_url ?? raw.photo),
     birth_date: raw.birth_date ?? null,
     gender:     raw.gender ?? null,
     status:     raw.status,
-    federado:   (raw as any).federado ?? ((raw as any).is_federated ?? null),
+    federado:   anyRaw.federado ?? anyRaw.is_federated ?? null,
   };
 }
 
@@ -348,7 +349,17 @@ export type Documento = {
 export const Documentos = {
   list: async (pupilId: number): Promise<Documento[]> => {
     const res = await request<Documento[] | { data: Documento[] }>('GET', `/apoderado/pupils/${pupilId}/documents`);
-    return Array.isArray(res) ? res : ((res as any).data ?? []);
+    const raw = Array.isArray(res) ? res : ((res as any).data ?? []);
+    return raw
+      .filter((d: any) => d && d.id != null)
+      .map((d: any): Documento => ({
+        id:     d.id,
+        title:  d.title ?? d.name ?? d.tipo ?? 'Documento',
+        type:   d.type ?? d.tipo ?? 'document',
+        status: d.status ?? d.estado ?? 'pending_signature',
+        date:   d.date ?? d.created_at ?? '',
+        due:    d.due ?? d.due_date ?? d.fecha_vencimiento ?? undefined,
+      }));
   },  get: (pupilId: number, docId: number) =>
     request<Documento>('GET', `/apoderado/pupils/${pupilId}/documents/${docId}`),
   sign: (pupilId: number, docId: number) =>
