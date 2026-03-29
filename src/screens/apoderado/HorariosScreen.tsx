@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
-import { Schedule } from '../../api';
+import { Horarios, HorarioHijo } from '../../api';
 
 const BLUE = Colors.blue;
 
@@ -16,55 +16,38 @@ const DAY_NAMES: Record<number, string> = {
   4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 0: 'Domingo',
 };
 
-const TYPE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  training: { label: 'Entrenamiento', color: BLUE,         icon: 'basketball-outline' },
-  match:    { label: 'Partido',       color: Colors.red,   icon: 'trophy-outline'     },
-  practice: { label: 'Práctica',     color: Colors.green, icon: 'body-outline'       },
-  other:    { label: 'Actividad',    color: Colors.amber, icon: 'star-outline'       },
-};
+const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-type ScheduleEntry = {
-  id: string;
-  day_of_week: number;   // 0=Dom, 1=Lun, ..., 6=Sáb
-  time_start: string;    // "18:00"
-  time_end:   string;    // "20:00"
-  type:       string;
-  venue:      string;
-  notes?:     string;
-};
-
-function groupByDay(entries: ScheduleEntry[]): Map<number, ScheduleEntry[]> {
-  const map = new Map<number, ScheduleEntry[]>();
-  const order = [1, 2, 3, 4, 5, 6, 0];
-  order.forEach(d => map.set(d, []));
+function groupByDia(entries: HorarioHijo[]): Map<string, HorarioHijo[]> {
+  const map = new Map<string, HorarioHijo[]>();
+  DAY_ORDER.forEach(d => map.set(d, []));
   entries.forEach(e => {
-    const list = map.get(e.day_of_week) ?? [];
+    const list = map.get(e.dia) ?? [];
     list.push(e);
-    map.set(e.day_of_week, list);
+    map.set(e.dia, list);
   });
   return map;
 }
 
-function isToday(dayOfWeek: number): boolean {
-  return new Date().getDay() === dayOfWeek;
+function isToday(dia: string): boolean {
+  return DAY_NAMES[new Date().getDay()] === dia;
 }
 
 export default function HorariosScreen({ navigation }: any) {
   const { state } = useAuth();
   const pupil    = state.status === 'authenticated' ? state.activePupil : null;
-  const clubId   = state.status === 'authenticated' ? state.user?.club_id : undefined;
 
-  const [schedule,   setSchedule]   = useState<ScheduleEntry[]>([]);
+  const [schedule,   setSchedule]   = useState<HorarioHijo[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
 
   const load = async (silent = false) => {
-    if (!clubId) return;
+    if (!pupil?.id) { setLoading(false); return; }
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const data = await Schedule.list(clubId, pupil?.category ?? undefined);
+      const data = await Horarios.misHorarios(pupil.id);
       setSchedule(data);
     } catch {
       setError('No se pudo cargar el horario. Intenta de nuevo.');
@@ -74,10 +57,10 @@ export default function HorariosScreen({ navigation }: any) {
     }
   };
 
-  useEffect(() => { load(); }, [clubId, pupil?.category]);
+  useEffect(() => { load(); }, [pupil?.id]);
 
   const onRefresh = () => { setRefreshing(true); load(true); };
-  const grouped   = groupByDay(schedule);
+  const grouped   = groupByDia(schedule);
   const activeDays = [...grouped.entries()].filter(([, v]) => v.length > 0);
 
   return (
@@ -97,7 +80,7 @@ export default function HorariosScreen({ navigation }: any) {
         <View style={styles.headerTitle}>
           <Text style={styles.pageTitle}>Horarios</Text>
           <Text style={styles.pageSub}>
-            {pupil?.category ? `Categoría ${pupil.category}` : 'Programación de entrenamientos'}
+            {pupil?.name ? `${pupil.name}${pupil.category ? ` · ${pupil.category}` : ''}` : 'Programación de entrenamientos'}
           </Text>
         </View>
       </View>
@@ -138,61 +121,43 @@ export default function HorariosScreen({ navigation }: any) {
             </View>
           ) : (
             <>
-              {activeDays.map(([day, entries]) => (
-                <View key={day} style={styles.dayBlock}>
+              {activeDays.map(([dia, entries]) => (
+                <View key={dia} style={styles.dayBlock}>
                   <View style={styles.dayHeader}>
-                    <Text style={[styles.dayName, isToday(day) && styles.dayNameToday]}>
-                      {DAY_NAMES[day]}
+                    <Text style={[styles.dayName, isToday(dia) && styles.dayNameToday]}>
+                      {dia}
                     </Text>
-                    {isToday(day) && (
+                    {isToday(dia) && (
                       <View style={styles.todayBadge}>
                         <Text style={styles.todayTxt}>HOY</Text>
                       </View>
                     )}
                   </View>
                   <View style={styles.card}>
-                    {entries.sort((a, b) => a.time_start.localeCompare(b.time_start)).map((e, i) => {
-                      const cfg = TYPE_CONFIG[e.type] ?? TYPE_CONFIG.other;
-                      return (
-                        <View key={e.id} style={[styles.row, i > 0 && styles.rowBorder]}>
-                          <View style={[styles.typeTag, { borderLeftColor: cfg.color }]}>
-                            <Ionicons name={cfg.icon as any} size={16} color={cfg.color} />
+                    {entries.sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio)).map((e, i) => (
+                      <View key={e.id} style={[styles.row, i > 0 && styles.rowBorder]}>
+                        <View style={styles.typeTag}>
+                          <Ionicons name="basketball-outline" size={16} color={BLUE} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.rowType}>{e.categoria}</Text>
+                          <View style={styles.rowMeta}>
+                            <Ionicons name="time-outline" size={11} color={Colors.gray} />
+                            <Text style={styles.rowMetaTxt}>
+                              {e.hora_inicio} – {e.hora_fin}
+                            </Text>
                           </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.rowType}>{cfg.label}</Text>
-                            <View style={styles.rowMeta}>
-                              <Ionicons name="time-outline" size={11} color={Colors.gray} />
-                              <Text style={styles.rowMetaTxt}>
-                                {e.time_start} – {e.time_end}
-                              </Text>
-                            </View>
-                            <View style={styles.rowMeta}>
-                              <Ionicons name="location-outline" size={11} color={Colors.gray} />
-                              <Text style={styles.rowMetaTxt}>{e.venue}</Text>
-                            </View>
-                            {!!e.notes && (
-                              <Text style={styles.rowNotes}>{e.notes}</Text>
-                            )}
+                          <View style={styles.rowMeta}>
+                            <Ionicons name="location-outline" size={11} color={Colors.gray} />
+                            <Text style={styles.rowMetaTxt}>{e.lugar}</Text>
                           </View>
                         </View>
-                      );
-                    })}
+                      </View>
+                    ))}
                   </View>
                 </View>
               ))}
             </>
-          )}
-
-          {/* Leyenda */}
-          {activeDays.length > 0 && (
-            <View style={styles.legend}>
-              {Object.values(TYPE_CONFIG).slice(0, 3).map(c => (
-                <View key={c.label} style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: c.color }]} />
-                  <Text style={styles.legendTxt}>{c.label}</Text>
-                </View>
-              ))}
-            </View>
           )}
 
           <View style={{ height: 32 }} />

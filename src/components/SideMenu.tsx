@@ -30,6 +30,8 @@ const SECTIONS = [
     items: [
       { icon: 'chatbubble-outline', label: 'Comunicados', screen: 'Comunicados', modulo: 'comunicados' },
       { icon: 'document-text-outline', label: 'Documentos', screen: 'Documentos', modulo: 'documentos' },
+      { icon: 'help-circle-outline', label: 'Consultas', screen: 'Consultas', modulo: 'consultas' },
+      { icon: 'bar-chart-outline', label: 'Encuestas', screen: 'Encuestas', modulo: 'encuestas' },
     ],
   },
   {
@@ -38,6 +40,7 @@ const SECTIONS = [
       { icon: 'calendar-outline',    label: 'Agenda',           screen: 'Agenda',          modulo: 'agenda' },
       { icon: 'megaphone-outline',   label: 'Convocatorias',    screen: 'Convocatorias',   modulo: 'convocatorias' },
       { icon: 'id-card-outline',     label: 'Carnet Digital',   screen: 'Carnet',          modulo: 'carnet' },
+      { icon: 'medkit-outline',      label: 'Lesiones',         screen: 'HistorialLesiones', modulo: undefined },
     ],
   },
   {
@@ -46,6 +49,13 @@ const SECTIONS = [
       { icon: 'document-outline', label: 'Mis Justificativos', screen: 'MisJustificativos', modulo: 'justificativos' },
       { icon: 'ribbon-outline',   label: 'Permiso Deportivo',  screen: 'PermisoDeportivo',  modulo: 'permisos_deportivos' },
       { icon: 'time-outline',     label: 'Horarios',           screen: 'Horarios',           modulo: 'horarios' },
+    ],
+  },
+  {
+    title: 'Club',
+    items: [
+      { icon: 'people-outline', label: 'El Club',  screen: 'InfoInstitucional', modulo: undefined },
+      { icon: 'bag-outline',    label: 'Tienda',   screen: 'Tienda',            modulo: 'tienda'  },
     ],
   },
   {

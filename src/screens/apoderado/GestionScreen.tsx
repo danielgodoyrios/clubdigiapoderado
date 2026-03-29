@@ -139,12 +139,12 @@ export default function GestionScreen({ navigation }: any) {
         visible={carnetVisible}
         onClose={() => setCarnetVisible(false)}
         role="jugador"
-        name="Carlos Muñoz Jr."
-        initials="CM"
-        licenseId="LIC-2026-0892"
+        name={pupil?.name ?? ''}
+        initials={(pupil?.name ?? '').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || '?'}
+        licenseId={pupil?.rut ?? String(pupil?.id ?? '')}
         headerColor={BLUE}
-        position="Alevín · #8"
-        club="C.D. Santo Domingo"
+        position={pupil?.category ?? ''}
+        club={pupil?.team ?? ''}
       />
     </SafeAreaView>
   );
