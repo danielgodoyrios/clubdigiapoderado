@@ -113,19 +113,21 @@ export default function ProgramacionScreen({ navigation }: any) {
       let sessionId: number;
       let title: string;
 
+      // Solo pasar team_id cuando scope_type === 'team' (no cuando son IDs de categoría)
+      const teamIdForSlot = slot.scope_type === 'team' ? slot.target_ids[0] : undefined;
+
       try {
         // Endpoint 9.3 — create session from schedule slot
         const result = await Profesor.createScheduleSession(slot.id, {
           date:    dateStr,
-          team_id: slot.target_ids[0],
+          team_id: teamIdForSlot,
         });
         sessionId = result.session_id;
         title     = result.title ?? slot.title;
       } catch {
-        // Fallback: endpoint 8.7 — create attendance session directly
-        const teamId = slot.target_ids[0];
-        if (!teamId) throw new Error('Sin equipo asignado al bloque');
-        const session = await Profesor.createAttendanceSession(teamId, {
+        // Fallback: endpoint 8.7 — solo disponible cuando hay team_id real
+        if (!teamIdForSlot) throw new Error('Sin equipo asignado al bloque (categoría no soportada como fallback)');
+        const session = await Profesor.createAttendanceSession(teamIdForSlot, {
           date:  dateStr,
           type:  'training',
           title: slot.title,
