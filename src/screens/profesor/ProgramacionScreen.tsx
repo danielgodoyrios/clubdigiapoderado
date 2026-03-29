@@ -102,20 +102,26 @@ export default function ProgramacionScreen({ navigation }: any) {
   const [slotCreating, setSlotCreating] = useState<number | null>(null);
 
   const openSlotSession = async (slot: ScheduleSlot) => {
+    const teamId = slot.target_ids[0];
+    if (!teamId) {
+      Alert.alert('Error', 'No se encontró el equipo asignado a este bloque.');
+      return;
+    }
     setSlotCreating(slot.id);
     try {
-      const today    = new Date();
-      const diff     = slot.day_of_week - today.getDay();
-      const target   = new Date(today);
+      const today  = new Date();
+      const diff   = slot.day_of_week - today.getDay();
+      const target = new Date(today);
       target.setDate(today.getDate() + diff);
-      const dateStr  = target.toISOString().slice(0, 10);
-      const result   = await Profesor.createScheduleSession(slot.id, {
-        date:    dateStr,
-        team_id: slot.target_ids[0],
+      const dateStr = target.toISOString().slice(0, 10);
+      const session = await Profesor.createAttendanceSession(teamId, {
+        date:  dateStr,
+        type:  'training',
+        title: slot.title,
       });
       navigation.navigate('AsistenciaProfesor', {
-        sessionId: result.session_id,
-        title:     result.title ?? slot.title,
+        sessionId: session.id,
+        title:     session.title ?? slot.title,
       });
     } catch (e: any) {
       Alert.alert('Error', e?.error ?? 'No se pudo crear la sesión.');
