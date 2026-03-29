@@ -1,13 +1,14 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Image, RefreshControl,
+  ScrollView, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import { Profesor, ProfesorTeam, ProfesorEvent, Lesion } from '../../api';
+import ProfesorSideMenu from '../../components/ProfesorSideMenu';
 
 const GREEN = '#0F7D4B';
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -18,24 +19,16 @@ function fmtEventDate(date: string, time: string | null) {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}${time ? ' · ' + time : ''}`;
 }
 
-const ACTIONS = [
-  { id: 'asistencia',    icon: 'clipboard-outline',  label: 'Asistencia',     screen: 'AsistenciaProfesor', modulo: 'asistencia' },
-  { id: 'agenda',        icon: 'calendar-outline',   label: 'Agenda',         screen: 'ProfesorAgenda',     modulo: 'agenda' },
-  { id: 'equipos',       icon: 'people-outline',     label: 'Mis Equipos',    screen: 'MisEquipos',         modulo: null },
-  { id: 'convocatoria',  icon: 'megaphone-outline',  label: 'Convocar',       screen: 'ProfesorAgenda',     modulo: 'convocatorias' },
-  { id: 'lesiones',      icon: 'medkit-outline',     label: 'Lesiones',       screen: 'LesionesEquipo',     modulo: null },
-];
-
 export default function ProfesorHomeScreen({ navigation }: any) {
   const { state, isModuloHabilitado, isModuloNuevo, marcarModuloVisto } = useAuth();
-  const user  = state.status === 'authenticated' ? state.user : null;
-  const name  = user?.name ?? 'Profesor';
-  const clubs = user?.profesor_info?.teams ?? [];
+  const user     = state.status === 'authenticated' ? state.user : null;
+  const name     = user?.name ?? 'Profesor';
   const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
 
-  const [teams,       setTeams]       = useState<ProfesorTeam[]>([]);
-  const [nextEvents,  setNextEvents]  = useState<ProfesorEvent[]>([]);
-  const [lesiones,    setLesiones]    = useState<Lesion[]>([]);
+  const [menuVisible,  setMenuVisible]  = useState(false);
+  const [teams,        setTeams]        = useState<ProfesorTeam[]>([]);
+  const [nextEvents,   setNextEvents]   = useState<ProfesorEvent[]>([]);
+  const [lesiones,     setLesiones]     = useState<Lesion[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
 
@@ -51,10 +44,10 @@ export default function ProfesorHomeScreen({ navigation }: any) {
       if (ts.status === 'fulfilled') setTeams(ts.value);
       if (evs.status === 'fulfilled') setNextEvents(evs.value.slice(0, 5));
 
-      // Lesiones de todos los equipos (primer equipo si hay varios)
+      // Cargamos lesiones del primer equipo como muestra
       if (ts.status === 'fulfilled' && ts.value.length > 0) {
         const lesRes = await Profesor.injuries(ts.value[0].id).catch(() => []);
-        setLesiones(lesRes.filter(l => l.is_active));
+        setLesiones(lesRes.filter((l: Lesion) => l.is_active));
       }
     } finally {
       setLoading(false);
@@ -71,6 +64,10 @@ export default function ProfesorHomeScreen({ navigation }: any) {
     navigation.navigate(screen, params);
   };
 
+  const totalPlayers    = teams.reduce((s, t) => s + t.player_count, 0);
+  const upcomingMatches = nextEvents.filter(e => e.type === 'match');
+  const teamsToShow     = teams.slice(0, 6);
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -79,14 +76,21 @@ export default function ProfesorHomeScreen({ navigation }: any) {
     );
   }
 
-  const upcomingMatches = nextEvents.filter(e => e.type === 'match');
-  const upcomingTrainings = nextEvents.filter(e => e.type === 'training');
-
   return (
     <SafeAreaView style={styles.safe}>
+      <ProfesorSideMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        navigation={navigation}
+      />
+
       {/* HEADER */}
       <View style={{ backgroundColor: GREEN }}>
         <View style={styles.topRow}>
+          {/* Hamburger */}
+          <TouchableOpacity style={styles.menuBtn} onPress={() => setMenuVisible(true)}>
+            <Ionicons name="menu-outline" size={22} color="#fff" />
+          </TouchableOpacity>
           <View style={styles.logo}>
             <Text style={styles.logoI}>CLUB</Text>
             <Text style={styles.logoB}>DIGI</Text>
@@ -108,7 +112,9 @@ export default function ProfesorHomeScreen({ navigation }: any) {
             <Text style={styles.rolePill}>PROFESOR / COACH</Text>
             <Text style={styles.userName}>{name}</Text>
             <Text style={styles.userMeta}>
-              {teams.length > 0 ? teams.map(t => t.name).join(' · ') : 'Sin equipos asignados'}
+              {teams.length > 0
+                ? `${teams.length} equipo${teams.length !== 1 ? 's' : ''} · ${totalPlayers} jugadores`
+                : 'Sin equipos asignados'}
             </Text>
           </View>
         </View>
@@ -121,12 +127,14 @@ export default function ProfesorHomeScreen({ navigation }: any) {
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statPill}>
-            <Text style={styles.statNum}>{teams.reduce((s, t) => s + t.player_count, 0)}</Text>
+            <Text style={styles.statNum}>{totalPlayers}</Text>
             <Text style={styles.statLbl}>Jugadores</Text>
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statPill}>
-            <Text style={[styles.statNum, lesiones.length > 0 && { color: '#FBBF24' }]}>{lesiones.length}</Text>
+            <Text style={[styles.statNum, lesiones.length > 0 && { color: '#FBBF24' }]}>
+              {lesiones.length}
+            </Text>
             <Text style={styles.statLbl}>Lesionados</Text>
           </View>
           <View style={styles.statDiv} />
@@ -142,10 +150,34 @@ export default function ProfesorHomeScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
       >
+        {/* Pasar Asistencia — CTA prominente siempre visible */}
+        <TouchableOpacity
+          style={styles.ctaAsistencia}
+          onPress={() => navigate('AsistenciaProfesor')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.ctaIconWrap}>
+            <Ionicons name="clipboard-outline" size={22} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.ctaTitle}>Pasar Asistencia</Text>
+            <Text style={styles.ctaSub}>Registra la asistencia de hoy</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
+        </TouchableOpacity>
+
         {/* Acciones rápidas */}
-        <Text style={[styles.sectionLbl, { marginHorizontal: 16, marginTop: 18, marginBottom: 10 }]}>ACCESOS RÁPIDOS</Text>
+        <Text style={[styles.sectionLbl, { marginHorizontal: 16, marginTop: 20, marginBottom: 10 }]}>
+          ACCIONES RÁPIDAS
+        </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
-          {ACTIONS.filter(a => !a.modulo || isModuloHabilitado(a.modulo)).map(a => {
+          {[
+            { id: 'agenda',       icon: 'calendar-outline',   label: 'Agenda',       screen: 'ProfesorAgenda', modulo: 'agenda' },
+            { id: 'equipos',      icon: 'people-outline',     label: 'Mis Equipos',  screen: 'MisEquipos',     modulo: null },
+            { id: 'convocatoria', icon: 'megaphone-outline',  label: 'Convocar',     screen: 'ProfesorAgenda', modulo: 'convocatorias' },
+            { id: 'lesiones',     icon: 'medkit-outline',     label: 'Lesiones',     screen: 'LesionesEquipo', modulo: null },
+            { id: 'crearEvento',  icon: 'add-circle-outline', label: 'Crear Evento', screen: 'CrearEvento',    modulo: null },
+          ].filter(a => !a.modulo || isModuloHabilitado(a.modulo)).map(a => {
             const esNuevo = a.modulo ? isModuloNuevo(a.modulo) : false;
             return (
               <TouchableOpacity
@@ -184,7 +216,9 @@ export default function ProfesorHomeScreen({ navigation }: any) {
                 <View style={[styles.eventTypeDot, { backgroundColor: ev.type === 'match' ? Colors.blue : GREEN }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.eventTitle} numberOfLines={1}>{ev.title}</Text>
-                  <Text style={styles.eventMeta}>{fmtEventDate(ev.date, ev.time)}{ev.team_name ? ` · ${ev.team_name}` : ''}</Text>
+                  <Text style={styles.eventMeta}>
+                    {fmtEventDate(ev.date, ev.time)}{ev.team_name ? ` · ${ev.team_name}` : ''}
+                  </Text>
                   {ev.type === 'match' && (
                     <Text style={styles.eventMeta}>
                       {ev.convocados} convocados · {ev.confirmados} confirmados
@@ -201,12 +235,14 @@ export default function ProfesorHomeScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* Mis Equipos */}
+        {/* Mis Equipos — grid 2 columnas */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLbl}>MIS EQUIPOS</Text>
             <TouchableOpacity onPress={() => navigation.navigate('MisEquipos')}>
-              <Text style={styles.sectionLink}>Ver equipos →</Text>
+              <Text style={styles.sectionLink}>
+                {teams.length > 6 ? `Ver todos (${teams.length}) →` : 'Ver equipos →'}
+              </Text>
             </TouchableOpacity>
           </View>
           {teams.length === 0 ? (
@@ -215,28 +251,45 @@ export default function ProfesorHomeScreen({ navigation }: any) {
               <Text style={styles.emptyTxt}>Sin equipos asignados</Text>
             </View>
           ) : (
-            teams.map(team => (
-              <TouchableOpacity
-                key={team.id}
-                style={styles.teamCard}
-                onPress={() => navigation.navigate('MisEquipos', { teamId: team.id })}
-                activeOpacity={0.82}
-              >
-                <View style={styles.teamAvatar}>
-                  <Ionicons name="shield-outline" size={20} color={GREEN} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.teamName}>{team.name}</Text>
-                  <Text style={styles.teamMeta}>
-                    {[team.category, team.sport].filter(Boolean).join(' · ') || 'Sin categoría'}
-                  </Text>
-                </View>
-                <View style={styles.teamCountBadge}>
-                  <Ionicons name="person-outline" size={11} color={GREEN} />
-                  <Text style={styles.teamCountTxt}>{team.player_count}</Text>
-                </View>
-              </TouchableOpacity>
-            ))
+            <View style={styles.teamsGrid}>
+              {teamsToShow.map(team => (
+                <TouchableOpacity
+                  key={team.id}
+                  style={styles.teamGridCard}
+                  onPress={() => navigation.navigate('MisEquipos', { teamId: team.id })}
+                  activeOpacity={0.82}
+                >
+                  <View style={styles.teamGridIcon}>
+                    <Ionicons name="shield-outline" size={18} color={GREEN} />
+                  </View>
+                  <Text style={styles.teamGridName} numberOfLines={2}>{team.name}</Text>
+                  {(team.category || team.sport) && (
+                    <Text style={styles.teamGridCat} numberOfLines={1}>
+                      {[team.category, team.sport].filter(Boolean).join(' · ')}
+                    </Text>
+                  )}
+                  <View style={styles.teamGridCount}>
+                    <Ionicons name="person-outline" size={10} color={GREEN} />
+                    <Text style={styles.teamGridCountTxt}>{team.player_count}</Text>
+                  </View>
+                  {team.next_event_date && (
+                    <Text style={styles.teamGridNext}>
+                      Próx: {new Date(team.next_event_date + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+              {teams.length > 6 && (
+                <TouchableOpacity
+                  style={[styles.teamGridCard, styles.teamGridMore]}
+                  onPress={() => navigation.navigate('MisEquipos')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-forward-circle-outline" size={24} color={GREEN} />
+                  <Text style={styles.teamGridMoreTxt}>+{teams.length - 6} más</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
 
@@ -278,7 +331,8 @@ export default function ProfesorHomeScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   safe:       { flex: 1, backgroundColor: Colors.surf },
-  topRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 4 },
+  topRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 4 },
+  menuBtn:    { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
   logo:       { flexDirection: 'row', alignItems: 'baseline' },
   logoI:      { fontSize: 16, fontWeight: '800', color: 'rgba(255,255,255,0.35)' },
   logoB:      { fontSize: 16, fontWeight: '800', color: '#fff' },
@@ -296,13 +350,20 @@ const styles = StyleSheet.create({
   statLbl:    { fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginTop: 1 },
   statDiv:    { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center' },
   body:       { flex: 1 },
-  sectionLbl: { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: Colors.gray },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  sectionLink: { fontSize: 10, fontWeight: '700', color: GREEN },
-  section:    { paddingHorizontal: 16, marginBottom: 6, marginTop: 16 },
+
+  // CTA Asistencia
+  ctaAsistencia: { flexDirection: 'row', alignItems: 'center', backgroundColor: GREEN, marginHorizontal: 16, marginTop: 16, borderRadius: 14, padding: 14, gap: 12, shadowColor: GREEN, shadowOpacity: 0.3, shadowRadius: 8, elevation: 3 },
+  ctaIconWrap:   { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  ctaTitle:      { fontSize: 15, fontWeight: '800', color: '#fff' },
+  ctaSub:        { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 1 },
+
+  sectionLbl:    { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: Colors.gray },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  sectionLink:   { fontSize: 10, fontWeight: '700', color: GREEN },
+  section:       { paddingHorizontal: 16, marginBottom: 6, marginTop: 20 },
 
   // Acciones
-  actionItem:    { alignItems: 'center', gap: 5, width: 62, marginBottom: 4 },
+  actionItem:    { alignItems: 'center', gap: 5, width: 64, marginBottom: 4 },
   actionCircle:  { width: 50, height: 50, borderRadius: 25, backgroundColor: GREEN + '14', alignItems: 'center', justifyContent: 'center' },
   actionNuevoDot:{ position: 'absolute', top: 2, right: 2, width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.red, borderWidth: 1.5, borderColor: Colors.white },
   actionLabel:   { fontSize: 9, color: Colors.black, fontWeight: '500', textAlign: 'center', lineHeight: 12 },
@@ -316,13 +377,17 @@ const styles = StyleSheet.create({
   typeChip:     { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
   typeChipTxt:  { fontSize: 9, fontWeight: '800' },
 
-  // Equipos
-  teamCard:       { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  teamAvatar:     { width: 40, height: 40, borderRadius: 10, backgroundColor: GREEN + '12', alignItems: 'center', justifyContent: 'center' },
-  teamName:       { fontSize: 14, fontWeight: '700', color: Colors.black },
-  teamMeta:       { fontSize: 11, color: Colors.gray, marginTop: 1 },
-  teamCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: GREEN + '12', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
-  teamCountTxt:   { fontSize: 11, fontWeight: '700', color: GREEN },
+  // Teams grid 2-col
+  teamsGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  teamGridCard:     { width: '48%', backgroundColor: '#fff', borderRadius: 14, padding: 12, gap: 4, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+  teamGridIcon:     { width: 34, height: 34, borderRadius: 8, backgroundColor: GREEN + '12', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  teamGridName:     { fontSize: 13, fontWeight: '700', color: Colors.black, lineHeight: 17 },
+  teamGridCat:      { fontSize: 10, color: GREEN, fontWeight: '600', marginTop: 1 },
+  teamGridCount:    { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
+  teamGridCountTxt: { fontSize: 11, fontWeight: '700', color: Colors.gray },
+  teamGridNext:     { fontSize: 9, color: Colors.gray, marginTop: 2 },
+  teamGridMore:     { alignItems: 'center', justifyContent: 'center', backgroundColor: GREEN + '10', borderWidth: 1, borderColor: GREEN + '30', borderStyle: 'dashed' },
+  teamGridMoreTxt:  { fontSize: 12, fontWeight: '700', color: GREEN, marginTop: 4 },
 
   // Lesiones
   lesionCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, gap: 10, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
