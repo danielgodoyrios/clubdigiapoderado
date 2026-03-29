@@ -558,8 +558,16 @@ export type ClubInfoBasica = {
   direccion: string | null;
 };
 
+export type ModuloEstado = {
+  clave: string;         // e.g. "pagos", "comunicados", "asistencia"
+  nombre: string;        // display name
+  habilitado: boolean;
+  es_nuevo: boolean;     // true si fue habilitado en los últimos 7 días
+  descripcion?: string | null;
+};
+
 export type ClubModulos = {
-  modulos: string[];   // e.g. ["pagos", "tienda", "encuestas", "beneficios", "convocatorias"]
+  modulos: ModuloEstado[];
 };
 
 export type ClubConfiguracion = {

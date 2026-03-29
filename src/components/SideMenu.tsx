@@ -21,36 +21,36 @@ const SECTIONS = [
   {
     title: 'Seguimiento',
     items: [
-      { icon: 'clipboard-outline', label: 'Asistencia', screen: 'Asistencia' },
-      { icon: 'card-outline', label: 'Pagos', screen: 'Pagos' },
+      { icon: 'clipboard-outline', label: 'Asistencia', screen: 'Asistencia', modulo: 'asistencia' },
+      { icon: 'card-outline', label: 'Pagos', screen: 'Pagos', modulo: 'pagos' },
     ],
   },
   {
     title: 'Comunicacion',
     items: [
-      { icon: 'chatbubble-outline', label: 'Comunicados', screen: 'Comunicados' },
-      { icon: 'document-text-outline', label: 'Documentos', screen: 'Documentos' },
+      { icon: 'chatbubble-outline', label: 'Comunicados', screen: 'Comunicados', modulo: 'comunicados' },
+      { icon: 'document-text-outline', label: 'Documentos', screen: 'Documentos', modulo: 'documentos' },
     ],
   },
   {
     title: 'Trámites',
     items: [
-      { icon: 'document-outline', label: 'Mis Justificativos', screen: 'MisJustificativos' },
-      { icon: 'ribbon-outline',   label: 'Permiso Deportivo',  screen: 'PermisoDeportivo'  },
-      { icon: 'time-outline',     label: 'Horarios',           screen: 'Horarios'           },
+      { icon: 'document-outline', label: 'Mis Justificativos', screen: 'MisJustificativos', modulo: 'justificativos' },
+      { icon: 'ribbon-outline',   label: 'Permiso Deportivo',  screen: 'PermisoDeportivo',  modulo: 'permisos_deportivos' },
+      { icon: 'time-outline',     label: 'Horarios',           screen: 'Horarios',           modulo: 'horarios' },
     ],
   },
   {
     title: 'Mis Deportistas',
     items: [
-      { icon: 'people-outline', label: 'Mis Deportistas', screen: 'MisDeportistas' },
+      { icon: 'people-outline', label: 'Mis Deportistas', screen: 'MisDeportistas', modulo: undefined },
     ],
   },
   {
     title: 'Mi Cuenta',
     items: [
-      { icon: 'person-outline', label: 'Perfil', screen: 'Perfil' },
-      { icon: 'settings-outline', label: 'Configuracion', screen: 'Configuracion' },
+      { icon: 'person-outline', label: 'Perfil', screen: 'Perfil', modulo: undefined },
+      { icon: 'settings-outline', label: 'Configuracion', screen: 'Configuracion', modulo: undefined },
     ],
   },
 ];
@@ -62,7 +62,7 @@ interface Props {
 }
 
 export default function SideMenu({ visible, onClose, navigation }: Props) {
-  const { state, logout } = useAuth();
+  const { state, logout, isModuloHabilitado, isModuloNuevo, marcarModuloVisto } = useAuth();
   const slideX = useRef(new Animated.Value(-PANEL_W)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -96,6 +96,11 @@ export default function SideMenu({ visible, onClose, navigation }: Props) {
   const navigate = (screen: string, params?: object) => {
     onClose();
     setTimeout(() => navigation.navigate(screen, params), 240);
+  };
+
+  const handleMenuPress = (screen: string, modulo?: string) => {
+    if (modulo) marcarModuloVisto(modulo);
+    navigate(screen);
   };
 
   const handleLogout = () => {
@@ -132,28 +137,42 @@ export default function SideMenu({ visible, onClose, navigation }: Props) {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
-            {SECTIONS.map((sec) => (
-              <View key={sec.title} style={styles.section}>
-                <Text style={styles.sectionLbl}>{sec.title.toUpperCase()}</Text>
-                {sec.items.map((item, i) => (
-                  <TouchableOpacity
-                    key={item.screen}
-                    style={[
-                      styles.menuItem,
-                      i < sec.items.length - 1 ? styles.menuBorder : undefined,
-                    ]}
-                    onPress={() => navigate(item.screen)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.menuIcon}>
-                      <Ionicons name={item.icon as any} size={17} color={BLUE} />
-                    </View>
-                    <Text style={styles.menuLabel}>{item.label}</Text>
-                    <Ionicons name="chevron-forward" size={13} color={Colors.light} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))}
+            {SECTIONS.map((sec) => {
+              const visibleItems = sec.items.filter(
+                item => !item.modulo || isModuloHabilitado(item.modulo),
+              );
+              if (visibleItems.length === 0) return null;
+              return (
+                <View key={sec.title} style={styles.section}>
+                  <Text style={styles.sectionLbl}>{sec.title.toUpperCase()}</Text>
+                  {visibleItems.map((item, i) => {
+                    const esNuevo = item.modulo ? isModuloNuevo(item.modulo) : false;
+                    return (
+                      <TouchableOpacity
+                        key={item.screen}
+                        style={[
+                          styles.menuItem,
+                          i < visibleItems.length - 1 ? styles.menuBorder : undefined,
+                        ]}
+                        onPress={() => handleMenuPress(item.screen, item.modulo)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.menuIcon}>
+                          <Ionicons name={item.icon as any} size={17} color={BLUE} />
+                        </View>
+                        <Text style={styles.menuLabel}>{item.label}</Text>
+                        {esNuevo && (
+                          <View style={styles.nuevoBadge}>
+                            <Text style={styles.nuevoText}>NUEVO</Text>
+                          </View>
+                        )}
+                        <Ionicons name="chevron-forward" size={13} color={Colors.light} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              );
+            })}
             <View style={styles.scrollPad} />
           </ScrollView>
 
@@ -236,6 +255,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.black },
+  nuevoBadge: {
+    backgroundColor: Colors.red,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    marginRight: 4,
+  },
+  nuevoText: { fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
   switchRoleBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Auth, Apoderado, Profesor, Admin, Pupils, Club, getAccessToken, MeResponse, Pupil } from '../api';
+import { Auth, Apoderado, Profesor, Admin, Pupils, Club, getAccessToken, MeResponse, Pupil, ModuloEstado } from '../api';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 
 // ── Types ─────────────────────────────────────────────────────
@@ -23,10 +23,16 @@ interface AuthContextValue {
   refreshPupils: () => Promise<void>;
   /** Cierra sesión */
   logout: () => Promise<void>;
-  /** Módulos habilitados por el club */
+  /** Módulos habilitados por el club (claves) */
   modulosHabilitados: string[];
+  /** Estado completo de módulos (con es_nuevo, nombre, etc.) */
+  modulosEstado: ModuloEstado[];
   /** Verifica si un módulo está activo */
   isModuloHabilitado: (modulo: string) => boolean;
+  /** Verifica si un módulo es nuevo (es_nuevo=true) y el usuario aún no lo vio */
+  isModuloNuevo: (clave: string) => boolean;
+  /** Marca un módulo como visto (elimina badge NUEVO) */
+  marcarModuloVisto: (clave: string) => void;
   /** Recarga módulos del club */
   loadModulosHabilitados: (clubId: number) => Promise<void>;
 }
@@ -44,8 +50,17 @@ export function useAuth(): AuthContextValue {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
   const [modulosHabilitados, setModulosHabilitados] = useState<string[]>([]);
+  const [modulosEstado, setModulosEstado] = useState<ModuloEstado[]>([]);
+  const [modulosVistos, setModulosVistos] = useState<string[]>([]);
 
   usePushNotifications(state.status === 'authenticated');
+
+  // Cargar módulos vistos desde AsyncStorage al arrancar
+  useEffect(() => {
+    AsyncStorage.getItem('modulos_vistos').then(raw => {
+      if (raw) setModulosVistos(JSON.parse(raw));
+    }).catch(() => {});
+  }, []);
 
   // Al arrancar: comprobar si hay token guardado
   useEffect(() => {
@@ -95,6 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           activePupil: pupils[0] ?? null,
           activeRole,
         });
+        // Cargar módulos habilitados del club en background
+        if (user.club_id) loadModulosHabilitados(user.club_id);
       } catch {
         setState({ status: 'unauthenticated' });
       }
@@ -114,6 +131,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const pupils = activeRole === 'apoderado' ? await Pupils.list() : [];
       await AsyncStorage.setItem('active_role', activeRole);
       setState({ status: 'authenticated', user, pupils, activePupil: pupils[0] ?? null, activeRole });
+      // Cargar módulos habilitados del club en background
+      if (user.club_id) loadModulosHabilitados(user.club_id);
     }
     return hasRoles;
   };
@@ -160,27 +179,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadModulosHabilitados = useCallback(async (clubId: number) => {
     try {
       const res = await Club.modulosHabilitados(clubId);
-      setModulosHabilitados(res.modulos);
+      setModulosEstado(res.modulos);
+      setModulosHabilitados(res.modulos.filter(m => m.habilitado).map(m => m.clave));
     } catch {
-      // Mantener módulos previos si falla la carga
+      // Mantener módulos previos si falla la carga (fail-open)
     }
   }, []);
 
   const isModuloHabilitado = useCallback((modulo: string): boolean => {
     // Si no se han cargado módulos aún, mostrar todo (modo degradado)
-    if (modulosHabilitados.length === 0) return true;
-    return modulosHabilitados.includes(modulo);
-  }, [modulosHabilitados]);
+    if (modulosEstado.length === 0) return true;
+    return modulosEstado.find(m => m.clave === modulo)?.habilitado ?? true;
+  }, [modulosEstado]);
+
+  const isModuloNuevo = useCallback((clave: string): boolean => {
+    const m = modulosEstado.find(mod => mod.clave === clave);
+    if (!m?.es_nuevo || !m.habilitado) return false;
+    return !modulosVistos.includes(clave);
+  }, [modulosEstado, modulosVistos]);
+
+  const marcarModuloVisto = useCallback((clave: string) => {
+    setModulosVistos(prev => {
+      if (prev.includes(clave)) return prev;
+      const next = [...prev, clave];
+      AsyncStorage.setItem('modulos_vistos', JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
 
   const logout = useCallback(async () => {
     await Auth.logout();
     await AsyncStorage.removeItem('active_role');
     setModulosHabilitados([]);
+    setModulosEstado([]);
     setState({ status: 'unauthenticated' });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ state, requestOTP, verifyOTP, setActiveRole, setActivePupil, refreshPupils, logout, modulosHabilitados, isModuloHabilitado, loadModulosHabilitados }}>
+    <AuthContext.Provider value={{ state, requestOTP, verifyOTP, setActiveRole, setActivePupil, refreshPupils, logout, modulosHabilitados, modulosEstado, isModuloHabilitado, isModuloNuevo, marcarModuloVisto, loadModulosHabilitados }}>
       {children}
     </AuthContext.Provider>
   );
