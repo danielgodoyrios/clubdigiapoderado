@@ -3389,3 +3389,269 @@ Los módulos de la Sección 7 aplican también al rol profesor. La app oculta la
 Los endpoints del profesor siempre están disponibles en el backend; es la app quien filtra la UI según los módulos.
 
 ---
+
+## Sección 9: AGENDA UNIFICADA DEL PROFESOR + PROGRAMACIÓN SEMANAL
+
+> Esta sección documenta los endpoints implementados por el frontend en las pantallas **ProgramacionScreen** (Agenda + Semanal) y **PartidoDetalleScreen**. Son todos nuevos y **aún no implementados en el backend**.
+
+---
+
+### 9.1 Agenda Unificada del Profesor
+
+**Objetivo:** Devolver en una sola respuesta todos los eventos del profesor para un rango de fechas: sesiones de entrenamiento, partidos, eventos del club y bloques de horario pendientes de crear sesión. La app los agrupa por fecha y los muestra en el tab "Agenda" de ProgramacionScreen.
+
+```
+GET /api/profesor/agenda?from={YYYY-MM-DD}&to={YYYY-MM-DD}
+```
+
+**Auth:** Bearer `profesor`
+
+**Response 200:** Array de `AgendaItem`, ordenado por `date` ASC, `time` ASC.
+
+```json
+[
+  {
+    "item_type": "training",
+    "date": "2026-03-31",
+    "time": "18:00",
+    "end_time": "20:00",
+    "title": "Entrenamiento Sub-15",
+    "subtitle": null,
+    "location": "Gimnasio A",
+    "team_id": 1,
+    "team_name": "Sub-15 Masculino",
+    "status": "upcoming",
+    "session_id": 42,
+    "match_id": null,
+    "club_event_id": null,
+    "schedule_id": null,
+    "can_take_attendance": true,
+    "attendance_stats": null,
+    "score": null
+  },
+  {
+    "item_type": "match",
+    "date": "2026-04-05",
+    "time": "15:30",
+    "end_time": null,
+    "title": "Sub-15 Masculino vs Rival FC",
+    "subtitle": "Liga Regional",
+    "location": "Estadio Municipal",
+    "team_id": 1,
+    "team_name": "Sub-15 Masculino",
+    "status": "scheduled",
+    "session_id": null,
+    "match_id": 88,
+    "club_event_id": 55,
+    "schedule_id": null,
+    "can_take_attendance": false,
+    "attendance_stats": null,
+    "score": null
+  },
+  {
+    "item_type": "pending_schedule",
+    "date": "2026-04-07",
+    "time": "08:00",
+    "end_time": "10:00",
+    "title": "Entrenamiento Sub-15",
+    "subtitle": null,
+    "location": "Cancha B",
+    "team_id": 1,
+    "team_name": "Sub-15 Masculino",
+    "status": "upcoming",
+    "session_id": null,
+    "match_id": null,
+    "club_event_id": null,
+    "schedule_id": 12,
+    "can_take_attendance": false,
+    "attendance_stats": null,
+    "score": null
+  }
+]
+```
+
+**Descripción de campos:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `item_type` | enum | `training` · `match_session` · `event_session` · `match` · `club_event` · `pending_schedule` |
+| `date` | `"YYYY-MM-DD"` | Fecha del evento |
+| `time` | `"HH:MM" \| null` | Hora de inicio |
+| `end_time` | `"HH:MM" \| null` | Hora de término |
+| `title` | `string` | Nombre del evento (ej. `"Sub-15 vs Rival FC"`) |
+| `subtitle` | `string \| null` | Info secundaria (liga, categoría, etc.) |
+| `location` | `string \| null` | Lugar |
+| `team_id` | `int \| null` | ID del equipo |
+| `team_name` | `string \| null` | Nombre del equipo |
+| `status` | enum | `upcoming` · `scheduled` · `played` · `finished` · `pending` · `cancelled` |
+| `session_id` | `int \| null` | ID de sesión de asistencia existente (si ya se creó) |
+| `match_id` | `int \| null` | ID del partido (ClubMatch) — requerido para registrar resultado |
+| `club_event_id` | `int \| null` | ID del evento del club — **requerido para cargar la nómina (convocatoria)**. Para items `match`, debe corresponder al evento padre del partido. |
+| `schedule_id` | `int \| null` | ID del bloque de horario recurrente (solo para `pending_schedule`) |
+| `can_take_attendance` | `bool` | Si el profesor puede marcar asistencia en este item ahora |
+| `attendance_stats` | `object \| null` | `{ total, present, absent }` — solo si ya hay sesión con registros |
+| `score` | `string \| null` | Resultado en formato `"2:1"` (solo items de tipo `match`) |
+
+**Lógica de construcción:**
+
+El backend debe unir en un solo array:
+1. **TrainingSession** (sesiones de entrenamiento del profesor) → `item_type: "training"`, `session_id` poblado, `can_take_attendance: true`
+2. **ClubMatch** programados → `item_type: "match"`, `match_id` + `club_event_id` poblados, `score` si hay resultado
+3. **ClubEvent** del club/equipo → `item_type: "club_event"`, `club_event_id` poblado
+4. **ScheduleBlock** sin sesión en esa fecha → `item_type: "pending_schedule"`, `schedule_id` poblado, `can_take_attendance: false`
+
+**CRÍTICO:** Para items de tipo `match`, el campo `club_event_id` debe retornar el ID del `ClubEvent` padre del partido. La app lo usa para llamar `GET /api/profesor/events/{club_event_id}/convocatoria` y mostrar la nómina en `PartidoDetalleScreen`.
+
+---
+
+### 9.2 Programación Semanal del Profesor
+
+**Objetivo:** Devolver el horario recurrente (bloques fijos por día de la semana) asignados al profesor. La app los muestra en el tab "Semanal" de ProgramacionScreen y los proyecta sobre los próximos días.
+
+```
+GET /api/profesor/schedule
+```
+
+**Auth:** Bearer `profesor`
+
+**Response 200:**
+
+```json
+[
+  {
+    "id": 12,
+    "day_of_week": 1,
+    "day_name": "Lunes",
+    "title": "Entrenamiento Sub-15",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "scope_type": "team",
+    "target_ids": [1],
+    "location": "Gimnasio A",
+    "venue": { "id": 3, "name": "Gimnasio A" },
+    "coach": { "id": 7, "name": "Pedro García" },
+    "backup_coach": null,
+    "is_mine": true
+  }
+]
+```
+
+**Campos:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `id` | int | ID del bloque de horario |
+| `day_of_week` | int (0-6) | 0=Domingo … 6=Sábado |
+| `day_name` | string | Nombre del día en español (ej. `"Lunes"`) |
+| `title` | string | Descripción del bloque (ej. `"Entrenamiento Sub-15"`) |
+| `start_time` | `"HH:MM"` | Hora de inicio |
+| `end_time` | `"HH:MM"` | Hora de término |
+| `scope_type` | `"team" \| "category"` | Si aplica a un equipo específico o a una categoría |
+| `target_ids` | `int[]` | IDs de los equipos/categorías a los que aplica |
+| `location` | `string \| null` | Lugar |
+| `venue` | `{ id, name } \| null` | Recinto |
+| `coach` | `{ id, name } \| null` | Profesor principal |
+| `backup_coach` | `{ id, name } \| null` | Profesor de respaldo |
+| `is_mine` | `bool` | `true` si el profesor autenticado es el coach principal |
+
+---
+
+### 9.3 Crear sesión desde bloque de horario
+
+**Objetivo:** Cuando el profesor toca un bloque `pending_schedule` en la agenda semanal, la app crea una sesión de asistencia concreta para esa fecha a partir del bloque recurrente.
+
+```
+POST /api/profesor/schedule/{slot_id}/session
+```
+
+**Auth:** Bearer `profesor`
+
+**Body:**
+```json
+{
+  "date": "2026-04-07",
+  "team_id": 1
+}
+```
+
+**Validaciones:**
+- `slot_id` debe pertenecer al club del profesor autenticado.
+- `date` debe coincidir con el `day_of_week` del bloque (o si no, aceptar de todas formas y loguear).
+- Si ya existe una sesión para ese bloque + fecha, devolver la existente (idempotente, no 409).
+
+**Response 201:**
+```json
+{
+  "session_id": 55,
+  "title": "Entrenamiento Sub-15",
+  "date": "2026-04-07",
+  "status": "upcoming",
+  "created": true
+}
+```
+
+Si ya existía la sesión: devolver igual pero con `"created": false`.
+
+---
+
+### 9.4 Crear sesión de asistencia para un partido (actualización de 8.7)
+
+> **ACTUALIZACIÓN al endpoint 8.7** — el body ahora acepta el campo opcional `match_id`.
+
+```
+POST /api/profesor/teams/{team_id}/attendance
+```
+
+**Body actualizado:**
+```json
+{
+  "date": "2026-04-05",
+  "type": "match",
+  "title": "Sub-15 vs Rival FC",
+  "match_id": 88
+}
+```
+
+El campo `match_id` (opcional) permite al backend vincular la sesión de asistencia al partido específico, para:
+- Evitar sesiones duplicadas para el mismo partido.
+- Asociar la asistencia al resultado del partido en reportes.
+
+Si ya existe una sesión vinculada al `match_id`, devolver la existente (idempotente).
+
+**Response 201:** Mismo formato que 8.6 (detalle de sesión con `records` poblados).
+
+---
+
+### 9.5 Registrar resultado de un partido
+
+```
+PUT /api/profesor/matches/{match_id}/result
+```
+
+**Auth:** Bearer `profesor`
+
+**Body:**
+```json
+{ "score": "2:1" }
+```
+
+**Formato de score:** `"{goles_local}:{goles_visita}"` (ej. `"2:1"`, `"0:0"`, `"15:7"`)
+
+**Validaciones:**
+- `match_id` debe pertenecer a un equipo del profesor autenticado.
+- Ambos valores deben ser enteros ≥ 0.
+- Se puede llamar múltiples veces (actualiza el resultado existente).
+
+**Response 200:**
+```json
+{ "ok": true }
+```
+
+**Errores:**
+
+| HTTP | Caso |
+|------|------|
+| `403` | El partido no pertenece a un equipo del profesor |
+| `404` | Partido no encontrado |
+| `400` | Formato de score inválido |
+
