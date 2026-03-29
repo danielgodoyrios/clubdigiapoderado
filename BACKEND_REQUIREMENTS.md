@@ -2684,3 +2684,34 @@ Considerar agregar a `GET /api/apoderado/me/inbox`:
 | Módulos vs. roles | Endpoints exclusivos de `coach/admin` retornan 403 si token es de apoderado |
 | Cache-Control | Respuestas críticas (pagos, asistencia) deben incluir `Cache-Control: no-store` |
 | TTL notificaciones | Eliminar notificaciones (archivadas y activas) tras `notificaciones_ttl_dias` días con cron |
+
+---
+
+## 5. Correcciones de datos requeridas
+
+### 5.1 URLs de imágenes de pupilos (CRÍTICO)
+
+**Problema detectado:** El campo photo devuelto por GET /apoderado/me/pupils contiene una ruta con prefijo /api/storage/... que no es accesible públicamente. Las imágenes son accesibles en /storage/... (sin prefijo /api).
+
+**URL incorrecta que llega al cliente:**
+`
+https://api.clubdigital.cl/api/storage/enrollments/2/archivo.jpg
+`
+
+**URL correcta donde existe el archivo:**
+`
+https://api.clubdigital.cl/storage/enrollments/2/archivo.jpg
+`
+
+**Corrección requerida en Laravel:**
+
+En el modelo Pupil (o donde se serialice el campo photo), usar Storage::url() para generar la URL pública correcta:
+
+`php
+// En el Resource o al mapear el campo:
+'photo' => ->photo ? Storage::url(->photo) : null,
+`
+
+O si se guarda la ruta relativa en BD, asegurarse que Storage::url() genere https://api.clubdigital.cl/storage/... y **no** incluya /api/ en la ruta.
+
+**Verificar también en:** cualquier otro modelo que tenga photo_url, imagen_url, oto_url — aplicar la misma corrección para que todas las imágenes del sistema devuelvan URLs públicas válidas sin el prefijo /api.

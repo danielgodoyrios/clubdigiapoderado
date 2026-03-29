@@ -3,6 +3,8 @@ import { Config } from '../config';
 
 // Base: https://api.clubdigital.cl/api
 const BASE = Config.API_URL;
+// Storage base for relative photo URLs
+const STORAGE_BASE = BASE.replace('/api', '');
 
 // ── Storage keys ──────────────────────────────────────────────
 const KEY_ACCESS  = 'auth_access_token';
@@ -166,6 +168,12 @@ type PupilRaw = {
   category?: string | null;
 };
 
+function toAbsoluteUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  return STORAGE_BASE + (url.startsWith('/') ? '' : '/') + url;
+}
+
 function mapPupil(raw: PupilRaw): Pupil {
   return {
     id:         raw.id,
@@ -173,7 +181,7 @@ function mapPupil(raw: PupilRaw): Pupil {
     rut:        raw.rut,
     team:       raw.team ?? null,
     category:   raw.category ?? null,
-    photo:      raw.photo ?? null,
+    photo:      toAbsoluteUrl((raw as any).photo_url ?? raw.photo),
     birth_date: raw.birth_date ?? null,
     gender:     raw.gender ?? null,
     status:     raw.status,
