@@ -109,16 +109,34 @@ export default function ProgramacionScreen({ navigation }: any) {
       const target = new Date(today);
       target.setDate(today.getDate() + diff);
       const dateStr = target.toISOString().slice(0, 10);
-      const result = await Profesor.createScheduleSession(slot.id, {
-        date:    dateStr,
-        team_id: slot.target_ids[0],
-      });
-      navigation.navigate('AsistenciaProfesor', {
-        sessionId: result.session_id,
-        title:     result.title ?? slot.title,
-      });
+
+      let sessionId: number;
+      let title: string;
+
+      try {
+        // Endpoint 9.3 — create session from schedule slot
+        const result = await Profesor.createScheduleSession(slot.id, {
+          date:    dateStr,
+          team_id: slot.target_ids[0],
+        });
+        sessionId = result.session_id;
+        title     = result.title ?? slot.title;
+      } catch {
+        // Fallback: endpoint 8.7 — create attendance session directly
+        const teamId = slot.target_ids[0];
+        if (!teamId) throw new Error('Sin equipo asignado al bloque');
+        const session = await Profesor.createAttendanceSession(teamId, {
+          date:  dateStr,
+          type:  'training',
+          title: slot.title,
+        });
+        sessionId = session.id;
+        title     = slot.title;
+      }
+
+      navigation.navigate('AsistenciaProfesor', { sessionId, title });
     } catch (e: any) {
-      Alert.alert('Error', e?.error ?? 'No se pudo crear la sesión.');
+      Alert.alert('Error', e?.error ?? e?.message ?? 'No se pudo crear la sesión.');
     } finally {
       setSlotCreating(null);
     }
@@ -143,11 +161,24 @@ export default function ProgramacionScreen({ navigation }: any) {
       if (item.session_id) {
         navigation.navigate('AsistenciaProfesor', { sessionId: item.session_id, title: item.title });
       } else if (item.schedule_id) {
-        const result = await Profesor.createScheduleSession(item.schedule_id, { date: item.date });
-        navigation.navigate('AsistenciaProfesor', { sessionId: result.session_id, title: result.title ?? item.title });
+        let sessionId: number;
+        let title: string;
+        try {
+          const result = await Profesor.createScheduleSession(item.schedule_id, { date: item.date });
+          sessionId = result.session_id;
+          title     = result.title ?? item.title;
+        } catch {
+          if (!item.team_id) throw new Error('Sin equipo asignado');
+          const session = await Profesor.createAttendanceSession(item.team_id, {
+            date: item.date, type: 'training', title: item.title,
+          });
+          sessionId = session.id;
+          title     = item.title;
+        }
+        navigation.navigate('AsistenciaProfesor', { sessionId, title });
       }
     } catch (e: any) {
-      Alert.alert('Error', e?.error ?? 'No se pudo abrir la sesión.');
+      Alert.alert('Error', e?.error ?? e?.message ?? 'No se pudo abrir la sesión.');
     } finally {
       setCreating(null);
     }

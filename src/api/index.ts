@@ -379,8 +379,12 @@ export const Profesor = {
     return session;
   },
 
-  createAttendanceSession: (teamId: number, data: { date: string; type: string; title?: string; match_id?: number }): Promise<AsistenciaSession> =>
-    request<AsistenciaSession>('POST', `/profesor/teams/${teamId}/attendance`, data),
+  createAttendanceSession: async (teamId: number, data: { date: string; type: string; title?: string; match_id?: number }): Promise<AsistenciaSession> => {
+    const res = await request<any>('POST', `/profesor/teams/${teamId}/attendance`, data);
+    const session = (res?.data ?? res) as AsistenciaSession;
+    if (!Array.isArray(session.records)) session.records = [];
+    return session;
+  },
 
   submitAttendance: (sessionId: number, records: AsistenciaRegistro[]) =>
     request<{ ok: boolean }>('POST', `/profesor/attendance/${sessionId}/submit`, { records }),
@@ -446,8 +450,10 @@ export const Profesor = {
     }));
   },
 
-  createScheduleSession: (slotId: number, data: { date: string; team_id?: number }): Promise<ScheduleSessionResult> =>
-    request<ScheduleSessionResult>('POST', `/profesor/schedule/${slotId}/session`, data),
+  createScheduleSession: async (slotId: number, data: { date: string; team_id?: number }): Promise<ScheduleSessionResult> => {
+    const res = await request<any>('POST', `/profesor/schedule/${slotId}/session`, data);
+    return (res?.data ?? res) as ScheduleSessionResult;
+  },
 
   // Agenda unificada (S.10)
   agenda: async (from: string, to: string): Promise<AgendaItem[]> => {
