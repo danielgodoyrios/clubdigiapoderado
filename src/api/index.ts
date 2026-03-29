@@ -372,8 +372,12 @@ export const Profesor = {
     return arr;
   },
 
-  attendanceDetail: (sessionId: number): Promise<AsistenciaSession> =>
-    request<AsistenciaSession>('GET', `/profesor/attendance/${sessionId}`),
+  attendanceDetail: async (sessionId: number): Promise<AsistenciaSession> => {
+    const res = await request<any>('GET', `/profesor/attendance/${sessionId}`);
+    const session = (res?.data ?? res) as AsistenciaSession;
+    if (!Array.isArray(session.records)) session.records = [];
+    return session;
+  },
 
   createAttendanceSession: (teamId: number, data: { date: string; type: string; title?: string; match_id?: number }): Promise<AsistenciaSession> =>
     request<AsistenciaSession>('POST', `/profesor/teams/${teamId}/attendance`, data),

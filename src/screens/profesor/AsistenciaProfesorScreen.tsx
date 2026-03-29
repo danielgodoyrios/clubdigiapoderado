@@ -31,7 +31,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         .then(detail => {
           setActiveSession(detail);
           const map = new Map<number, { present: boolean; late: boolean }>();
-          detail.records.forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
+          (detail.records ?? []).forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
           setRecords(map);
           setStep('attendance');
         })
