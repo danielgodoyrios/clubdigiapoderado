@@ -467,6 +467,9 @@ export const Profesor = {
       score:              r.score ?? null,
     }));
   },
+
+  updateMatchResult: (matchId: number, score: string): Promise<{ ok: boolean }> =>
+    request<{ ok: boolean }>('PUT', `/profesor/matches/${matchId}/result`, { score }),
 };
 
 export const Admin = {

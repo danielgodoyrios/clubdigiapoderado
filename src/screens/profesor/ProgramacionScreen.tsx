@@ -99,6 +99,17 @@ export default function ProgramacionScreen({ navigation }: any) {
   }, [tab]);
 
   // ── Actions ──────────────────────────────────────────────────
+  const isMatchItem = (item: AgendaItem) =>
+    item.item_type === 'match' || item.item_type === 'match_session';
+
+  const handleCardTap = (item: AgendaItem, idx: number) => {
+    if (isMatchItem(item)) {
+      navigation.navigate('PartidoDetalle', { item });
+    } else if (item.can_take_attendance || item.item_type === 'pending_schedule') {
+      openSession(item, idx);
+    }
+  };
+
   const openSession = async (item: AgendaItem, idx: number) => {
     const key = `${item.item_type}-${item.session_id ?? item.schedule_id ?? idx}`;
     setCreating(key);
@@ -205,11 +216,19 @@ export default function ProgramacionScreen({ navigation }: any) {
                     const color     = ITEM_COLOR[item.item_type] ?? GREEN;
                     const label     = ITEM_LABEL[item.item_type] ?? item.item_type.toUpperCase();
                     const canAct    = item.can_take_attendance || item.item_type === 'pending_schedule';
+                    const isMatch   = isMatchItem(item);
                     const itemKey   = `${item.item_type}-${item.session_id ?? item.schedule_id ?? idx}`;
                     const isBusy    = creating === itemKey;
                     const isPending = item.item_type === 'pending_schedule';
+                    const tappable  = canAct || isMatch;
                     return (
-                      <View key={itemKey} style={[styles.eventCard, idx === 0 && { borderTopWidth: 0 }]}>
+                      <TouchableOpacity
+                        key={itemKey}
+                        style={[styles.eventCard, idx === 0 && { borderTopWidth: 0 }]}
+                        onPress={() => handleCardTap(item, idx)}
+                        disabled={!tappable || isBusy}
+                        activeOpacity={tappable ? 0.7 : 1}
+                      >
                         <View style={[styles.eventStrip, { backgroundColor: color }]} />
                         <View style={styles.eventBody}>
                           <View style={styles.eventTopRow}>
@@ -245,7 +264,15 @@ export default function ProgramacionScreen({ navigation }: any) {
                             </View>
                           ) : null}
                         </View>
-                        {canAct && (
+                        {/* Right action */}
+                        {isMatch ? (
+                          <View style={styles.matchChevron}>
+                            {item.score ? (
+                              <Text style={styles.matchScore}>{item.score.replace(':', '–')}</Text>
+                            ) : null}
+                            <Ionicons name="chevron-forward" size={16} color={Colors.gray} />
+                          </View>
+                        ) : canAct ? (
                           <TouchableOpacity
                             style={[
                               styles.listBtn,
@@ -268,8 +295,8 @@ export default function ProgramacionScreen({ navigation }: any) {
                               </>
                             )}
                           </TouchableOpacity>
-                        )}
-                      </View>
+                        ) : null}
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
@@ -388,6 +415,8 @@ const styles = StyleSheet.create({
   listBtnSolid:     { backgroundColor: GREEN },
   listBtnPending:   { backgroundColor: '#D97706' },
   listBtnTxt:       { fontSize: 11, fontWeight: '800', color: '#fff' },
+  matchChevron:     { alignItems: 'center', paddingHorizontal: 10, gap: 2 },
+  matchScore:       { fontSize: 11, fontWeight: '800', color: Colors.black },
   emptyBox:         { alignItems: 'center', paddingVertical: 60, gap: 12 },
   emptyTitle:       { fontSize: 16, fontWeight: '700', color: Colors.black },
   emptySub:         { fontSize: 13, color: Colors.gray, textAlign: 'center', maxWidth: 260 },
