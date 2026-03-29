@@ -172,6 +172,7 @@ export default function ProfesorHomeScreen({ navigation }: any) {
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
           {[
+            { id: 'programacion', icon: 'calendar-number-outline', label: 'Programación',screen: 'Programacion',    modulo: null },
             { id: 'agenda',       icon: 'calendar-outline',   label: 'Agenda',       screen: 'ProfesorAgenda', modulo: 'agenda' },
             { id: 'equipos',      icon: 'people-outline',     label: 'Mis Equipos',  screen: 'MisEquipos',     modulo: null },
             { id: 'convocatoria', icon: 'megaphone-outline',  label: 'Convocar',     screen: 'ProfesorAgenda', modulo: 'convocatorias' },
