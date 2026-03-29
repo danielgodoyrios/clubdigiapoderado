@@ -373,7 +373,7 @@ export const Profesor = {
   attendanceDetail: (sessionId: number): Promise<AsistenciaSession> =>
     request<AsistenciaSession>('GET', `/profesor/attendance/${sessionId}`),
 
-  createAttendanceSession: (teamId: number, data: { date: string; type: string; title?: string }): Promise<AsistenciaSession> =>
+  createAttendanceSession: (teamId: number, data: { date: string; type: string; title?: string; match_id?: number }): Promise<AsistenciaSession> =>
     request<AsistenciaSession>('POST', `/profesor/teams/${teamId}/attendance`, data),
 
   submitAttendance: (sessionId: number, records: AsistenciaRegistro[]) =>

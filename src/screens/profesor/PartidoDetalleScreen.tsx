@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { Profesor, AgendaItem } from '../../api';
+import { Profesor, AgendaItem, ConvocadoEstado } from '../../api';
 
 const RED   = '#991B1B';
 const GREEN = '#0F7D4B';
@@ -43,6 +43,19 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
   const [saving,    setSaving]    = useState(false);
   const [openingSession, setOpeningSession] = useState(false);
   const [savedScore, setSavedScore] = useState<string | null>(item?.score ?? null);
+  const [roster,        setRoster]        = useState<ConvocadoEstado[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+
+  // Load convocatoria roster
+  useEffect(() => {
+    const eventId = item?.club_event_id;
+    if (!eventId) return;
+    setRosterLoading(true);
+    Profesor.convocatoria(eventId)
+      .then(setRoster)
+      .catch(() => {})
+      .finally(() => setRosterLoading(false));
+  }, []);
 
   // Split title "Team A vs Team B"
   const titleParts = item?.title?.split(/\s+vs\.?\s+/i) ?? [];
@@ -90,9 +103,10 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
     setOpeningSession(true);
     try {
       const session = await Profesor.createAttendanceSession(item.team_id, {
-        date:  item.date,
-        type:  'match',
-        title: item.title,
+        date:     item.date,
+        type:     'match',
+        title:    item.title,
+        match_id: item.match_id ?? undefined,
       });
       navigation.navigate('AsistenciaProfesor', {
         sessionId: session.id,
@@ -232,6 +246,40 @@ export default function PartidoDetalleScreen({ route, navigation }: any) {
             )}
           </TouchableOpacity>
 
+          {/* ── Nómina ── */}
+          <View style={styles.divider} />
+          <Text style={styles.sectionTitle}>Nómina</Text>
+          {rosterLoading ? (
+            <ActivityIndicator color={RED} style={{ marginVertical: 8 }} />
+          ) : roster.filter(p => p.convocado).length > 0 ? (
+            roster.filter(p => p.convocado).map(p => (
+              <View key={p.pupil_id} style={styles.playerRow}>
+                <View style={styles.playerNumber}>
+                  <Text style={styles.playerNumberTxt}>{p.number ?? '—'}</Text>
+                </View>
+                <Text style={styles.playerName} numberOfLines={1}>{p.name}</Text>
+                {p.position ? <Text style={styles.playerPos}>{p.position}</Text> : null}
+                <View style={[
+                  styles.rosterChip,
+                  p.status === 'confirmed'  ? { backgroundColor: GREEN + '20' } :
+                  p.status === 'declined'   ? { backgroundColor: RED   + '20' } :
+                  { backgroundColor: '#F3F4F6' },
+                ]}>
+                  <Text style={[
+                    styles.rosterChipTxt,
+                    p.status === 'confirmed' ? { color: GREEN } :
+                    p.status === 'declined'  ? { color: RED   } : { color: Colors.gray },
+                  ]}>
+                    {p.status === 'confirmed' ? 'Confirmado' :
+                     p.status === 'declined'  ? 'No asiste'  : 'Pendiente'}
+                  </Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyTxt}>Sin nómina registrada</Text>
+          )}
+
           {/* ── Asistencia ── */}
           <View style={styles.divider} />
           <Text style={styles.sectionTitle}>Asistencia</Text>
@@ -312,4 +360,13 @@ const styles = StyleSheet.create({
 
   attendBtn:        { backgroundColor: '#fff', borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderWidth: 1, borderColor: GREEN + '40' },
   attendBtnTxt:     { flex: 1, fontSize: 14, fontWeight: '700', color: GREEN },
+
+  playerRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: Colors.light },
+  playerNumber:     { width: 30, height: 30, borderRadius: 15, backgroundColor: RED + '15', alignItems: 'center', justifyContent: 'center' },
+  playerNumberTxt:  { fontSize: 12, fontWeight: '900', color: RED },
+  playerName:       { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.black },
+  playerPos:        { fontSize: 11, color: Colors.gray },
+  rosterChip:       { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  rosterChipTxt:    { fontSize: 10, fontWeight: '700' },
+  emptyTxt:         { fontSize: 12, color: Colors.gray, textAlign: 'center', paddingVertical: 8 },
 });
