@@ -218,6 +218,19 @@ export type Event = {
   location?: string;
   venue?: string;
   league?: string;
+  home_team?: string;
+  away_team?: string;
+  status?: 'upcoming' | 'live' | 'finished';
+  my_status?: 'confirmed' | 'pending' | 'declined' | null;
+};
+
+export type RosterPlayer = {
+  id: number;
+  name: string;
+  photo: string | null;
+  number: number | null;
+  position: string | null;
+  status: 'confirmed' | 'pending' | 'declined';
 };
 
 function mapEvent(raw: any): Event {
@@ -228,14 +241,29 @@ function mapEvent(raw: any): Event {
     ? rawDate.slice(11, 16)   // "20:00" from "2026-03-25T20:00:00Z"
     : (raw.time ?? undefined);
   return {
+    id:        raw.id,
+    type:      raw.type ?? 'event',
+    title:     raw.title ?? raw.label ?? raw.name ?? 'Evento',
+    date:      dateOnly,
+    time:      timeOnly,
+    location:  raw.location ?? raw.venue ?? undefined,
+    venue:     raw.venue ?? raw.location ?? undefined,
+    league:    raw.league ?? undefined,
+    home_team: raw.home_team ?? undefined,
+    away_team: raw.away_team ?? undefined,
+    status:    raw.status ?? 'upcoming',
+    my_status: raw.my_status ?? raw.convocatoria_status ?? null,
+  };
+}
+
+function mapRosterPlayer(raw: any): RosterPlayer {
+  return {
     id:       raw.id,
-    type:     raw.type ?? 'event',
-    title:    raw.title ?? raw.label ?? raw.name ?? 'Evento',
-    date:     dateOnly,
-    time:     timeOnly,
-    location: raw.location ?? raw.venue ?? undefined,
-    venue:    raw.venue ?? raw.location ?? undefined,
-    league:   raw.league ?? undefined,
+    name:     raw.full_name ?? raw.name ?? '—',
+    photo:    toAbsoluteUrl(raw.photo_url ?? raw.photo),
+    number:   raw.number ?? raw.jersey_number ?? null,
+    position: raw.position ?? raw.posicion ?? null,
+    status:   raw.status ?? raw.convocatoria_status ?? 'pending',
   };
 }
 
@@ -250,6 +278,21 @@ export const Events = {
     console.log('[Events] raw response:', JSON.stringify(res));
     const raw = Array.isArray(res) ? res : ((res as any).data ?? []);
     return raw.filter((e: any) => e && e.id != null).map(mapEvent);
+  },
+
+  detail: async (pupilId: number, eventId: number): Promise<Event> => {
+    const res = await request<any>('GET', `/apoderado/pupils/${pupilId}/events/${eventId}`);
+    return mapEvent(Array.isArray(res) ? res[0] : ((res as any).data ?? res));
+  },
+
+  roster: async (eventId: number): Promise<RosterPlayer[]> => {
+    const res = await request<any>('GET', `/apoderado/events/${eventId}/roster`);
+    const raw = Array.isArray(res) ? res : ((res as any).data ?? []);
+    return raw.filter((p: any) => p && p.id != null).map(mapRosterPlayer);
+  },
+
+  respond: async (eventId: number, pupilId: number, status: 'confirmed' | 'declined'): Promise<void> => {
+    await request<any>('POST', `/apoderado/events/${eventId}/roster/${pupilId}/respond`, { status });
   },
 };
 

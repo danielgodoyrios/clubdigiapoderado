@@ -126,38 +126,94 @@ export default function AgendaScreen({ navigation }: any) {
             <Ionicons name="calendar-outline" size={34} color={Colors.light} />
             <Text style={styles.emptyTxt}>Sin eventos este día</Text>
           </View>
-        ) : dayEvents.map(ev => (
-          <View key={ev.id} style={styles.card}>
-            <View style={[styles.accent, { backgroundColor: ev.type === 'match' ? BLUE : Colors.ok }]} />
+        ) : dayEvents.map(ev => {
+          const evColor = ev.type === 'match' ? BLUE : ev.type === 'training' ? Colors.green : Colors.amber;
+          return (
+          <TouchableOpacity
+            key={ev.id}
+            style={styles.card}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('EventoDetalle', { event: ev, pupilId: pupilId })}
+          >
+            <View style={[styles.accent, { backgroundColor: evColor }]} />
             <View style={styles.cardBody}>
               <View style={styles.cardTop}>
-                <View style={[styles.typeTag, { backgroundColor: ev.type === 'match' ? BLUE + '22' : Colors.ok + '22' }]}>
-                  <Text style={[styles.typeTxt, { color: ev.type === 'match' ? BLUE : Colors.green }]}>
-                    {ev.type === 'match' ? 'PARTIDO' : 'ENTRENAMIENTO'}
+                <View style={[styles.typeTag, { backgroundColor: evColor + '20' }]}>
+                  <Text style={[styles.typeTxt, { color: evColor }]}>
+                    {ev.type === 'match' ? 'PARTIDO' : ev.type === 'training' ? 'ENTRENAMIENTO' : 'EVENTO'}
                   </Text>
                 </View>
-                <Text style={styles.cardTime}>{ev.time}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {ev.time && <Text style={styles.cardTime}>{ev.time}</Text>}
+                  {ev.my_status && (
+                    <View style={[styles.myStatusDot, {
+                      backgroundColor: ev.my_status === 'confirmed' ? Colors.ok
+                        : ev.my_status === 'declined' ? Colors.red : Colors.amber
+                    }]} />
+                  )}
+                  <Ionicons name="chevron-forward" size={13} color={Colors.light} />
+                </View>
               </View>
-              <Text style={styles.cardTitle}>{ev.title}</Text>
-              <Text style={styles.cardMeta}>📍 {ev.venue ?? ev.location ?? 'Por confirmar'}{(ev as any).league ? ' · ' + (ev as any).league : ''}</Text>
+              {ev.home_team && ev.away_team ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                  <Text style={[styles.cardTitle, { flex: 1 }]} numberOfLines={1}>{ev.home_team}</Text>
+                  <Text style={{ fontSize: 9, fontWeight: '900', color: Colors.gray }}>VS</Text>
+                  <Text style={[styles.cardTitle, { flex: 1, textAlign: 'right' }]} numberOfLines={1}>{ev.away_team}</Text>
+                </View>
+              ) : (
+                <Text style={styles.cardTitle}>{ev.title}</Text>
+              )}
+              {(ev.venue ?? ev.location) && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
+                  <Ionicons name="location-outline" size={11} color={Colors.gray} />
+                  <Text style={styles.cardMeta} numberOfLines={1}>{ev.venue ?? ev.location}</Text>
+                </View>
+              )}
             </View>
-          </View>
-        ))}
+          </TouchableOpacity>
+          );
+        })}
 
         {/* Upcoming */}
         <Text style={[styles.sectionLbl, { marginTop: 18 }]}>PRÓXIMOS EVENTOS</Text>
-        {events.filter(e => e.date > selStr).slice(0, 4).map(ev => (
-          <View key={ev.id} style={styles.card}>
-            <View style={[styles.accent, { backgroundColor: ev.type === 'match' ? BLUE : Colors.ok }]} />
+        {events.filter(e => e.date > selStr).slice(0, 5).map(ev => {
+          const evColor = ev.type === 'match' ? BLUE : ev.type === 'training' ? Colors.green : Colors.amber;
+          return (
+          <TouchableOpacity
+            key={ev.id}
+            style={styles.card}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('EventoDetalle', { event: ev, pupilId: pupilId })}
+          >
+            <View style={[styles.accent, { backgroundColor: evColor }]} />
             <View style={styles.cardBody}>
               <View style={styles.cardTop}>
-                <Text style={styles.cardTitle}>{ev.title}</Text>
-                <Text style={styles.cardTime}>{ev.date.slice(8,10)}/{ev.date.slice(5,7)}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{ev.title}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.cardTime}>{ev.date.slice(8,10)}/{ev.date.slice(5,7)}</Text>
+                  {ev.my_status && (
+                    <View style={[styles.myStatusDot, {
+                      backgroundColor: ev.my_status === 'confirmed' ? Colors.ok
+                        : ev.my_status === 'declined' ? Colors.red : Colors.amber
+                    }]} />
+                  )}
+                  <Ionicons name="chevron-forward" size={13} color={Colors.light} />
+                </View>
               </View>
-              <Text style={styles.cardMeta}>{ev.time ? ev.time + ' · ' : ''}📍 {ev.venue ?? ev.location ?? 'Por confirmar'}</Text>
+              {(ev.venue ?? ev.location) && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Ionicons name="location-outline" size={11} color={Colors.gray} />
+                  <Text style={styles.cardMeta} numberOfLines={1}>
+                    {ev.time ? ev.time + ' · ' : ''}{ev.venue ?? ev.location}
+                  </Text>
+                </View>
+              )}
             </View>
-          </View>
-        ))}
+          </TouchableOpacity>
+          );
+        })}
 
         <View style={{ height: 28 }} />
       </ScrollView>
@@ -208,7 +264,8 @@ const styles = StyleSheet.create({
   typeTxt:     { fontSize: 9, fontWeight: '700', letterSpacing: 0.8 },
   cardTime:    { fontSize: 11, fontWeight: '700', color: Colors.gray },
   cardTitle:   { fontSize: 13, fontWeight: '700', color: Colors.black },
-  cardMeta:    { fontSize: 10, color: Colors.gray, marginTop: 3 },
+  cardMeta:    { fontSize: 10, color: Colors.gray, marginTop: 1, flex: 1 },
+  myStatusDot: { width: 8, height: 8, borderRadius: 4 },
   empty:       { alignItems: 'center', paddingVertical: 44, gap: 8 },
   emptyTxt:    { fontSize: 12, color: Colors.gray },
 });

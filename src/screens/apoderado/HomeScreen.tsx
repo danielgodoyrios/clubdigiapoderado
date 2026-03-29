@@ -199,27 +199,73 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
 
         {/* Next match */}
         <View style={styles.section}>
-          <Text style={styles.sectionLbl}>PRÓXIMO PARTIDO</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={styles.sectionLbl}>PRÓXIMO PARTIDO</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Agenda')}>
+              <Text style={{ fontSize: 10, color: BLUE, fontWeight: '700' }}>Ver agenda →</Text>
+            </TouchableOpacity>
+          </View>
           {nextMatch ? (
             <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate('Agenda')}
-              activeOpacity={0.85}
+              style={styles.matchCard}
+              onPress={() => navigation.navigate('EventoDetalle', { event: nextMatch, pupilId: pupil?.id })}
+              activeOpacity={0.88}
             >
-              <View style={styles.matchTag}>
-                <View style={[styles.tagDot, { backgroundColor: BLUE }]} />
-                <Text style={[styles.tagTxt, { color: BLUE }]}>
-                  {nextMatch.date.slice(8, 10)}/{nextMatch.date.slice(5, 7)}
-                  {nextMatch.time ? ' · ' + nextMatch.time : ''}
-                </Text>
-                <View style={{ flex: 1 }} />
-                <Ionicons name="chevron-forward" size={12} color={Colors.gray} />
+              {/* Franja izquierda de color */}
+              <View style={styles.matchAccent} />
+              <View style={{ flex: 1, paddingLeft: 12 }}>
+                {/* Fecha + hora */}
+                <View style={styles.matchTopRow}>
+                  <View style={styles.matchDateBadge}>
+                    <Text style={styles.matchDateDay}>{nextMatch.date.slice(8, 10)}</Text>
+                    <Text style={styles.matchDateMon}>
+                      {['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'][parseInt(nextMatch.date.slice(5,7)) - 1]}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    {nextMatch.home_team && nextMatch.away_team ? (
+                      <View style={styles.vsInline}>
+                        <Text style={styles.matchTeamTxt} numberOfLines={1}>{nextMatch.home_team}</Text>
+                        <View style={styles.vsChip}><Text style={styles.vsChipTxt}>VS</Text></View>
+                        <Text style={styles.matchTeamTxt} numberOfLines={1}>{nextMatch.away_team}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.matchTitleTxt} numberOfLines={2}>{nextMatch.title}</Text>
+                    )}
+                    {nextMatch.time && (
+                      <View style={styles.matchTimeRow}>
+                        <Ionicons name="time-outline" size={11} color={Colors.gray} />
+                        <Text style={styles.matchTimeTxt}>{nextMatch.time} hrs</Text>
+                      </View>
+                    )}
+                  </View>
+                  {nextMatch.my_status && (
+                    <View style={[styles.convPill, {
+                      backgroundColor: nextMatch.my_status === 'confirmed' ? Colors.ok + '22' :
+                        nextMatch.my_status === 'declined' ? Colors.red + '15' : Colors.amber + '22'
+                    }]}>
+                      <Ionicons
+                        name={nextMatch.my_status === 'confirmed' ? 'checkmark-circle' : nextMatch.my_status === 'declined' ? 'close-circle' : 'time-outline'}
+                        size={12}
+                        color={nextMatch.my_status === 'confirmed' ? Colors.green : nextMatch.my_status === 'declined' ? Colors.red : Colors.amber}
+                      />
+                    </View>
+                  )}
+                </View>
+                {(nextMatch.venue ?? nextMatch.location) && (
+                  <View style={styles.matchMeta}>
+                    <Ionicons name="location-outline" size={11} color={Colors.gray} />
+                    <Text style={styles.matchMetaTxt} numberOfLines={1}>{nextMatch.venue ?? nextMatch.location}</Text>
+                  </View>
+                )}
+                {nextMatch.league && (
+                  <View style={styles.matchMeta}>
+                    <Ionicons name="trophy-outline" size={11} color={Colors.gray} />
+                    <Text style={styles.matchMetaTxt}>{nextMatch.league}</Text>
+                  </View>
+                )}
               </View>
-              <Text style={styles.teamName}>{nextMatch.title}</Text>
-              <Text style={styles.matchMeta}>
-                📍 {nextMatch.venue ?? nextMatch.location ?? 'Por confirmar'}
-                {nextMatch.league ? ' · ' + nextMatch.league : ''}
-              </Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.light} style={{ alignSelf: 'center', marginLeft: 4 }} />
             </TouchableOpacity>
           ) : (
             <View style={[styles.card, { paddingVertical: 22, alignItems: 'center' }]}>
@@ -359,13 +405,24 @@ const styles = StyleSheet.create({
   qaSoon: { fontSize: 8, color: Colors.gray, fontStyle: 'italic' },
   section: { paddingHorizontal: 14, marginBottom: 8, marginTop: 4 },
   card: { backgroundColor: Colors.white, borderRadius: 12, padding: 11, borderWidth: 1, borderColor: Colors.light },
-  matchTag: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 },
-  tagDot: { width: 6, height: 6, borderRadius: 3 },
-  tagTxt: { fontSize: 9, fontWeight: '700', letterSpacing: 1 },
-  matchTeams: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
-  teamName: { fontSize: 12, fontWeight: '700', color: Colors.black },
-  vs: { fontSize: 10, fontWeight: '600', color: Colors.gray },
-  matchMeta: { fontSize: 10, color: Colors.gray },
+  // Match card
+  matchCard:      { backgroundColor: Colors.white, borderRadius: 14, flexDirection: 'row', alignItems: 'stretch', padding: 14, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  matchAccent:    { width: 4, borderRadius: 2, backgroundColor: BLUE },
+  matchTopRow:    { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  matchDateBadge: { width: 40, alignItems: 'center', backgroundColor: BLUE + '12', borderRadius: 8, paddingVertical: 5 },
+  matchDateDay:   { fontSize: 18, fontWeight: '900', color: BLUE, lineHeight: 22 },
+  matchDateMon:   { fontSize: 8, fontWeight: '700', color: BLUE, letterSpacing: 0.5 },
+  vsInline:       { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  matchTeamTxt:   { flex: 1, fontSize: 12, fontWeight: '800', color: Colors.black },
+  vsChip:         { backgroundColor: Colors.surf, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
+  vsChipTxt:      { fontSize: 9, fontWeight: '900', color: Colors.gray },
+  matchTitleTxt:  { fontSize: 13, fontWeight: '800', color: Colors.black, lineHeight: 18 },
+  matchTimeRow:   { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
+  matchTimeTxt:   { fontSize: 11, color: Colors.gray },
+  matchMeta:      { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  matchMetaTxt:   { fontSize: 11, color: Colors.gray, flex: 1 },
+  convPill:       { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
+  teamName:       { fontSize: 12, fontWeight: '700', color: Colors.black },
   attRow: { flexDirection: 'row', gap: 8 },
   attItem: { flex: 1, alignItems: 'center' },
   attVal: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
