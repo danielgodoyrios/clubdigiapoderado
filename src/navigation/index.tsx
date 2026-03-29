@@ -198,6 +198,8 @@ function AppStack({ role }: { role: string }) {
       {/* ── Profesor ── */}
       <Stack.Screen name="ProfesorTabs"           component={ProfesorTabs} />
       <Stack.Screen name="ProfesorHome"           component={ProfesorHomeScreen} />
+      <Stack.Screen name="MisEquipos"             component={MisEquiposScreen} />
+      <Stack.Screen name="ProfesorAgenda"         component={ProfesorAgendaScreen} />
       <Stack.Screen name="AsistenciaProfesor"     component={AsistenciaProfesorScreen} />
       <Stack.Screen name="ConvocatoriaGestion"    component={ConvocatoriaGestionScreen} />
       <Stack.Screen name="LesionesEquipo"         component={LesionesEquipoScreen} />

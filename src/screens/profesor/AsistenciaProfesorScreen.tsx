@@ -22,8 +22,18 @@ export default function AsistenciaProfesorScreen({ navigation }: any) {
 
   useEffect(() => {
     Profesor.teams()
-      .then(ts => { setTeams(ts); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(ts => {
+        setTeams(ts);
+        // Si solo hay un equipo, saltamos directamente a la selección de sesión
+        if (ts.length === 1) {
+          setActiveTeam(ts[0]);
+          return Profesor.attendanceSessions(ts[0].id)
+            .then(ss => { setSessions(ss); setStep('session'); })
+            .catch(() => { setSessions([]); setStep('session'); });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const loadSessions = useCallback(async (team: ProfesorTeam) => {
