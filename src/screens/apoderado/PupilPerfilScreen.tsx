@@ -58,7 +58,7 @@ export default function PupilPerfilScreen({ route, navigation }: any) {
   if (!pupil) return null;
 
   const initials = pupil.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-  const federado = (pupil as any).federado ?? (pupil.status === 'federado') ?? null;
+  const federado = (pupil as any).federado ?? (pupil.status === 'federado');
   const pendingDocs = docs.filter(d => d.status === 'pending_signature').length;
 
   return (

@@ -93,7 +93,7 @@ export const CarnetModal: React.FC<Props> = ({
                 {/* QR grid */}
                 <View style={styles.qrGrid}>
                   {QR_PATTERN.map((on, i) => (
-                    <View key={i} style={[styles.qrPixel, on && styles.qrPixelOn]} />
+                    <View key={i} style={[styles.qrPixel, on ? styles.qrPixelOn : null]} />
                   ))}
                 </View>
 

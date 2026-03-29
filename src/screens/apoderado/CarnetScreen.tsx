@@ -34,13 +34,14 @@ export default function CarnetScreen({ navigation }: any) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (!pupilId) return;
-    Carnet.get(pupilId).then(data => setToken(data.token)).catch(() => {});
+    const id = pupil?.id;
+    if (!id) return;
+    Carnet.get(id).then(data => setToken(data.token)).catch(() => {});
     const t = setInterval(() => {
-      Carnet.get(pupilId).then(data => setToken(data.token)).catch(() => {});
+      Carnet.get(id).then(data => setToken(data.token)).catch(() => {});
     }, 300000);
     return () => clearInterval(t);
-  }, [pupilId]);
+  }, [pupil?.id]);
 
   // Pulse animation on valid dot
   useEffect(() => {

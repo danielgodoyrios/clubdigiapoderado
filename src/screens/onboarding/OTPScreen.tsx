@@ -160,7 +160,7 @@ export default function OTPScreen({ navigation, route }: any) {
 
           <TouchableOpacity
             style={[styles.btn, (!complete || loading) && styles.btnDisabled]}
-            onPress={handleVerify}
+            onPress={() => void handleVerify()}
             disabled={!complete || loading}
             activeOpacity={0.85}
           >
@@ -169,7 +169,7 @@ export default function OTPScreen({ navigation, route }: any) {
 
           <TouchableOpacity
             style={[styles.resend, (cooldown > 0 || resending) && styles.resendDisabled]}
-            onPress={handleResend}
+            onPress={() => void handleResend()}
             disabled={cooldown > 0 || resending}
           >
             {resending ? (

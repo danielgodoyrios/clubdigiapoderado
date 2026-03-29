@@ -81,11 +81,11 @@ export default function ComunicadosScreen({ navigation }: any) {
               onPress={() => handleOpen(m)}
               activeOpacity={0.85}
             >
-              <View style={[styles.iconWrap, { backgroundColor: CAT_COLOR[m.category] + '18' }]}>
+              <View style={[styles.iconWrap, { backgroundColor: CAT_COLOR[m.category ?? 'info'] + '18' }]}>
                 <Ionicons
                   name={m.category === 'action' ? 'document-text-outline' : 'chatbubble-outline'}
                   size={16}
-                  color={CAT_COLOR[m.category]}
+                  color={CAT_COLOR[m.category ?? 'info']}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -93,7 +93,7 @@ export default function ComunicadosScreen({ navigation }: any) {
                 <Text style={styles.msgPreview} numberOfLines={1}>{m.preview}</Text>
                 <Text style={styles.msgDate}>{dateStr.slice(8,10)}/{dateStr.slice(5,7)}/{dateStr.slice(0,4)}</Text>
               </View>
-              {!m.read && <View style={[styles.unreadDot, { backgroundColor: CAT_COLOR[m.category] }]} />}
+              {!m.read && <View style={[styles.unreadDot, { backgroundColor: CAT_COLOR[m.category ?? 'info'] }]} />}
             </TouchableOpacity>
           );
         })}

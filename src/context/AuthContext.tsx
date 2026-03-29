@@ -66,20 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   usePushNotifications(state.status === 'authenticated');
 
-  // Refresh de módulos al volver al primer plano si pasaron más de 30 min
-  useEffect(() => {
-    const handleAppState = (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active' && clubIdRef.current) {
-        const elapsed = Date.now() - modulosLastFetched.current;
-        if (elapsed > MODULOS_REFRESH_MS) {
-          loadModulosHabilitados(clubIdRef.current);
-        }
-      }
-    };
-    const sub = AppState.addEventListener('change', handleAppState);
-    return () => sub.remove();
-  }, [loadModulosHabilitados]);
-
   // Cargar módulos vistos desde AsyncStorage al arrancar
   useEffect(() => {
     AsyncStorage.getItem('modulos_vistos').then(raw => {
@@ -216,6 +202,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modulosEstado.length]);
+
+  // Refresh de módulos al volver al primer plano si pasaron más de 30 min
+  useEffect(() => {
+    const handleAppState = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && clubIdRef.current) {
+        const elapsed = Date.now() - modulosLastFetched.current;
+        if (elapsed > MODULOS_REFRESH_MS) {
+          loadModulosHabilitados(clubIdRef.current);
+        }
+      }
+    };
+    const sub = AppState.addEventListener('change', handleAppState);
+    return () => sub.remove();
+  }, [loadModulosHabilitados]);
 
   const isModuloHabilitado = useCallback((modulo: string): boolean => {
     // Si no se han cargado módulos aún, usar lista de defaults
