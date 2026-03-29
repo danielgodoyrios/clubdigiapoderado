@@ -220,13 +220,33 @@ export type Event = {
   league?: string;
 };
 
+function mapEvent(raw: any): Event {
+  // Backend returns date as full ISO datetime "2026-03-25T20:00:00Z" or plain "2026-03-25"
+  const rawDate: string = raw.date ?? raw.start_date ?? raw.scheduled_at ?? '';
+  const dateOnly = rawDate.length >= 10 ? rawDate.slice(0, 10) : rawDate;
+  const timeOnly = rawDate.length > 10
+    ? rawDate.slice(11, 16)   // "20:00" from "2026-03-25T20:00:00Z"
+    : (raw.time ?? undefined);
+  return {
+    id:       raw.id,
+    type:     raw.type ?? 'event',
+    title:    raw.title ?? raw.label ?? raw.name ?? 'Evento',
+    date:     dateOnly,
+    time:     timeOnly,
+    location: raw.location ?? raw.venue ?? undefined,
+    venue:    raw.venue ?? raw.location ?? undefined,
+    league:   raw.league ?? undefined,
+  };
+}
+
 export const Events = {
   list: async (pupilId: number, from?: string, to?: string, type = 'all'): Promise<Event[]> => {
     const params = new URLSearchParams({ type });
     if (from) params.append('from', from);
     if (to)   params.append('to', to);
-    const res = await request<Event[] | { data: Event[] }>('GET', `/apoderado/pupils/${pupilId}/events?${params}`);
-    return Array.isArray(res) ? res : ((res as any).data ?? []);
+    const res = await request<any[] | { data: any[] }>('GET', `/apoderado/pupils/${pupilId}/events?${params}`);
+    const raw = Array.isArray(res) ? res : ((res as any).data ?? []);
+    return raw.filter((e: any) => e && e.id != null).map(mapEvent);
   },
 };
 
