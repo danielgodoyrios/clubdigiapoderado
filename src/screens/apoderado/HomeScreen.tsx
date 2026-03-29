@@ -21,18 +21,18 @@ import {
 const BLUE = Colors.blue; // #1A3A7C
 
 const QUICK_ACTIONS = [
-  { id: 'att',   icon: 'clipboard-outline',    label: 'Asistencia',   screen: 'Asistencia',  active: true  },
-  { id: 'pay',   icon: 'card-outline',          label: 'Pagos',        screen: 'Pagos',       active: true  },
-  { id: 'msg',   icon: 'chatbubble-outline',    label: 'Comunicados',  screen: 'Comunicados', active: true  },
-  { id: 'hor',   icon: 'time-outline',           label: 'Horarios',     screen: 'Horarios',    active: true  },
-  { id: 'doc',   icon: 'document-text-outline', label: 'Documentos',   screen: null,          active: false },
-  { id: 'stats', icon: 'bar-chart-outline',     label: 'Estadísticas', screen: null,          active: false },
+  { id: 'att',   icon: 'clipboard-outline',    label: 'Asistencia',   screen: 'Asistencia',  modulo: 'asistencia'   },
+  { id: 'pay',   icon: 'card-outline',          label: 'Pagos',        screen: 'Pagos',       modulo: 'pagos'        },
+  { id: 'msg',   icon: 'chatbubble-outline',    label: 'Comunicados',  screen: 'Comunicados', modulo: 'comunicados'  },
+  { id: 'doc',   icon: 'document-text-outline', label: 'Documentos',   screen: 'Documentos',  modulo: 'documentos'   },
+  { id: 'hor',   icon: 'time-outline',           label: 'Horarios',     screen: 'Horarios',    modulo: 'horarios'     },
+  { id: 'con',   icon: 'megaphone-outline',      label: 'Convocatorias',screen: 'Convocatorias', modulo: 'convocatorias' },
 ];
 
 export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
   const [carnetVisible, setCarnetVisible] = useState(false);
   const [menuVisible,  setMenuVisible]  = useState(false);
-  const { state, setActivePupil, logout } = useAuth();
+  const { state, setActivePupil, logout, isModuloHabilitado, isModuloNuevo, marcarModuloVisto } = useAuth();
 
   const [nextMatch,    setNextMatch]    = useState<Event | null>(null);
   const [attMonth,     setAttMonth]     = useState<AttendanceMonth | null>(null);
@@ -180,21 +180,24 @@ export const ApoderadoHomeScreen: React.FC<any> = ({ navigation }) => {
           <TouchableOpacity><Text style={[styles.editBtn, { color: BLUE }]}>Editar</Text></TouchableOpacity>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 9 }}>
-          {QUICK_ACTIONS.map(a => (
-            <TouchableOpacity
-              key={a.id}
-              style={styles.qaItem}
-              onPress={a.active && a.screen ? () => navigation.navigate(a.screen!) : undefined}
-              disabled={!a.active}
-              activeOpacity={a.active ? 0.7 : 1}
-            >
-              <View style={[styles.qaCircle, !a.active && styles.qaCircleOff]}>
-                <Ionicons name={a.icon as any} size={19} color={a.active ? BLUE : Colors.gray} />
-              </View>
-              <Text style={[styles.qaLabel, !a.active && { color: Colors.gray }]}>{a.label}</Text>
-              {!a.active && <Text style={styles.qaSoon}>Pronto</Text>}
-            </TouchableOpacity>
-          ))}
+          {QUICK_ACTIONS.filter(a => isModuloHabilitado(a.modulo)).map(a => {
+            const esNuevo = isModuloNuevo(a.modulo);
+            return (
+              <TouchableOpacity
+                key={a.id}
+                style={styles.qaItem}
+                onPress={() => { marcarModuloVisto(a.modulo); navigation.navigate(a.screen); }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.qaCircle}>
+                  <Ionicons name={a.icon as any} size={19} color={BLUE} />
+                  {esNuevo && <View style={styles.qaNuevoDot} />}
+                </View>
+                <Text style={styles.qaLabel}>{a.label}</Text>
+                {esNuevo && <Text style={styles.qaNuevoTag}>NUEVO</Text>}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Next match */}
@@ -405,11 +408,11 @@ const styles = StyleSheet.create({
   qaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 7 },
   sectionLbl: { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: Colors.gray },
   editBtn: { fontSize: 11, fontWeight: '600' },
-  qaItem: { alignItems: 'center', gap: 5, width: 56, marginBottom: 4 },
+  qaItem: { alignItems: 'center', gap: 5, width: 60, marginBottom: 4 },
   qaCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.light, alignItems: 'center', justifyContent: 'center' },
-  qaCircleOff: { opacity: 0.45 },
+  qaNuevoDot: { position: 'absolute', top: 2, right: 2, width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.red, borderWidth: 1.5, borderColor: Colors.white },
   qaLabel: { fontSize: 9, color: Colors.black, fontWeight: '500', textAlign: 'center', lineHeight: 12 },
-  qaSoon: { fontSize: 8, color: Colors.gray, fontStyle: 'italic' },
+  qaNuevoTag: { fontSize: 8, fontWeight: '800', color: Colors.red, letterSpacing: 0.4 },
   section: { paddingHorizontal: 14, marginBottom: 8, marginTop: 4 },
   card: { backgroundColor: Colors.white, borderRadius: 12, padding: 11, borderWidth: 1, borderColor: Colors.light },
   // Match card

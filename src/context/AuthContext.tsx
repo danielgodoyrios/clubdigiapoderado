@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Auth, Apoderado, Profesor, Admin, Pupils, Club, getAccessToken, MeResponse, Pupil, ModuloEstado } from '../api';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -37,6 +38,14 @@ interface AuthContextValue {
   loadModulosHabilitados: (clubId: number) => Promise<void>;
 }
 
+// Módulos habilitados por defecto cuando el endpoint falla (fail-open controlado)
+const DEFAULT_MODULOS: string[] = [
+  'asistencia', 'pagos', 'comunicados', 'documentos',
+  'justificativos', 'agenda', 'convocatorias', 'carnet',
+];
+// Intervalo mínimo entre refrescos en foreground (30 min)
+const MODULOS_REFRESH_MS = 30 * 60 * 1000;
+
 // ── Context ───────────────────────────────────────────────────
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -52,8 +61,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [modulosHabilitados, setModulosHabilitados] = useState<string[]>([]);
   const [modulosEstado, setModulosEstado] = useState<ModuloEstado[]>([]);
   const [modulosVistos, setModulosVistos] = useState<string[]>([]);
+  const modulosLastFetched = useRef<number>(0);
+  const clubIdRef = useRef<number | null>(null);
 
   usePushNotifications(state.status === 'authenticated');
+
+  // Refresh de módulos al volver al primer plano si pasaron más de 30 min
+  useEffect(() => {
+    const handleAppState = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && clubIdRef.current) {
+        const elapsed = Date.now() - modulosLastFetched.current;
+        if (elapsed > MODULOS_REFRESH_MS) {
+          loadModulosHabilitados(clubIdRef.current);
+        }
+      }
+    };
+    const sub = AppState.addEventListener('change', handleAppState);
+    return () => sub.remove();
+  }, [loadModulosHabilitados]);
 
   // Cargar módulos vistos desde AsyncStorage al arrancar
   useEffect(() => {
@@ -181,15 +206,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await Club.modulosHabilitados(clubId);
       setModulosEstado(res.modulos);
       setModulosHabilitados(res.modulos.filter(m => m.habilitado).map(m => m.clave));
+      modulosLastFetched.current = Date.now();
+      clubIdRef.current = clubId;
     } catch {
-      // Mantener módulos previos si falla la carga (fail-open)
+      // Fail-open controlado: si no hay estado previo, usar los módulos por defecto
+      if (modulosEstado.length === 0) {
+        setModulosHabilitados(DEFAULT_MODULOS);
+      }
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulosEstado.length]);
 
   const isModuloHabilitado = useCallback((modulo: string): boolean => {
-    // Si no se han cargado módulos aún, mostrar todo (modo degradado)
-    if (modulosEstado.length === 0) return true;
-    return modulosEstado.find(m => m.clave === modulo)?.habilitado ?? true;
+    // Si no se han cargado módulos aún, usar lista de defaults
+    if (modulosEstado.length === 0) return DEFAULT_MODULOS.includes(modulo);
+    return modulosEstado.find(m => m.clave === modulo)?.habilitado ?? false;
   }, [modulosEstado]);
 
   const isModuloNuevo = useCallback((clave: string): boolean => {

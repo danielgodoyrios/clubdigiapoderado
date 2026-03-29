@@ -33,6 +33,14 @@ const SECTIONS = [
     ],
   },
   {
+    title: 'Deportes',
+    items: [
+      { icon: 'calendar-outline',    label: 'Agenda',           screen: 'Agenda',          modulo: 'agenda' },
+      { icon: 'megaphone-outline',   label: 'Convocatorias',    screen: 'Convocatorias',   modulo: 'convocatorias' },
+      { icon: 'id-card-outline',     label: 'Carnet Digital',   screen: 'Carnet',          modulo: 'carnet' },
+    ],
+  },
+  {
     title: 'Trámites',
     items: [
       { icon: 'document-outline', label: 'Mis Justificativos', screen: 'MisJustificativos', modulo: 'justificativos' },
