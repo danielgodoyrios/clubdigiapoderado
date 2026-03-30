@@ -512,88 +512,91 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
         {/* ── MODAL: Nueva incidencia ── */}
         <Modal visible={incidentModal} transparent animationType="slide" onRequestClose={() => setIncidentModal(false)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
-            <View style={styles.modalSheet}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+            <View style={[styles.modalSheet, { maxHeight: '92%' }]}>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-              {/* Header */}
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Nueva incidencia</Text>
-                <TouchableOpacity onPress={() => setIncidentModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name="close" size={24} color={Colors.gray} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Categoría principal */}
-              <View style={styles.catRow}>
-                <TouchableOpacity
-                  style={[styles.catCard, incidentType === 'injury' && styles.catCardInjuryActive]}
-                  onPress={() => setIncidentType('injury')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.catEmoji}>🤕</Text>
-                  <Text style={[styles.catLabel, incidentType === 'injury' && { color: Colors.red }]}>Lesión</Text>
-                  <Text style={styles.catSub}>Física / médica</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.catCard, incidentType !== 'injury' && styles.catCardIncidentActive]}
-                  onPress={() => { if (incidentType === 'injury') setIncidentType('behavior'); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.catEmoji}>⚡</Text>
-                  <Text style={[styles.catLabel, incidentType !== 'injury' && { color: '#D97706' }]}>Incidencia</Text>
-                  <Text style={styles.catSub}>Conducta / disciplina</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Sub-tipo (solo para Incidencia) */}
-              {incidentType !== 'injury' && (
-                <View style={styles.subPillRow}>
-                  {(['behavior','expulsion','medical','other'] as const).map(t => (
-                    <TouchableOpacity
-                      key={t}
-                      style={[styles.subPill, incidentType === t && styles.subPillActive]}
-                      onPress={() => setIncidentType(t)}
-                    >
-                      <Text style={[styles.subPillTxt, incidentType === t && { color: '#fff' }]}>
-                        {t === 'behavior' ? 'Conducta' : t === 'expulsion' ? 'Expulsión' : t === 'medical' ? 'Médico' : 'Otro'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                {/* Header */}
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>Nueva incidencia</Text>
+                  <TouchableOpacity onPress={() => setIncidentModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="close" size={24} color={Colors.gray} />
+                  </TouchableOpacity>
                 </View>
-              )}
 
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Descripción breve *"
-                value={incidentTitle}
-                onChangeText={setIncidentTitle}
-                returnKeyType="next"
-              />
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Jugador involucrado (nombre, opcional)"
-                value={incidentPlayer}
-                onChangeText={setIncidentPlayer}
-                returnKeyType="next"
-              />
-              <TextInput
-                style={[styles.modalInput, { height: 64, textAlignVertical: 'top' }]}
-                placeholder="Notas adicionales (opcional)"
-                value={incidentNotes}
-                onChangeText={setIncidentNotes}
-                multiline
-              />
+                {/* Categoría principal */}
+                <View style={styles.catRow}>
+                  <TouchableOpacity
+                    style={[styles.catCard, incidentType === 'injury' && styles.catCardInjuryActive]}
+                    onPress={() => setIncidentType('injury')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.catEmoji}>🤕</Text>
+                    <Text style={[styles.catLabel, incidentType === 'injury' && { color: Colors.red }]}>Lesión</Text>
+                    <Text style={styles.catSub}>Física / médica</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.catCard, incidentType !== 'injury' && styles.catCardIncidentActive]}
+                    onPress={() => { if (incidentType === 'injury') setIncidentType('behavior'); }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.catEmoji}>⚡</Text>
+                    <Text style={[styles.catLabel, incidentType !== 'injury' && { color: '#D97706' }]}>Incidencia</Text>
+                    <Text style={styles.catSub}>Conducta / disciplina</Text>
+                  </TouchableOpacity>
+                </View>
 
-              <TouchableOpacity
-                style={[styles.submitBtn, { marginTop: 6 }, (!incidentTitle.trim() || savingIncident) && { opacity: 0.5 }]}
-                onPress={saveIncident}
-                disabled={!incidentTitle.trim() || savingIncident}
-              >
-                {savingIncident
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.submitTxt}>Guardar incidencia</Text>
-                }
-              </TouchableOpacity>
+                {/* Sub-tipo (solo para Incidencia) */}
+                {incidentType !== 'injury' && (
+                  <View style={styles.subPillRow}>
+                    {(['behavior','expulsion','medical','other'] as const).map(t => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[styles.subPill, incidentType === t && styles.subPillActive]}
+                        onPress={() => setIncidentType(t)}
+                      >
+                        <Text style={[styles.subPillTxt, incidentType === t && { color: '#fff' }]}>
+                          {t === 'behavior' ? 'Conducta' : t === 'expulsion' ? 'Expulsión' : t === 'medical' ? 'Médico' : 'Otro'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Descripción breve *"
+                  value={incidentTitle}
+                  onChangeText={setIncidentTitle}
+                  returnKeyType="next"
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Jugador involucrado (nombre, opcional)"
+                  value={incidentPlayer}
+                  onChangeText={setIncidentPlayer}
+                  returnKeyType="next"
+                />
+                <TextInput
+                  style={[styles.modalInput, { height: 64, textAlignVertical: 'top' }]}
+                  placeholder="Notas adicionales (opcional)"
+                  value={incidentNotes}
+                  onChangeText={setIncidentNotes}
+                  multiline
+                />
+
+                <TouchableOpacity
+                  style={[styles.submitBtn, { marginTop: 4, marginBottom: 6 }, (!incidentTitle.trim() || savingIncident) && { opacity: 0.5 }]}
+                  onPress={saveIncident}
+                  disabled={!incidentTitle.trim() || savingIncident}
+                >
+                  {savingIncident
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.submitTxt}>Guardar incidencia</Text>
+                  }
+                </TouchableOpacity>
+
+              </ScrollView>
             </View>
           </KeyboardAvoidingView>
         </Modal>
