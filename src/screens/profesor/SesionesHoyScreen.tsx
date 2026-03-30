@@ -5,8 +5,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../theme';
 import { Profesor, ProfesorTeam, AsistenciaSession } from '../../api';
+import { getCachedSessions, CachedSession } from '../../context/recentSessions';
 
 const GREEN  = '#0F7D4B';
 const ORANGE = '#F59E0B';
@@ -52,7 +54,32 @@ export default function SesionesHoyScreen({ navigation }: any) {
       );
 
       const all: SessionWithTeam[] = [];
-      results.forEach(r => { if (r.status === 'fulfilled') all.push(...r.value); });
+      const seen = new Set<number>();
+      results.forEach(r => {
+        if (r.status === 'fulfilled') {
+          r.value.forEach(s => { all.push(s); seen.add(s.id); });
+        }
+      });
+
+      // Merge in-memory cached sessions (from schedule slots, category-scoped, etc.)
+      const cached = getCachedSessions();
+      cached.forEach((c: CachedSession) => {
+        if (!seen.has(c.id) && c.date >= cutoffStr) {
+          all.push({
+            id:            c.id,
+            date:          c.date,
+            title:         c.title,
+            type:          c.type,
+            team_id:       c.team_id ?? 0,
+            team_name:     c.team_name,
+            submitted:     c.submitted,
+            total:         c.total,
+            present_count: c.present_count,
+            absent_count:  c.absent_count,
+            records:       [],
+          } as SessionWithTeam);
+        }
+      });
 
       // Pending primero, luego por fecha descendente
       all.sort((a, b) => {
@@ -70,6 +97,9 @@ export default function SesionesHoyScreen({ navigation }: any) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reload when screen comes back into focus (e.g. after going back from AsistenciaProfesor)
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onRefresh = () => { setRefreshing(true); load(); };
 

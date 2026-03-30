@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { Profesor, AgendaItem, ScheduleSlot } from '../../api';
+import { cacheSession } from '../../context/recentSessions';
 
 const GREEN = '#0F7D4B';
 const DAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -136,6 +137,18 @@ export default function ProgramacionScreen({ navigation }: any) {
         title     = slot.title;
       }
 
+      cacheSession({
+        id:            sessionId,
+        date:          dateStr,
+        title,
+        type:          'training',
+        team_name:     slot.title,
+        team_id:       teamIdForSlot ?? null,
+        submitted:     false,
+        total:         0,
+        present_count: 0,
+        absent_count:  0,
+      });
       navigation.navigate('AsistenciaProfesor', { sessionId, title });
     } catch (e: any) {
       Alert.alert('Error', e?.error ?? e?.message ?? 'No se pudo crear la sesión.');
@@ -161,6 +174,18 @@ export default function ProgramacionScreen({ navigation }: any) {
     setCreating(key);
     try {
       if (item.session_id) {
+        cacheSession({
+          id:            item.session_id,
+          date:          item.date,
+          title:         item.title,
+          type:          item.item_type,
+          team_name:     item.team_name ?? '',
+          team_id:       item.team_id ?? null,
+          submitted:     false,
+          total:         item.attendance_stats?.total ?? 0,
+          present_count: item.attendance_stats?.present ?? 0,
+          absent_count:  item.attendance_stats?.absent ?? 0,
+        });
         navigation.navigate('AsistenciaProfesor', { sessionId: item.session_id, title: item.title });
       } else if (item.schedule_id) {
         let sessionId: number;
@@ -177,6 +202,18 @@ export default function ProgramacionScreen({ navigation }: any) {
           sessionId = session.id;
           title     = item.title;
         }
+        cacheSession({
+          id:            sessionId,
+          date:          item.date,
+          title,
+          type:          'training',
+          team_name:     item.team_name ?? '',
+          team_id:       item.team_id ?? null,
+          submitted:     false,
+          total:         0,
+          present_count: 0,
+          absent_count:  0,
+        });
         navigation.navigate('AsistenciaProfesor', { sessionId, title });
       }
     } catch (e: any) {
