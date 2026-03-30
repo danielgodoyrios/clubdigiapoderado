@@ -204,10 +204,14 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         guest_phone: guestPhone.trim() || undefined,
         status:      'present',
       });
-      // Add to records map with a negative key to distinguish guests
+      // Guests are already saved by the API — we only add them to the
+      // display list. Use a guaranteed-negative key so they're never
+      // included in the submitAttendance payload.
+      const guestKey = rec.record_id ? -(rec.record_id) : -(Date.now());
+      // Add to records map (display only, filtered out on submit)
       setRecords(prev => {
         const next = new Map(prev);
-        next.set(-(rec.record_id), { present: true, late: false });
+        next.set(guestKey, { present: true, late: false });
         return next;
       });
       // Also add to the active session records so it appears in the list
@@ -215,7 +219,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         setActiveSession(prev => prev ? {
           ...prev,
           records: [...(prev.records ?? []), {
-            pupil_id: -(rec.record_id),
+            pupil_id: guestKey,
             name:     rec.name + ' (Visitante)',
             photo:    null,
             present:  true,
@@ -247,12 +251,16 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
       return;
     }
 
-    const list: AsistenciaRegistro[] = Array.from(records.entries()).map(([pupil_id, r]) => ({
-      pupil_id,
-      present: r.present,
-      late: r.late,
-      notes: null,
-    }));
+    // Guests have negative pupil_id — exclude them from the payload
+    // (they were already saved by addGuestToSession on the backend)
+    const list: AsistenciaRegistro[] = Array.from(records.entries())
+      .filter(([pupil_id]) => pupil_id > 0)
+      .map(([pupil_id, r]) => ({
+        pupil_id,
+        present: r.present,
+        late: r.late,
+        notes: null,
+      }));
 
     // ── DEBUG LOG ─────────────────────────────────────────────
     console.log('[AsistenciaProfesor] ========== SUBMIT ==========');
@@ -379,7 +387,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         <FlatList
           style={{ flex: 1 }}
           data={recs}
-          keyExtractor={r => String(r.pupil_id)}
+          keyExtractor={r => r.pupil_id != null ? String(r.pupil_id) : `guest-${r.name}`}
           contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 8 }}
           renderItem={({ item: r }) => {
             const rec = records.get(r.pupil_id) ?? { present: false, late: false };
