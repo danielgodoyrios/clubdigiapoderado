@@ -212,7 +212,7 @@ function AppStack({ role }: { role: string }) {
       <Stack.Screen name="CrearEvento"            component={CrearEventoScreen} />
       <Stack.Screen name="SesionesHoy"            component={SesionesHoyScreen} />
 
-      {/* ── Admin ── */
+      {/* ── Admin ── */}
       <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
     </Stack.Navigator>
   );
