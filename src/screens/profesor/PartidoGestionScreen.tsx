@@ -335,6 +335,7 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
             style={styles.attendanceBtn}
             onPress={() => navigation.navigate('AsistenciaProfesor', {
               sessionId: match.session_id,
+              matchId:   match.id,
               title: `Asistencia – ${homeTeam} vs ${awayTeam}`,
             })}
           >

@@ -7,7 +7,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { Profesor, ProfesorTeam, AsistenciaSession, AsistenciaRegistro, AttendanceIncident } from '../../api';
+import { Profesor, ProfesorTeam, AsistenciaSession, AsistenciaRegistro, AttendanceIncident, MatchConvocado } from '../../api';
 
 const GREEN = '#0F7D4B';
 
@@ -47,6 +47,11 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   // Submitted / read-only mode
   const [isSubmitted, setIsSubmitted] = useState(false);
 
+  // Nómina read-only (convocados from match)
+  const [convocados,    setConvocados]    = useState<MatchConvocado[]>([]);
+  const [showNomina,    setShowNomina]    = useState(false);
+  const [loadingNomina, setLoadingNomina] = useState(false);
+
   // Add guest
   const [guestModal,   setGuestModal]   = useState(false);
   const [guestName,    setGuestName]    = useState('');
@@ -55,10 +60,20 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
   // Whether we jumped directly to a session (from Programacion screen)
   const directSessionId: number | undefined = route?.params?.sessionId;
+  const directMatchId:   number | undefined = route?.params?.matchId;
   const directTitle: string | undefined = route?.params?.title;
 
   useEffect(() => {
     if (directSessionId) {
+      // Load match convocados concurrently if we arrived from a match
+      if (directMatchId) {
+        setLoadingNomina(true);
+        Profesor.matchDetail(directMatchId)
+          .then(({ convocados: cv }) => setConvocados(cv))
+          .catch(() => {})
+          .finally(() => setLoadingNomina(false));
+      }
+
       // Skip team + session selection, load session directly
       Profesor.attendanceDetail(directSessionId)
         .then(detail => {
@@ -518,6 +533,61 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
               {activeSession.session_code ?? `SES-${String(activeSession.id).padStart(6, '0')}`}
             </Text>
           </View>
+        )}
+
+        {/* Nómina read-only — visible when coming from a match */}
+        {directMatchId && (
+          <>
+            <TouchableOpacity
+              style={styles.nominaToggle}
+              onPress={() => setShowNomina(v => !v)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="people-outline" size={15} color={GREEN} />
+              <Text style={styles.nominaToggleTxt}>
+                Nómina · {convocados.filter(c => c.convocado).length} convocados
+              </Text>
+              {loadingNomina
+                ? <ActivityIndicator size="small" color={GREEN} />
+                : <Ionicons name={showNomina ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.gray} />
+              }
+            </TouchableOpacity>
+            {showNomina && (
+              <View style={styles.nominaList}>
+                {convocados.filter(c => c.convocado).map(c => {
+                  const stColor = c.status === 'confirmed' ? GREEN
+                                : c.status === 'declined'  ? '#EF4444'
+                                : '#F59E0B';
+                  const stLabel = c.status === 'confirmed' ? 'Confirmó'
+                                : c.status === 'declined'  ? 'No va'
+                                : 'Pendiente';
+                  return (
+                    <View key={c.pupil_id} style={styles.nominaRow}>
+                      <View style={styles.nominaAvatar}>
+                        <Text style={styles.nominaAvatarTxt}>
+                          {c.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.nominaPlayerName}>{c.name}</Text>
+                        {(c.number != null || c.position) && (
+                          <Text style={styles.nominaPlayerMeta}>
+                            {c.number != null ? `#${c.number}` : ''}{c.number != null && c.position ? ' · ' : ''}{c.position ?? ''}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={[styles.nominaBadge, { backgroundColor: stColor + '18' }]}>
+                        <Text style={[styles.nominaBadgeTxt, { color: stColor }]}>{stLabel}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+                {convocados.filter(c => c.convocado).length === 0 && !loadingNomina && (
+                  <Text style={{ fontSize: 12, color: Colors.gray, textAlign: 'center', paddingVertical: 12 }}>Sin convocados registrados</Text>
+                )}
+              </View>
+            )}
+          </>
         )}
 
         {/* Summary bar */}
@@ -1175,4 +1245,18 @@ const styles = StyleSheet.create({
 
   emptyBox:     { alignItems: 'center', paddingVertical: 48, gap: 10 },
   emptyTxt:     { fontSize: 13, color: Colors.gray },
+
+  sessionCodeBar:    { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: Colors.surf, borderBottomWidth: 1, borderBottomColor: Colors.light },
+  sessionCodeBarTxt: { fontSize: 10, fontWeight: '600', color: Colors.gray, letterSpacing: 1 },
+
+  nominaToggle:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: GREEN + '0A', borderBottomWidth: 1, borderBottomColor: Colors.light },
+  nominaToggleTxt:  { flex: 1, fontSize: 13, fontWeight: '700', color: GREEN },
+  nominaList:       { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.light },
+  nominaRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.light },
+  nominaAvatar:     { width: 32, height: 32, borderRadius: 16, backgroundColor: GREEN + '12', alignItems: 'center', justifyContent: 'center' },
+  nominaAvatarTxt:  { fontSize: 11, fontWeight: '800', color: GREEN },
+  nominaPlayerName: { fontSize: 13, fontWeight: '700', color: Colors.black },
+  nominaPlayerMeta: { fontSize: 11, color: Colors.gray, marginTop: 1 },
+  nominaBadge:      { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  nominaBadgeTxt:   { fontSize: 10, fontWeight: '800' },
 });
