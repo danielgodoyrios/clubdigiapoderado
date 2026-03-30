@@ -24,19 +24,24 @@ const TYPE_CONFIG = {
   event:    { label: 'EVENTO',      color: '#F59E0B',     bg: '#FEF3C7' },
 };
 
+function isArchived(ev: ProfesorEvent, todayStr: string): boolean {
+  return ev.status === 'finished' || !!ev.submitted || ev.date < todayStr;
+}
+
 export default function ProfesorAgendaScreen({ navigation, route }: any) {
   const { isModuloHabilitado } = useAuth();
-  const [teams,     setTeams]     = useState<ProfesorTeam[]>([]);
-  const [teamId,    setTeamId]    = useState<number | 'all'>('all');
-  const [filter,    setFilter]    = useState<'all' | 'match' | 'training'>('all');
-  const [events,    setEvents]    = useState<ProfesorEvent[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [refreshing,setRefreshing]= useState(false);
+  const [teams,       setTeams]       = useState<ProfesorTeam[]>([]);
+  const [teamId,      setTeamId]      = useState<number | 'all'>('all');
+  const [filter,      setFilter]      = useState<'all' | 'match' | 'training'>('all');
+  const [events,      setEvents]      = useState<ProfesorEvent[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [refreshing,  setRefreshing]  = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const now  = new Date();
-      const from = now.toISOString().slice(0, 10);
+      const from = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
       const to   = new Date(now.getTime() + 60 * 86400000).toISOString().slice(0, 10);
 
       const [ts, evs] = await Promise.all([
@@ -59,7 +64,93 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
 
   const onRefresh = () => { setRefreshing(true); load(); };
 
+  const todayStr = new Date().toISOString().slice(0, 10);
   const filtered = events.filter(e => filter === 'all' || e.type === filter);
+  const activeEvents   = filtered.filter(e => !isArchived(e, todayStr));
+  const archivedEvents = filtered.filter(e =>  isArchived(e, todayStr));
+
+  const renderEventCard = (ev: ProfesorEvent, archived = false) => {
+    const cfg = TYPE_CONFIG[ev.type] ?? TYPE_CONFIG.event;
+    const isMatch = ev.type === 'match';
+    const canPassList = !archived && !!ev.session_id && !ev.submitted && ev.status !== 'finished';
+
+    return (
+      <TouchableOpacity
+        key={String(ev.id)}
+        style={[styles.eventCard, archived && styles.eventCardArchived]}
+        activeOpacity={0.82}
+        onPress={() => isModuloHabilitado('convocatorias') && isMatch
+          ? navigation.navigate('ConvocatoriaGestion', { event: ev })
+          : undefined
+        }
+      >
+        {/* Left accent */}
+        <View style={[styles.accent, { backgroundColor: archived ? Colors.light : cfg.color }]} />
+
+        {/* Date badge */}
+        <View style={styles.dateBadge}>
+          <Text style={[styles.dateBadgeDay, archived && { color: Colors.gray }]}>
+            {new Date(ev.date + 'T00:00:00').getDate()}
+          </Text>
+          <Text style={styles.dateBadgeMon}>
+            {MONTHS[new Date(ev.date + 'T00:00:00').getMonth()]}
+          </Text>
+        </View>
+
+        {/* Content */}
+        <View style={{ flex: 1, paddingRight: 8, paddingVertical: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <View style={[styles.typeChip, { backgroundColor: archived ? Colors.light : cfg.bg }]}>
+              <Text style={[styles.typeChipTxt, { color: archived ? Colors.gray : cfg.color }]}>{cfg.label}</Text>
+            </View>
+            {ev.team_name && (
+              <Text style={{ fontSize: 10, color: Colors.gray }}>{ev.team_name}</Text>
+            )}
+            {archived && (ev.status === 'finished' || ev.submitted) && (
+              <View style={styles.doneBadge}>
+                <Ionicons name="checkmark-circle" size={11} color={GREEN} />
+                <Text style={styles.doneBadgeTxt}>Lista tomada</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={[styles.eventTitle, archived && { color: Colors.gray }]} numberOfLines={1}>
+            {isMatch && ev.home_team && ev.away_team
+              ? `${ev.home_team} vs ${ev.away_team}`
+              : ev.title
+            }
+          </Text>
+          <Text style={styles.eventMeta}>{fmtDate(ev.date)}{ev.time ? ` · ${ev.time}` : ''}</Text>
+          {ev.location && (
+            <Text style={styles.eventMeta}><Ionicons name="location-outline" size={10} /> {ev.location}</Text>
+          )}
+          {isMatch && (
+            <Text style={{ fontSize: 11, color: archived ? Colors.gray : GREEN, fontWeight: '600', marginTop: 2 }}>
+              {ev.convocados} convocados · {ev.confirmados} confirmaron
+            </Text>
+          )}
+
+          {/* Pasar lista button — only on active non-match events with a session */}
+          {canPassList && (
+            <TouchableOpacity
+              style={styles.pasarListaBtn}
+              onPress={() => navigation.navigate('AsistenciaProfesor', {
+                sessionId: ev.session_id,
+                title: ev.title,
+              })}
+            >
+              <Ionicons name="clipboard-outline" size={13} color="#fff" />
+              <Text style={styles.pasarListaTxt}>Pasar lista</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {isMatch && !archived && isModuloHabilitado('convocatorias') && (
+          <Ionicons name="chevron-forward" size={16} color={Colors.light} style={{ marginRight: 8 }} />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -119,7 +210,7 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
         </View>
       ) : (
         <FlatList
-          data={filtered}
+          data={activeEvents}
           keyExtractor={e => String(e.id)}
           contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 10 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
@@ -138,64 +229,25 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
               )}
             </View>
           }
-          renderItem={({ item: ev }) => {
-            const cfg = TYPE_CONFIG[ev.type] ?? TYPE_CONFIG.event;
-            const isMatch = ev.type === 'match';
-            return (
+          renderItem={({ item: ev }) => renderEventCard(ev, false)}
+          ListFooterComponent={archivedEvents.length > 0 ? (
+            <View style={{ marginTop: 6 }}>
               <TouchableOpacity
-                style={styles.eventCard}
-                activeOpacity={0.82}
-                onPress={() => isModuloHabilitado('convocatorias') && isMatch
-                  ? navigation.navigate('ConvocatoriaGestion', { event: ev })
-                  : null
-                }
+                style={styles.archiveToggle}
+                onPress={() => setShowArchive(v => !v)}
               >
-                {/* Left accent */}
-                <View style={[styles.accent, { backgroundColor: cfg.color }]} />
-
-                {/* Date badge */}
-                <View style={styles.dateBadge}>
-                  <Text style={styles.dateBadgeDay}>
-                    {new Date(ev.date + 'T00:00:00').getDate()}
-                  </Text>
-                  <Text style={styles.dateBadgeMon}>
-                    {MONTHS[new Date(ev.date + 'T00:00:00').getMonth()]}
-                  </Text>
-                </View>
-
-                {/* Content */}
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                    <View style={[styles.typeChip, { backgroundColor: cfg.bg }]}>
-                      <Text style={[styles.typeChipTxt, { color: cfg.color }]}>{cfg.label}</Text>
-                    </View>
-                    {ev.team_name && (
-                      <Text style={{ fontSize: 10, color: Colors.gray }}>{ev.team_name}</Text>
-                    )}
-                  </View>
-                  <Text style={styles.eventTitle} numberOfLines={1}>
-                    {isMatch && ev.home_team && ev.away_team
-                      ? `${ev.home_team} vs ${ev.away_team}`
-                      : ev.title
-                    }
-                  </Text>
-                  <Text style={styles.eventMeta}>{fmtDate(ev.date)}{ev.time ? ` · ${ev.time}` : ''}</Text>
-                  {ev.location && (
-                    <Text style={styles.eventMeta}><Ionicons name="location-outline" size={10} /> {ev.location}</Text>
-                  )}
-                  {isMatch && (
-                    <Text style={{ fontSize: 11, color: GREEN, fontWeight: '600', marginTop: 2 }}>
-                      {ev.convocados} convocados · {ev.confirmados} confirmaron
-                    </Text>
-                  )}
-                </View>
-
-                {isMatch && isModuloHabilitado('convocatorias') && (
-                  <Ionicons name="chevron-forward" size={16} color={Colors.light} />
-                )}
+                <Ionicons
+                  name={showArchive ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={Colors.gray}
+                />
+                <Text style={styles.archiveTxt}>
+                  Archivados ({archivedEvents.length})
+                </Text>
               </TouchableOpacity>
-            );
-          }}
+              {showArchive && archivedEvents.map(ev => renderEventCard(ev, true))}
+            </View>
+          ) : null}
         />
       )}
     </SafeAreaView>
@@ -215,24 +267,34 @@ const styles = StyleSheet.create({
   chipTxt:        { fontSize: 11, fontWeight: '600', color: Colors.gray },
   chipTxtActive:  { color: '#fff' },
 
-  typeFilterRow:  { flexDirection: 'row', backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: Colors.light },
-  typeFilter:     { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  typeFilterActive:{ backgroundColor: Colors.surf },
-  typeFilterTxt:  { fontSize: 11, fontWeight: '600', color: Colors.gray },
-  typeFilterTxtActive: { color: Colors.black },
+  typeFilterRow:      { flexDirection: 'row', backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: Colors.light },
+  typeFilter:         { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  typeFilterActive:   { backgroundColor: Colors.surf },
+  typeFilterTxt:      { fontSize: 11, fontWeight: '600', color: Colors.gray },
+  typeFilterTxtActive:{ color: Colors.black },
 
-  eventCard:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, marginBottom: 10, gap: 10, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  accent:         { width: 4, alignSelf: 'stretch' },
-  dateBadge:      { alignItems: 'center', paddingLeft: 8, paddingVertical: 12 },
-  dateBadgeDay:   { fontSize: 22, fontWeight: '800', color: Colors.black, lineHeight: 24 },
-  dateBadgeMon:   { fontSize: 10, fontWeight: '600', color: Colors.gray },
-  typeChip:       { borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
-  typeChipTxt:    { fontSize: 9, fontWeight: '800' },
-  eventTitle:     { fontSize: 13, fontWeight: '700', color: Colors.black },
-  eventMeta:      { fontSize: 11, color: Colors.gray, marginTop: 1 },
+  eventCard:          { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, marginBottom: 10, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  eventCardArchived:  { opacity: 0.7 },
+  accent:             { width: 4, alignSelf: 'stretch' },
+  dateBadge:          { alignItems: 'center', paddingHorizontal: 10, paddingVertical: 12 },
+  dateBadgeDay:       { fontSize: 22, fontWeight: '800', color: Colors.black, lineHeight: 24 },
+  dateBadgeMon:       { fontSize: 10, fontWeight: '600', color: Colors.gray },
+  typeChip:           { borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  typeChipTxt:        { fontSize: 9, fontWeight: '800' },
+  eventTitle:         { fontSize: 13, fontWeight: '700', color: Colors.black },
+  eventMeta:          { fontSize: 11, color: Colors.gray, marginTop: 1 },
 
-  emptyBox:       { alignItems: 'center', paddingVertical: 60, gap: 10 },
-  emptyTxt:       { fontSize: 14, color: Colors.gray, fontWeight: '600' },
-  createBtn:      { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: GREEN, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, marginTop: 8 },
-  createBtnTxt:   { fontSize: 13, fontWeight: '700', color: '#fff' },
+  doneBadge:          { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: GREEN + '18', borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  doneBadgeTxt:       { fontSize: 9, fontWeight: '700', color: GREEN },
+
+  pasarListaBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: GREEN, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start', marginTop: 8 },
+  pasarListaTxt:      { fontSize: 12, fontWeight: '700', color: '#fff' },
+
+  archiveToggle:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 4, marginBottom: 6 },
+  archiveTxt:         { fontSize: 12, fontWeight: '600', color: Colors.gray },
+
+  emptyBox:           { alignItems: 'center', paddingVertical: 60, gap: 10 },
+  emptyTxt:           { fontSize: 14, color: Colors.gray, fontWeight: '600' },
+  createBtn:          { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: GREEN, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, marginTop: 8 },
+  createBtnTxt:       { fontSize: 13, fontWeight: '700', color: '#fff' },
 });

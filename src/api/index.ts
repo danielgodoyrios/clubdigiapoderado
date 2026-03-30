@@ -168,6 +168,9 @@ export type ProfesorEvent = {
   convocados: number;
   confirmados: number;
   my_result?: string | null;  // e.g. "2:1"
+  session_id?: number | null;
+  submitted?: boolean;
+  can_take_attendance?: boolean;
 };
 
 export type AsistenciaRegistro = {
@@ -414,6 +417,9 @@ function mapProfesorEvent(raw: any): ProfesorEvent {
     convocados:  raw.convocados ?? 0,
     confirmados: raw.confirmados ?? 0,
     my_result:   raw.resultado ?? null,
+    session_id:  raw.session_id ?? null,
+    submitted:   raw.submitted ?? false,
+    can_take_attendance: raw.can_take_attendance ?? false,
   };
 }
 
