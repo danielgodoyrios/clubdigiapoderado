@@ -146,7 +146,8 @@ export default function SesionesHoyScreen({ navigation }: any) {
         </Text>
 
         {/* Equipo + código */}
-        <Text style={styles.cardSub}>{s.team_name}{s.session_code ? ` · ${s.session_code}` : ''}</Text>
+        <Text style={styles.cardSub}>{s.team_name}</Text>
+        <Text style={styles.cardCode}>{s.session_code ?? `SES-${String(s.id).padStart(6, '0')}`}</Text>
 
         {/* Stats si ya fue enviada */}
         {s.submitted && s.total > 0 && (
@@ -279,6 +280,7 @@ const styles = StyleSheet.create({
   cardTitle:  { fontSize: 14, fontWeight: '700', color: Colors.black },
   cardSub:    { fontSize: 12, color: Colors.gray },
   cardStats:  { fontSize: 11, color: GREEN, fontWeight: '600', marginTop: 2 },
+  cardCode:   { fontSize: 10, fontWeight: '700', color: Colors.gray, letterSpacing: 0.5 },
   cardRight:  { alignItems: 'flex-end', gap: 8 },
   badge:      { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   badgeTxt:   { fontSize: 9, fontWeight: '800' },

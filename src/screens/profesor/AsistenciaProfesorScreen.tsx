@@ -483,14 +483,19 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
           </View>
         )}
 
+        {/* Session code strip */}
+        {activeSession && (
+          <View style={styles.sessionCodeBar}>
+            <Ionicons name="barcode-outline" size={13} color={Colors.gray} />
+            <Text style={styles.sessionCodeBarTxt}>
+              {activeSession.session_code ?? `SES-${String(activeSession.id).padStart(6, '0')}`}
+            </Text>
+          </View>
+        )}
+
         {/* Summary bar */}
         <View style={styles.summaryBar}>
-          <View>
-            <Text style={styles.summaryTxt}>Presentes: <Text style={{ color: GREEN, fontWeight: '800' }}>{presentCount}</Text> / {totalCount || recs.length}</Text>
-            {activeSession?.session_code && (
-              <Text style={styles.sessionCode}>{activeSession.session_code}</Text>
-            )}
-          </View>
+          <Text style={styles.summaryTxt}>Presentes: <Text style={{ color: GREEN, fontWeight: '800' }}>{presentCount}</Text> / {totalCount || recs.length}</Text>
           {!isSubmitted && (
             <TouchableOpacity
               style={[styles.markAllBtn, { backgroundColor: GREEN + '18' }]}
