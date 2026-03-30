@@ -154,6 +154,14 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
           <View style={{ gap: 12, padding: 14 }}>
             {/* Match info card */}
             <View style={styles.infoCard}>
+              {/* Match code */}
+              <View style={styles.matchCodeRow}>
+                <Ionicons name="barcode-outline" size={13} color={Colors.gray} />
+                <Text style={styles.matchCodeTxt}>
+                  {match.team_name ? `${match.team_name}  ·  ` : ''}ID-{String(match.id).padStart(6, '0')}
+                </Text>
+              </View>
+              {/* Teams row */}
               <View style={styles.teamsRow}>
                 <View style={styles.teamBlock}>
                   <Avatar name={homeTeam} size={44} />
@@ -358,6 +366,8 @@ const styles = StyleSheet.create({
   avatarTxt:  { fontWeight: '800', color: Colors.gray },
 
   infoCard:   { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
+  matchCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: Colors.light },
+  matchCodeTxt: { fontSize: 11, fontWeight: '700', color: Colors.gray, letterSpacing: 0.5, fontVariant: ['tabular-nums'] },
   teamsRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
   teamBlock:  { flex: 1, alignItems: 'center', gap: 6 },
   teamBlockName: { fontSize: 13, fontWeight: '700', color: Colors.black, textAlign: 'center' },

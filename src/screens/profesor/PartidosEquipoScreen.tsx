@@ -213,6 +213,8 @@ export default function PartidosEquipoScreen({ navigation, route }: any) {
               >
                 <View style={[styles.statusBar, { backgroundColor: st.color }]} />
                 <View style={{ flex: 1, gap: 4 }}>
+                  {/* Match code */}
+                  <Text style={styles.matchCode}>ID-{String(m.id).padStart(6, '0')}</Text>
                   {/* Teams */}
                   <Text style={styles.matchTitle} numberOfLines={1}>
                     {m.home_team ?? teamName} vs {m.away_team ?? 'Rival'}
@@ -360,6 +362,7 @@ const styles = StyleSheet.create({
   matchCard:  { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12, gap: 10, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   statusBar:  { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: 12, borderBottomLeftRadius: 12 },
   matchTitle: { fontSize: 14, fontWeight: '700', color: Colors.black },
+  matchCode:   { fontSize: 9, fontWeight: '700', color: Colors.gray, letterSpacing: 0.8 },
   matchMeta:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
   matchMetaTxt: { fontSize: 12, color: Colors.gray },
   matchRight: { alignItems: 'flex-end', gap: 6 },
