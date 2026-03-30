@@ -86,13 +86,17 @@ export default function SesionesHoyScreen({ navigation, route }: any) {
         }
       });
 
+      // Excluir sesiones de partidos — la asistencia de partidos se gestiona
+      // desde Agenda o Partidos, no desde aquí, para evitar duplicidad.
+      const nonMatch = all.filter(s => s.type !== 'match');
+
       // Pending primero, luego por fecha descendente
-      all.sort((a, b) => {
+      nonMatch.sort((a, b) => {
         if (a.submitted !== b.submitted) return a.submitted ? 1 : -1;
         return b.date.localeCompare(a.date);
       });
 
-      setSessions(all);
+      setSessions(nonMatch);
     } catch {
       // fallo silencioso — mostrar vacío
     } finally {
@@ -253,6 +257,12 @@ export default function SesionesHoyScreen({ navigation, route }: any) {
           style={{ flex: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
           contentContainerStyle={{ padding: 14, paddingBottom: Math.max(insets.bottom, 20) }}
+          ListHeaderComponent={
+            <View style={styles.matchNote}>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.gray} />
+              <Text style={styles.matchNoteTxt}>La asistencia de partidos se gestiona desde Agenda o Partidos.</Text>
+            </View>
+          }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Ionicons name="clipboard-outline" size={48} color={Colors.light} />
@@ -307,6 +317,8 @@ const styles = StyleSheet.create({
   archiveBtn: { padding: 2 },
 
   emptyBox:   { alignItems: 'center', paddingVertical: 70, paddingHorizontal: 32, gap: 10 },
+  matchNote:  { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.light + '80', borderRadius: 8, padding: 10, marginBottom: 12 },
+  matchNoteTxt: { fontSize: 11, color: Colors.gray, flex: 1 },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: Colors.black },
   emptyTxt:   { fontSize: 13, color: Colors.gray, textAlign: 'center', lineHeight: 20 },
 });
