@@ -28,9 +28,16 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   const [incidentType,     setIncidentType]     = useState<AttendanceIncident['type']>('behavior');
   const [incidentTitle,    setIncidentTitle]    = useState('');
   const [incidentNotes,    setIncidentNotes]    = useState('');
-  const [incidentPlayerId, setIncidentPlayerId] = useState<number | null>(null);
-  const [incidentPlayerName, setIncidentPlayerName] = useState('');
+  const [incidentPlayerIds, setIncidentPlayerIds] = useState<number[]>([]);
+  const [incidentPlayerNames, setIncidentPlayerNames] = useState<Map<number, string>>(new Map());
   const [showPlayerPicker, setShowPlayerPicker] = useState(false);
+
+  // Club player search
+  const [clubModal, setClubModal] = useState(false);
+  const [clubSearch, setClubSearch] = useState('');
+  const [clubPlayers, setClubPlayers] = useState<Array<{id: number; name: string; teamName: string}>>([]);
+  const [loadingClub, setLoadingClub] = useState(false);
+  const [addingClubPlayer, setAddingClubPlayer] = useState<number | null>(null);
   // Injury-specific
   const [injuryZone,     setInjuryZone]     = useState('');
   const [injuryKind,     setInjuryKind]     = useState('');
@@ -161,7 +168,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
   const resetIncidentForm = () => {
     setIncidentTitle(''); setIncidentNotes('');
-    setIncidentPlayerId(null); setIncidentPlayerName('');
+    setIncidentPlayerIds([]); setIncidentPlayerNames(new Map());
     setInjuryZone(''); setInjuryKind(''); setInjurySeverity('leve');
     setIncidentType('behavior'); setShowPlayerPicker(false);
   };
@@ -170,18 +177,31 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
     if (!activeSession || !incidentTitle.trim()) return;
     setSavingIncident(true);
     try {
-      const inc = await Profesor.createIncident(activeSession.id, {
-        type:      incidentType,
-        title:     incidentTitle.trim(),
-        notes:     incidentNotes.trim() || undefined,
-        player_id: incidentPlayerId ?? undefined,
+      const payload = {
+        type:  incidentType,
+        title: incidentTitle.trim(),
+        notes: incidentNotes.trim() || undefined,
         ...(incidentType === 'injury' ? {
           injury_type: injuryKind     || undefined,
           injury_zone: injuryZone     ? [injuryZone] : undefined,
           severity:    injurySeverity,
         } : {}),
-      });
-      setIncidents(prev => [inc, ...prev]);
+      };
+      if (incidentPlayerIds.length <= 1) {
+        const inc = await Profesor.createIncident(activeSession.id, {
+          ...payload,
+          player_id: incidentPlayerIds[0] ?? undefined,
+        });
+        setIncidents(prev => [inc, ...prev]);
+      } else {
+        // Create one incident per selected player
+        const created: AttendanceIncident[] = [];
+        for (const pid of incidentPlayerIds) {
+          const inc = await Profesor.createIncident(activeSession.id, { ...payload, player_id: pid });
+          created.push(inc);
+        }
+        setIncidents(prev => [...created, ...prev]);
+      }
       setIncidentModal(false);
       resetIncidentForm();
       Alert.alert(
@@ -249,6 +269,67 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
       ...prev,
       records: (prev.records ?? []).filter(r => r.pupil_id !== guestKey),
     } : prev);
+  };
+
+  const openClubModal = async () => {
+    setClubModal(true);
+    setClubSearch('');
+    setLoadingClub(true);
+    try {
+      const allTeams = teams.length > 0 ? teams : (activeTeam ? [activeTeam] : []);
+      const results = await Promise.all(
+        allTeams.map(t => Profesor.players(t.id).then(ps => ps.map(p => ({ id: p.id, name: p.name, teamName: t.name }))))
+      );
+      const inSession = new Set<number>(
+        (activeSession?.records ?? []).filter(r => r.pupil_id > 0).map(r => r.pupil_id)
+      );
+      const seen = new Set<number>();
+      const merged: Array<{id: number; name: string; teamName: string}> = [];
+      for (const arr of results) {
+        for (const p of arr) {
+          if (!seen.has(p.id) && !inSession.has(p.id)) {
+            seen.add(p.id);
+            merged.push(p);
+          }
+        }
+      }
+      merged.sort((a, b) => a.name.localeCompare(b.name));
+      setClubPlayers(merged);
+    } catch {
+      setClubPlayers([]);
+    } finally {
+      setLoadingClub(false);
+    }
+  };
+
+  const addClubPlayer = async (player: {id: number; name: string; teamName: string}) => {
+    if (!activeSession) return;
+    setAddingClubPlayer(player.id);
+    try {
+      const rec = await Profesor.addPlayerToSession(activeSession.id, player.id);
+      const pupilId = rec.pupil_id ?? player.id;
+      setRecords(prev => {
+        const next = new Map(prev);
+        next.set(pupilId, { present: true, late: false });
+        return next;
+      });
+      setActiveSession(prev => prev ? {
+        ...prev,
+        records: [...(prev.records ?? []), {
+          pupil_id: pupilId,
+          name: rec.name ?? player.name,
+          photo: rec.photo ?? null,
+          present: true,
+          late: false,
+          notes: null,
+        }],
+      } : prev);
+      setClubPlayers(prev => prev.filter(p => p.id !== player.id));
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? e?.error ?? 'No se pudo agregar el jugador.');
+    } finally {
+      setAddingClubPlayer(null);
+    }
   };
 
 
@@ -463,6 +544,13 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.extraBtn}
+              onPress={openClubModal}
+            >
+              <Ionicons name="search-outline" size={16} color="#6366F1" />
+              <Text style={[styles.extraBtnTxt, { color: '#6366F1' }]}>Del club</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.extraBtn}
               onPress={() => { loadIncidents(); setShowIncidents(true); }}
             >
               <Ionicons name="warning-outline" size={16} color="#F59E0B" />
@@ -483,6 +571,64 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
             }
           </TouchableOpacity>
         </View>
+
+        {/* ── MODAL: Buscar jugador del club ── */}
+        <Modal visible={clubModal} transparent animationType="slide" onRequestClose={() => setClubModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalSheet, { maxHeight: '85%' }]}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Buscar en el club</Text>
+                <TouchableOpacity onPress={() => setClubModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={24} color={Colors.gray} />
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={[styles.modalInput, { marginBottom: 10 }]}
+                placeholder="Buscar jugador..."
+                value={clubSearch}
+                onChangeText={setClubSearch}
+                autoFocus
+              />
+              {loadingClub ? (
+                <ActivityIndicator size="small" color={GREEN} style={{ paddingVertical: 20 }} />
+              ) : (
+                <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled">
+                  {clubPlayers
+                    .filter(p =>
+                      p.name.toLowerCase().includes(clubSearch.toLowerCase()) ||
+                      p.teamName.toLowerCase().includes(clubSearch.toLowerCase())
+                    )
+                    .map(p => (
+                      <TouchableOpacity
+                        key={p.id}
+                        style={[styles.playerPickerRow, { borderBottomWidth: 1, borderBottomColor: Colors.light }]}
+                        onPress={() => addClubPlayer(p)}
+                        disabled={addingClubPlayer !== null}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.playerPickerName}>{p.name}</Text>
+                          <Text style={{ fontSize: 11, color: Colors.gray }}>{p.teamName}</Text>
+                        </View>
+                        {addingClubPlayer === p.id
+                          ? <ActivityIndicator size="small" color={GREEN} />
+                          : <Ionicons name="add-circle-outline" size={20} color={GREEN} />
+                        }
+                      </TouchableOpacity>
+                    ))
+                  }
+                  {clubPlayers.filter(p =>
+                    p.name.toLowerCase().includes(clubSearch.toLowerCase()) ||
+                    p.teamName.toLowerCase().includes(clubSearch.toLowerCase())
+                  ).length === 0 && (
+                    <Text style={{ color: Colors.gray, textAlign: 'center', paddingVertical: 20, fontSize: 13 }}>
+                      {clubSearch ? 'No se encontraron jugadores' : 'Sin jugadores disponibles'}
+                    </Text>
+                  )}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* ── MODAL: Agregar visitante ── */}
         <Modal visible={guestModal} transparent animationType="slide" onRequestClose={() => setGuestModal(false)}>
@@ -630,15 +776,17 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                   </View>
                 )}
 
-                {/* ── Jugador ── */}
-                <Text style={styles.fieldLabel}>Jugador involucrado</Text>
+                {/* ── Jugador(es) ── */}
+                <Text style={styles.fieldLabel}>Jugadores involucrados</Text>
                 <TouchableOpacity
                   style={styles.playerPickerToggle}
                   onPress={() => setShowPlayerPicker(v => !v)}
                 >
-                  <Ionicons name="person-outline" size={16} color={incidentPlayerId ? GREEN : Colors.gray} />
-                  <Text style={[styles.playerPickerTxt, incidentPlayerId != null && { color: Colors.black }]}>
-                    {incidentPlayerId ? incidentPlayerName : 'Seleccionar jugador (opcional)'}
+                  <Ionicons name="people-outline" size={16} color={incidentPlayerIds.length > 0 ? GREEN : Colors.gray} />
+                  <Text style={[styles.playerPickerTxt, incidentPlayerIds.length > 0 && { color: Colors.black }]}>
+                    {incidentPlayerIds.length > 0
+                      ? incidentPlayerIds.map(pid => incidentPlayerNames.get(pid) ?? '').join(', ')
+                      : 'Seleccionar jugador(es) (opcional)'}
                   </Text>
                   <Ionicons name={showPlayerPicker ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.gray} />
                 </TouchableOpacity>
@@ -647,21 +795,34 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                   <View style={styles.playerPickerList}>
                     {/* Opción: sin jugador */}
                     <TouchableOpacity
-                      style={[styles.playerPickerRow, !incidentPlayerId && styles.playerPickerRowActive]}
-                      onPress={() => { setIncidentPlayerId(null); setIncidentPlayerName(''); setShowPlayerPicker(false); }}
+                      style={[styles.playerPickerRow, incidentPlayerIds.length === 0 && styles.playerPickerRowActive]}
+                      onPress={() => { setIncidentPlayerIds([]); setIncidentPlayerNames(new Map()); }}
                     >
-                      <Text style={[styles.playerPickerName, !incidentPlayerId && { color: GREEN }]}>— Sin jugador específico</Text>
+                      <Text style={[styles.playerPickerName, incidentPlayerIds.length === 0 && { color: GREEN }]}>— Sin jugador específico</Text>
                     </TouchableOpacity>
-                    {(activeSession?.records ?? []).map(r => (
-                      <TouchableOpacity
-                        key={r.pupil_id}
-                        style={[styles.playerPickerRow, incidentPlayerId === r.pupil_id && styles.playerPickerRowActive]}
-                        onPress={() => { setIncidentPlayerId(r.pupil_id); setIncidentPlayerName(r.name); setShowPlayerPicker(false); }}
-                      >
-                        <Text style={[styles.playerPickerName, incidentPlayerId === r.pupil_id && { color: GREEN, fontWeight: '700' }]}>{r.name}</Text>
-                        {incidentPlayerId === r.pupil_id && <Ionicons name="checkmark-circle" size={16} color={GREEN} />}
-                      </TouchableOpacity>
-                    ))}
+                    {(activeSession?.records ?? []).filter(r => r.pupil_id > 0).map(r => {
+                      const selected = incidentPlayerIds.includes(r.pupil_id);
+                      return (
+                        <TouchableOpacity
+                          key={r.pupil_id}
+                          style={[styles.playerPickerRow, selected && styles.playerPickerRowActive]}
+                          onPress={() => {
+                            setIncidentPlayerIds(prev =>
+                              prev.includes(r.pupil_id) ? prev.filter(id => id !== r.pupil_id) : [...prev, r.pupil_id]
+                            );
+                            setIncidentPlayerNames(prev => {
+                              const next = new Map(prev);
+                              if (next.has(r.pupil_id)) next.delete(r.pupil_id);
+                              else next.set(r.pupil_id, r.name);
+                              return next;
+                            });
+                          }}
+                        >
+                          <Text style={[styles.playerPickerName, selected && { color: GREEN, fontWeight: '700' }]}>{r.name}</Text>
+                          {selected && <Ionicons name="checkmark-circle" size={16} color={GREEN} />}
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 )}
 
