@@ -485,7 +485,12 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
         {/* Summary bar */}
         <View style={styles.summaryBar}>
-          <Text style={styles.summaryTxt}>Presentes: <Text style={{ color: GREEN, fontWeight: '800' }}>{presentCount}</Text> / {totalCount || recs.length}</Text>
+          <View>
+            <Text style={styles.summaryTxt}>Presentes: <Text style={{ color: GREEN, fontWeight: '800' }}>{presentCount}</Text> / {totalCount || recs.length}</Text>
+            {activeSession?.session_code && (
+              <Text style={styles.sessionCode}>{activeSession.session_code}</Text>
+            )}
+          </View>
           {!isSubmitted && (
             <TouchableOpacity
               style={[styles.markAllBtn, { backgroundColor: GREEN + '18' }]}
@@ -1049,6 +1054,7 @@ const styles = StyleSheet.create({
 
   summaryBar:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.light },
   summaryTxt:   { fontSize: 13, fontWeight: '600', color: Colors.black },
+  sessionCode:  { fontSize: 10, fontWeight: '600', color: Colors.gray, marginTop: 1 },
   markAllBtn:   { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
 
   playerRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 10, marginBottom: 8, gap: 8, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3, elevation: 1, overflow: 'hidden' },

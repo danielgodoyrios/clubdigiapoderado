@@ -68,6 +68,7 @@ export default function SesionesHoyScreen({ navigation }: any) {
         if (!seen.has(c.id) && c.date >= cutoffStr) {
           all.push({
             id:            c.id,
+            session_code:  null,
             date:          c.date,
             title:         c.title,
             type:          c.type,
@@ -144,8 +145,8 @@ export default function SesionesHoyScreen({ navigation }: any) {
           {s.title ?? (s.type === 'match' ? 'Partido' : 'Entrenamiento')}
         </Text>
 
-        {/* Equipo */}
-        <Text style={styles.cardSub}>{s.team_name}</Text>
+        {/* Equipo + código */}
+        <Text style={styles.cardSub}>{s.team_name}{s.session_code ? ` · ${s.session_code}` : ''}</Text>
 
         {/* Stats si ya fue enviada */}
         {s.submitted && s.total > 0 && (

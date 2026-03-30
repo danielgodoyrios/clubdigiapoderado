@@ -203,6 +203,7 @@ export type AttendanceIncident = {
 
 export type AsistenciaSession = {
   id: number;
+  session_code: string | null;  // "SES-000042" — derivado del id
   date: string;
   type: 'training' | 'match';
   title: string | null;
