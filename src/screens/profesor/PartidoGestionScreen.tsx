@@ -20,9 +20,13 @@ function fmtDate(s: string) {
 }
 
 const STATUS_CONF: Record<string, { label: string; color: string; bg: string }> = {
-  confirmed: { label: 'Confirmado', color: GREEN,    bg: '#DCFCE7' },
-  pending:   { label: 'Pendiente',  color: '#F59E0B', bg: '#FEF3C7' },
-  declined:  { label: 'No va',      color: '#EF4444', bg: '#FEF2F2' },
+  confirmed:  { label: 'Confirmado', color: GREEN,    bg: '#DCFCE7' },
+  confirmado: { label: 'Confirmado', color: GREEN,    bg: '#DCFCE7' },
+  pending:    { label: 'Pendiente',  color: '#F59E0B', bg: '#FEF3C7' },
+  pendiente:  { label: 'Pendiente',  color: '#F59E0B', bg: '#FEF3C7' },
+  declined:   { label: 'No va',      color: '#EF4444', bg: '#FEF2F2' },
+  rechazado:  { label: 'No va',      color: '#EF4444', bg: '#FEF2F2' },
+  no_va:      { label: 'No va',      color: '#EF4444', bg: '#FEF2F2' },
 };
 
 function Avatar({ name, size = 36 }: { name: string; size?: number }) {

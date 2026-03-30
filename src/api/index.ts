@@ -706,6 +706,15 @@ export const Profesor = {
     const convocados: MatchConvocado[] = rawList.map((c: any): MatchConvocado => {
       // When coming from match_players the actual player fields are nested under c.player
       const p = c.player ?? c;
+      // Normalize status: backend may return Spanish or English values
+      const rawStatus = c.status ?? p.status ?? null;
+      const status: MatchConvocado['status'] =
+          rawStatus === 'confirmed'  || rawStatus === 'confirmado'             ? 'confirmed'
+        : rawStatus === 'declined'   || rawStatus === 'rechazado' || rawStatus === 'no_va' ? 'declined'
+        : rawStatus === 'pending'    || rawStatus === 'pendiente'              ? 'pending'
+        : rawStatus ? 'pending'
+        : null;
+      console.log('[matchDetail] player:', c.player_name ?? p.name, '| rawStatus:', rawStatus, '| status:', status, '| convocado:', c.convocado, '| pupil_id:', c.pupil_id ?? c.player_id);
       return {
         pupil_id:  c.pupil_id ?? c.player_id ?? p.pupil_id ?? p.player_id ?? p.id ?? c.id,
         name:      c.player_name ?? p.full_name ?? p.player_name ?? (`${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || (p.name ?? '')),
@@ -713,7 +722,7 @@ export const Profesor = {
         number:    c.jersey_number ?? p.jersey_number ?? p.number ?? c.number ?? null,
         position:  c.position ?? p.position ?? null,
         convocado: c.convocado ?? true,
-        status:    c.status ?? null,
+        status,
       };
     });
     console.log('[matchDetail] mapped convocados count:', convocados.length);
