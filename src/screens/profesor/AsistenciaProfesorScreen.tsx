@@ -66,6 +66,33 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   // Log params on every render to confirm values arriving
   console.log('[AsistenciaProfesor] params -> sessionId:', directSessionId, '| matchId:', directMatchId, '| title:', directTitle);
 
+  // Auto-populate session records from convocados when session is empty
+  const [loadingFromNomina, setLoadingFromNomina] = useState(false);
+
+  const loadNominaIntoSession = useCallback(async () => {
+    if (!activeSession || isSubmitted || convocados.length === 0) return;
+    const convocadoList = convocados.filter(c => c.convocado && c.pupil_id);
+    if (convocadoList.length === 0) return;
+    setLoadingFromNomina(true);
+    try {
+      // Add each convocado to the session via the API
+      const added: typeof activeSession.records = [];
+      for (const c of convocadoList) {
+        try {
+          const rec = await Profesor.addPlayerToSession(activeSession.id, c.pupil_id);
+          const pupilId = rec.pupil_id ?? c.pupil_id;
+          added.push({ pupil_id: pupilId, name: rec.name ?? c.name, photo: rec.photo ?? c.photo, present: false, late: false, notes: null });
+          setRecords(prev => { const next = new Map(prev); next.set(pupilId, { present: false, late: false }); return next; });
+        } catch { /* skip already-added players */ }
+      }
+      if (added.length > 0) {
+        setActiveSession(prev => prev ? { ...prev, records: [...(prev.records ?? []), ...added] } : prev);
+      }
+    } finally {
+      setLoadingFromNomina(false);
+    }
+  }, [activeSession, isSubmitted, convocados]);
+
   useEffect(() => {
     if (directSessionId) {
       // Load match convocados concurrently if we arrived from a match
@@ -602,16 +629,31 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         <View style={styles.summaryBar}>
           <Text style={styles.summaryTxt}>Presentes: <Text style={{ color: GREEN, fontWeight: '800' }}>{presentCount}</Text> / {totalCount || recs.length}</Text>
           {!isSubmitted && (
-            <TouchableOpacity
-              style={[styles.markAllBtn, { backgroundColor: GREEN + '18' }]}
-              onPress={() => {
-                const next = new Map<number, { present: boolean; late: boolean }>();
-                recs.forEach(r => next.set(r.pupil_id, { present: true, late: false }));
-                setRecords(next);
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>Marcar todos presentes</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              {/* Cargar nómina — only when session is empty and convocados are available */}
+              {recs.length === 0 && convocados.filter(c => c.convocado).length > 0 && (
+                <TouchableOpacity
+                  style={[styles.markAllBtn, { backgroundColor: '#3B82F618' }]}
+                  onPress={loadNominaIntoSession}
+                  disabled={loadingFromNomina}
+                >
+                  {loadingFromNomina
+                    ? <ActivityIndicator size="small" color="#3B82F6" />
+                    : <Text style={{ fontSize: 12, fontWeight: '700', color: '#3B82F6' }}>Cargar nómina</Text>
+                  }
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.markAllBtn, { backgroundColor: GREEN + '18' }]}
+                onPress={() => {
+                  const next = new Map<number, { present: boolean; late: boolean }>();
+                  recs.forEach(r => next.set(r.pupil_id, { present: true, late: false }));
+                  setRecords(next);
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>Marcar todos presentes</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
