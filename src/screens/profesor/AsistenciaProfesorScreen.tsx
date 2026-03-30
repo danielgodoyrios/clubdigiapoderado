@@ -474,22 +474,23 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         <Modal visible={showIncidents} transparent animationType="slide" onRequestClose={() => setShowIncidents(false)}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalSheet, { maxHeight: '80%' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+
+              {/* Header: título + cerrar */}
+              <View style={styles.modalHeaderRow}>
                 <Text style={styles.modalTitle}>Incidencias</Text>
-                <TouchableOpacity
-                  style={[styles.modalConfirm, { paddingHorizontal: 12, paddingVertical: 7 }]}
-                  onPress={() => { setIncidentModal(true); }}
-                >
-                  <Text style={styles.modalConfirmTxt}>+ Nueva</Text>
+                <TouchableOpacity onPress={() => setShowIncidents(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={24} color={Colors.gray} />
                 </TouchableOpacity>
               </View>
-              <ScrollView style={{ flex: 1 }}>
+
+              {/* Lista */}
+              <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 4 }}>
                 {incidents.length === 0 ? (
-                  <Text style={{ color: Colors.gray, textAlign: 'center', paddingVertical: 24 }}>Sin incidencias registradas</Text>
+                  <Text style={{ color: Colors.gray, textAlign: 'center', paddingVertical: 20 }}>Sin incidencias registradas</Text>
                 ) : incidents.map(inc => (
                   <View key={inc.id} style={styles.incidentCard}>
                     <View style={[styles.incidentDot, {
-                      backgroundColor: inc.type === 'injury' ? Colors.red
+                      backgroundColor: inc.type === 'injury'    ? Colors.red
                         : inc.type === 'expulsion' ? '#7C3AED'
                         : inc.type === 'behavior'  ? '#F59E0B'
                         : Colors.gray,
@@ -503,9 +504,15 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                   </View>
                 ))}
               </ScrollView>
-              <TouchableOpacity style={[styles.modalCancel, { marginTop: 12 }]} onPress={() => setShowIncidents(false)}>
-                <Text style={styles.modalCancelTxt}>Cerrar</Text>
+
+              {/* Acción nueva incidencia */}
+              <TouchableOpacity
+                style={[styles.submitBtn, { marginTop: 14 }]}
+                onPress={() => { setShowIncidents(false); setIncidentModal(true); }}
+              >
+                <Text style={styles.submitTxt}>+ Nueva incidencia</Text>
               </TouchableOpacity>
+
             </View>
           </View>
         </Modal>
