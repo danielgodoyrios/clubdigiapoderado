@@ -130,10 +130,23 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
   const handleSubmit = async () => {
     if (!activeSession) return;
+
+    // If the session has no players yet (backend didn't return records),
+    // we can still submit an empty list — but warn the user first.
+    const recs = activeSession.records ?? [];
+    if (records.size === 0 && recs.length === 0) {
+      Alert.alert(
+        'Sin jugadores',
+        'Esta sesión no tiene jugadores cargados. El backend aún no vinculó la nómina del equipo. Intenta volver y abrir la sesión nuevamente.',
+      );
+      return;
+    }
+
     const list: AsistenciaRegistro[] = Array.from(records.entries()).map(([pupil_id, r]) => ({
       pupil_id,
       present: r.present,
       late: r.late,
+      notes: null,
     }));
     setSubmitting(true);
     try {
@@ -141,8 +154,9 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
       Alert.alert('¡Listo!', 'Asistencia registrada correctamente.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch {
-      Alert.alert('Error', 'No se pudo guardar la asistencia. Intenta nuevamente.');
+    } catch (e: any) {
+      const msg = e?.message ?? e?.error ?? e?.errors?.[0] ?? 'No se pudo guardar la asistencia. Intenta nuevamente.';
+      Alert.alert('Error', String(msg));
     } finally {
       setSubmitting(false);
     }
