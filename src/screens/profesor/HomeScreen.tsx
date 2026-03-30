@@ -74,7 +74,6 @@ export default function ProfesorHomeScreen({ navigation }: any) {
 
   const totalPlayers     = teams.reduce((s, t) => s + t.player_count, 0);
   const upcomingMatches  = nextEvents.filter(e => e.type === 'match');
-  const teamsToShow      = teams.slice(0, 6);
   const activeLesiones   = homeData?.active_injuries_count ?? lesiones.length;
   const leagueCarousel   = homeData?.leagues_carousel ?? [];
   const catCarousel      = homeData?.categories_carousel ?? [];
@@ -339,61 +338,57 @@ export default function ProfesorHomeScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* Mis Equipos — grid 2 columnas */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+        {/* Mis Equipos — carrusel horizontal */}
+        <View style={{ marginTop: 20 }}>
+          <View style={[styles.sectionHeader, { paddingHorizontal: 16, marginBottom: 10 }]}>
             <Text style={styles.sectionLbl}>MIS EQUIPOS</Text>
             <TouchableOpacity onPress={() => navigation.navigate('MisEquipos')}>
-              <Text style={styles.sectionLink}>
-                {teams.length > 6 ? `Ver todos (${teams.length}) →` : 'Ver equipos →'}
-              </Text>
+              <Text style={styles.sectionLink}>Ver todos →</Text>
             </TouchableOpacity>
           </View>
           {teams.length === 0 ? (
-            <View style={styles.emptyBox}>
+            <View style={[styles.emptyBox, { marginHorizontal: 16 }]}>
               <Ionicons name="people-outline" size={28} color={Colors.light} />
               <Text style={styles.emptyTxt}>Sin equipos asignados</Text>
             </View>
           ) : (
-            <View style={styles.teamsGrid}>
-              {teamsToShow.map(team => (
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={teams}
+              keyExtractor={t => String(t.id)}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+              renderItem={({ item: team }) => (
                 <TouchableOpacity
-                  key={team.id}
-                  style={styles.teamGridCard}
+                  style={styles.teamCard}
                   onPress={() => navigation.navigate('MisEquipos', { teamId: team.id })}
                   activeOpacity={0.82}
                 >
-                  <View style={styles.teamGridIcon}>
-                    <Ionicons name="shield-outline" size={18} color={GREEN} />
+                  <View style={styles.teamCardIcon}>
+                    <Ionicons name="shield-outline" size={20} color={GREEN} />
                   </View>
-                  <Text style={styles.teamGridName} numberOfLines={2}>{team.name}</Text>
+                  <Text style={styles.teamCardName} numberOfLines={2}>{team.name}</Text>
                   {(team.category || team.sport) && (
-                    <Text style={styles.teamGridCat} numberOfLines={1}>
+                    <Text style={styles.teamCardCat} numberOfLines={1}>
                       {[team.category, team.sport].filter(Boolean).join(' · ')}
                     </Text>
                   )}
-                  <View style={styles.teamGridCount}>
-                    <Ionicons name="person-outline" size={10} color={GREEN} />
-                    <Text style={styles.teamGridCountTxt}>{team.player_count}</Text>
+                  <View style={styles.teamCardRow}>
+                    <Ionicons name="person-outline" size={11} color={Colors.gray} />
+                    <Text style={styles.teamCardCount}>{team.player_count} jug.</Text>
                   </View>
                   {team.next_event_date && (
-                    <Text style={styles.teamGridNext}>
-                      Próx: {new Date(team.next_event_date + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                    <Text style={styles.teamCardNext}>
+                      {new Date(team.next_event_date + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                     </Text>
                   )}
-                </TouchableOpacity>
-              ))}
-              {teams.length > 6 && (
-                <TouchableOpacity
-                  style={[styles.teamGridCard, styles.teamGridMore]}
-                  onPress={() => navigation.navigate('MisEquipos')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="arrow-forward-circle-outline" size={24} color={GREEN} />
-                  <Text style={styles.teamGridMoreTxt}>+{teams.length - 6} más</Text>
+                  <View style={styles.teamCardFooter}>
+                    <Ionicons name="chevron-forward" size={11} color={GREEN} />
+                    <Text style={styles.teamCardFooterTxt}>Ver equipo</Text>
+                  </View>
                 </TouchableOpacity>
               )}
-            </View>
+            />
           )}
         </View>
 
@@ -481,17 +476,16 @@ const styles = StyleSheet.create({
   typeChip:     { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
   typeChipTxt:  { fontSize: 9, fontWeight: '800' },
 
-  // Teams grid 2-col
-  teamsGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  teamGridCard:     { width: '48%', backgroundColor: '#fff', borderRadius: 14, padding: 12, gap: 4, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  teamGridIcon:     { width: 34, height: 34, borderRadius: 8, backgroundColor: GREEN + '12', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  teamGridName:     { fontSize: 13, fontWeight: '700', color: Colors.black, lineHeight: 17 },
-  teamGridCat:      { fontSize: 10, color: GREEN, fontWeight: '600', marginTop: 1 },
-  teamGridCount:    { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
-  teamGridCountTxt: { fontSize: 11, fontWeight: '700', color: Colors.gray },
-  teamGridNext:     { fontSize: 9, color: Colors.gray, marginTop: 2 },
-  teamGridMore:     { alignItems: 'center', justifyContent: 'center', backgroundColor: GREEN + '10', borderWidth: 1, borderColor: GREEN + '30', borderStyle: 'dashed' },
-  teamGridMoreTxt:  { fontSize: 12, fontWeight: '700', color: GREEN, marginTop: 4 },
+  // Teams carousel
+  teamCard:       { width: 140, backgroundColor: '#fff', borderRadius: 16, padding: 13, gap: 5, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 1 },
+  teamCardIcon:   { width: 38, height: 38, borderRadius: 10, backgroundColor: GREEN + '12', alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  teamCardName:   { fontSize: 13, fontWeight: '800', color: Colors.black, lineHeight: 17 },
+  teamCardCat:    { fontSize: 10, color: GREEN, fontWeight: '700' },
+  teamCardRow:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  teamCardCount:  { fontSize: 11, fontWeight: '600', color: Colors.gray },
+  teamCardNext:   { fontSize: 9, color: Colors.gray },
+  teamCardFooter: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 },
+  teamCardFooterTxt: { fontSize: 10, fontWeight: '700', color: GREEN },
 
   // Lesiones
   lesionCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, gap: 10, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
