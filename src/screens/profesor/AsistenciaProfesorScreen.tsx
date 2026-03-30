@@ -646,7 +646,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
                     <Text style={styles.fieldLabel}>Tipo de lesión</Text>
                     <View style={styles.subPillRow}>
-                      {[['muscular','Muscular'],['ligamento','Ligamento'],['fractura','Fractura'],['contusion','Contusión'],['otro','Otro']].map(([val, lbl]) => (
+                      {[['muscular','Muscular'],['contractura','Contractura'],['desgarro','Desgarro'],['esguince','Esguince'],['ligamento','Ligamento'],['fractura','Fractura'],['contusion','Contusión'],['sangrado','Sangrado'],['otro','Otro']].map(([val, lbl]) => (
                         <TouchableOpacity
                           key={val}
                           style={[styles.subPill, injuryKind === val && styles.subPillInjuryActive]}
