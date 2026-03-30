@@ -401,24 +401,44 @@ export default function ProfesorHomeScreen({ navigation }: any) {
                 <Text style={styles.sectionLink}>Ver todas →</Text>
               </TouchableOpacity>
             </View>
-            {lesiones.slice(0, 3).map(l => (
-              <View key={l.id} style={styles.lesionCard}>
-                <View style={[styles.lesionSeverity, {
-                  backgroundColor: l.severity === 'grave' ? Colors.red : l.severity === 'moderada' ? '#F59E0B' : '#10B981',
-                }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.lesionName}>{l.pupil_name}</Text>
-                  <Text style={styles.lesionMeta}>{l.type} · {l.zone}</Text>
-                </View>
-                <View style={[styles.severityBadge, {
-                  backgroundColor: l.severity === 'grave' ? Colors.red + '15' : l.severity === 'moderada' ? '#FEF3C7' : '#D1FAE5',
-                }]}>
-                  <Text style={[styles.severityTxt, {
-                    color: l.severity === 'grave' ? Colors.red : l.severity === 'moderada' ? '#D97706' : '#059669',
-                  }]}>{l.severity.toUpperCase()}</Text>
-                </View>
-              </View>
-            ))}
+            {lesiones.slice(0, 3).map(l => {
+              const daysSince = l.date_start
+                ? Math.floor((Date.now() - new Date(l.date_start + 'T00:00:00').getTime()) / 86400000)
+                : null;
+              return (
+                <TouchableOpacity
+                  key={l.id}
+                  style={styles.lesionCard}
+                  onPress={() => navigation.navigate('LesionDetalle', { lesion: l })}
+                  activeOpacity={0.82}
+                >
+                  <View style={[styles.lesionSeverity, {
+                    backgroundColor: l.severity === 'grave' ? Colors.red : l.severity === 'moderada' ? '#F59E0B' : '#10B981',
+                  }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lesionName}>{l.pupil_name}</Text>
+                    {l.team_name && (
+                      <Text style={styles.lesionTeam}>{l.team_name}</Text>
+                    )}
+                    <Text style={styles.lesionMeta}>
+                      {[l.zone_label ?? l.zone, l.type].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <View style={[styles.severityBadge, {
+                      backgroundColor: l.severity === 'grave' ? Colors.red + '15' : l.severity === 'moderada' ? '#FEF3C7' : '#D1FAE5',
+                    }]}>
+                      <Text style={[styles.severityTxt, {
+                        color: l.severity === 'grave' ? Colors.red : l.severity === 'moderada' ? '#D97706' : '#059669',
+                      }]}>{(l.severity_label ?? l.severity).toUpperCase()}</Text>
+                    </View>
+                    {daysSince !== null && (
+                      <Text style={styles.lesionDays}>{daysSince}d</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
@@ -489,9 +509,11 @@ const styles = StyleSheet.create({
 
   // Lesiones
   lesionCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, gap: 10, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  lesionSeverity:{ width: 4, height: 32, borderRadius: 2 },
+  lesionSeverity:{ width: 4, height: 36, borderRadius: 2 },
   lesionName:    { fontSize: 13, fontWeight: '700', color: Colors.black },
+  lesionTeam:    { fontSize: 10, fontWeight: '700', color: GREEN, marginTop: 1 },
   lesionMeta:    { fontSize: 11, color: Colors.gray, marginTop: 1, textTransform: 'capitalize' },
+  lesionDays:    { fontSize: 10, fontWeight: '600', color: Colors.gray },
   severityBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
   severityTxt:   { fontSize: 9, fontWeight: '800' },
 
