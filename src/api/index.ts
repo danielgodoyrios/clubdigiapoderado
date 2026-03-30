@@ -728,7 +728,7 @@ export const Profesor = {
         photo:     toAbsoluteUrl(c.player_photo ?? p.photo_url ?? p.player_photo ?? p.photo),
         number:    c.jersey_number ?? p.jersey_number ?? p.number ?? c.number ?? null,
         position:  c.position ?? p.position ?? null,
-        convocado: c.convocado ?? true,
+        convocado: Boolean(c.convocado ?? c.selected ?? c.in_squad ?? true),
         status,
       };
     });

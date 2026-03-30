@@ -177,7 +177,7 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
 
       <FlatList
         data={filteredPlayers}
-        keyExtractor={p => String(p.pupil_id)}
+        keyExtractor={(p, i) => p.pupil_id != null ? String(p.pupil_id) : `player-${i}`}
         contentContainerStyle={{ paddingBottom: 160 }}
         ListHeaderComponent={() => (
           <View style={{ gap: 12, padding: 14 }}>
@@ -337,7 +337,7 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
       />
 
       {/* Bottom action bar */}
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 14 }]}>
         {loading && <ActivityIndicator size="small" color={GREEN} style={{ marginBottom: 8 }} />}
         <View style={styles.actionRow}>
           <TouchableOpacity
