@@ -22,13 +22,19 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   const [step,        setStep]        = useState<'team' | 'session' | 'attendance'>('team');
 
   // Incidents
-  const [incidents,       setIncidents]       = useState<AttendanceIncident[]>([]);
-  const [showIncidents,   setShowIncidents]   = useState(false);
-  const [incidentModal,   setIncidentModal]   = useState(false);
-  const [incidentType,    setIncidentType]    = useState<AttendanceIncident['type']>('behavior');
-  const [incidentTitle,   setIncidentTitle]   = useState('');
-  const [incidentNotes,   setIncidentNotes]   = useState('');
-  const [incidentPlayer,  setIncidentPlayer]  = useState('');
+  const [incidents,        setIncidents]        = useState<AttendanceIncident[]>([]);
+  const [showIncidents,    setShowIncidents]    = useState(false);
+  const [incidentModal,    setIncidentModal]    = useState(false);
+  const [incidentType,     setIncidentType]     = useState<AttendanceIncident['type']>('behavior');
+  const [incidentTitle,    setIncidentTitle]    = useState('');
+  const [incidentNotes,    setIncidentNotes]    = useState('');
+  const [incidentPlayerId, setIncidentPlayerId] = useState<number | null>(null);
+  const [incidentPlayerName, setIncidentPlayerName] = useState('');
+  const [showPlayerPicker, setShowPlayerPicker] = useState(false);
+  // Injury-specific
+  const [injuryZone,     setInjuryZone]     = useState('');
+  const [injuryKind,     setInjuryKind]     = useState('');
+  const [injurySeverity, setInjurySeverity] = useState<'leve'|'moderada'|'grave'>('leve');
   const [savingIncident,  setSavingIncident]  = useState(false);
 
   // Add guest
@@ -153,24 +159,31 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
     } catch { /* silent */ }
   }, [activeSession]);
 
+  const resetIncidentForm = () => {
+    setIncidentTitle(''); setIncidentNotes('');
+    setIncidentPlayerId(null); setIncidentPlayerName('');
+    setInjuryZone(''); setInjuryKind(''); setInjurySeverity('leve');
+    setIncidentType('behavior'); setShowPlayerPicker(false);
+  };
+
   const saveIncident = async () => {
     if (!activeSession || !incidentTitle.trim()) return;
-    // Look up player_id by name from session roster
-    const nameQuery = incidentPlayer.trim().toLowerCase();
-    const matchedRecord = nameQuery
-      ? activeSession.records.find(r => r.name.toLowerCase().includes(nameQuery))
-      : undefined;
     setSavingIncident(true);
     try {
       const inc = await Profesor.createIncident(activeSession.id, {
         type:      incidentType,
         title:     incidentTitle.trim(),
         notes:     incidentNotes.trim() || undefined,
-        player_id: matchedRecord?.pupil_id,
+        player_id: incidentPlayerId ?? undefined,
+        ...(incidentType === 'injury' ? {
+          injury_type: injuryKind     || undefined,
+          injury_zone: injuryZone     ? [injuryZone] : undefined,
+          severity:    injurySeverity,
+        } : {}),
       });
       setIncidents(prev => [inc, ...prev]);
       setIncidentModal(false);
-      setIncidentTitle(''); setIncidentNotes(''); setIncidentPlayer(''); setIncidentType('behavior');
+      resetIncidentForm();
       Alert.alert(
         incidentType === 'injury' ? 'Lesión registrada' : 'Incidencia guardada',
         incidentType === 'injury' ? 'La lesión ha quedado registrada.' : 'La incidencia ha sido guardada.',
@@ -518,20 +531,20 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         </Modal>
 
         {/* ── MODAL: Nueva incidencia ── */}
-        <Modal visible={incidentModal} transparent animationType="slide" onRequestClose={() => setIncidentModal(false)}>
+        <Modal visible={incidentModal} transparent animationType="slide" onRequestClose={() => { setIncidentModal(false); resetIncidentForm(); }}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-            <View style={[styles.modalSheet, { maxHeight: '92%' }]}>
+            <View style={[styles.modalSheet, { maxHeight: '94%' }]}>
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
                 {/* Header */}
                 <View style={styles.modalHeaderRow}>
                   <Text style={styles.modalTitle}>Nueva incidencia</Text>
-                  <TouchableOpacity onPress={() => setIncidentModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <TouchableOpacity onPress={() => { setIncidentModal(false); resetIncidentForm(); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name="close" size={24} color={Colors.gray} />
                   </TouchableOpacity>
                 </View>
 
-                {/* Categoría principal */}
+                {/* ── Categoría principal ── */}
                 <View style={styles.catRow}>
                   <TouchableOpacity
                     style={[styles.catCard, incidentType === 'injury' && styles.catCardInjuryActive]}
@@ -553,9 +566,9 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                   </TouchableOpacity>
                 </View>
 
-                {/* Sub-tipo (solo para Incidencia) */}
+                {/* Sub-tipo conducta */}
                 {incidentType !== 'injury' && (
-                  <View style={styles.subPillRow}>
+                  <View style={[styles.subPillRow, { marginBottom: 16 }]}>
                     {(['behavior','expulsion','medical','other'] as const).map(t => (
                       <TouchableOpacity
                         key={t}
@@ -570,30 +583,111 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                   </View>
                 )}
 
+                {/* ── Jugador ── */}
+                <Text style={styles.fieldLabel}>Jugador involucrado</Text>
+                <TouchableOpacity
+                  style={styles.playerPickerToggle}
+                  onPress={() => setShowPlayerPicker(v => !v)}
+                >
+                  <Ionicons name="person-outline" size={16} color={incidentPlayerId ? GREEN : Colors.gray} />
+                  <Text style={[styles.playerPickerTxt, incidentPlayerId != null && { color: Colors.black }]}>
+                    {incidentPlayerId ? incidentPlayerName : 'Seleccionar jugador (opcional)'}
+                  </Text>
+                  <Ionicons name={showPlayerPicker ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.gray} />
+                </TouchableOpacity>
+
+                {showPlayerPicker && (
+                  <View style={styles.playerPickerList}>
+                    {/* Opción: sin jugador */}
+                    <TouchableOpacity
+                      style={[styles.playerPickerRow, !incidentPlayerId && styles.playerPickerRowActive]}
+                      onPress={() => { setIncidentPlayerId(null); setIncidentPlayerName(''); setShowPlayerPicker(false); }}
+                    >
+                      <Text style={[styles.playerPickerName, !incidentPlayerId && { color: GREEN }]}>— Sin jugador específico</Text>
+                    </TouchableOpacity>
+                    {(activeSession?.records ?? []).map(r => (
+                      <TouchableOpacity
+                        key={r.pupil_id}
+                        style={[styles.playerPickerRow, incidentPlayerId === r.pupil_id && styles.playerPickerRowActive]}
+                        onPress={() => { setIncidentPlayerId(r.pupil_id); setIncidentPlayerName(r.name); setShowPlayerPicker(false); }}
+                      >
+                        <Text style={[styles.playerPickerName, incidentPlayerId === r.pupil_id && { color: GREEN, fontWeight: '700' }]}>{r.name}</Text>
+                        {incidentPlayerId === r.pupil_id && <Ionicons name="checkmark-circle" size={16} color={GREEN} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* ── Descripción ── */}
+                <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Descripción *</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="Descripción breve *"
+                  placeholder="Ej: Falta grave en el 2do tiempo"
                   value={incidentTitle}
                   onChangeText={setIncidentTitle}
                   returnKeyType="next"
                 />
+
+                {/* ── Campos específicos de lesión ── */}
+                {incidentType === 'injury' && (
+                  <>
+                    <Text style={styles.fieldLabel}>Zona afectada</Text>
+                    <View style={styles.subPillRow}>
+                      {['Rodilla','Tobillo','Hombro','Muslo','Cadera','Espalda','Pie','Cabeza','Otro'].map(z => (
+                        <TouchableOpacity
+                          key={z}
+                          style={[styles.subPill, injuryZone === z && styles.subPillInjuryActive]}
+                          onPress={() => setInjuryZone(z)}
+                        >
+                          <Text style={[styles.subPillTxt, injuryZone === z && { color: '#fff' }]}>{z}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.fieldLabel}>Tipo de lesión</Text>
+                    <View style={styles.subPillRow}>
+                      {[['muscular','Muscular'],['ligamento','Ligamento'],['fractura','Fractura'],['contusion','Contusión'],['otro','Otro']].map(([val, lbl]) => (
+                        <TouchableOpacity
+                          key={val}
+                          style={[styles.subPill, injuryKind === val && styles.subPillInjuryActive]}
+                          onPress={() => setInjuryKind(val)}
+                        >
+                          <Text style={[styles.subPillTxt, injuryKind === val && { color: '#fff' }]}>{lbl}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.fieldLabel}>Severidad</Text>
+                    <View style={[styles.subPillRow, { marginBottom: 4 }]}>
+                      {(['leve','moderada','grave'] as const).map(s => (
+                        <TouchableOpacity
+                          key={s}
+                          style={[styles.subPill, styles.subPillSeverity, injurySeverity === s && (
+                            s === 'leve' ? styles.subPillSevLeve : s === 'moderada' ? styles.subPillSevMod : styles.subPillSevGrave
+                          )]}
+                          onPress={() => setInjurySeverity(s)}
+                        >
+                          <Text style={[styles.subPillTxt, injurySeverity === s && { color: '#fff' }]}>
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+
+                {/* Notas */}
+                <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Notas adicionales</Text>
                 <TextInput
-                  style={styles.modalInput}
-                  placeholder="Jugador involucrado (nombre, opcional)"
-                  value={incidentPlayer}
-                  onChangeText={setIncidentPlayer}
-                  returnKeyType="next"
-                />
-                <TextInput
-                  style={[styles.modalInput, { height: 64, textAlignVertical: 'top' }]}
-                  placeholder="Notas adicionales (opcional)"
+                  style={[styles.modalInput, { height: 60, textAlignVertical: 'top' }]}
+                  placeholder="Opcional"
                   value={incidentNotes}
                   onChangeText={setIncidentNotes}
                   multiline
                 />
 
                 <TouchableOpacity
-                  style={[styles.submitBtn, { marginTop: 4, marginBottom: 6 }, (!incidentTitle.trim() || savingIncident) && { opacity: 0.5 }]}
+                  style={[styles.submitBtn, { marginTop: 6, marginBottom: 8 }, (!incidentTitle.trim() || savingIncident) && { opacity: 0.5 }]}
                   onPress={saveIncident}
                   disabled={!incidentTitle.trim() || savingIncident}
                 >
@@ -723,9 +817,23 @@ const styles = StyleSheet.create({
   catLabel:         { fontSize: 14, fontWeight: '800', color: Colors.gray },
   catSub:           { fontSize: 10, color: Colors.gray, textAlign: 'center' },
 
+  fieldLabel:   { fontSize: 11, fontWeight: '700', color: Colors.gray, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  playerPickerToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: Colors.light, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: Colors.surf, marginBottom: 4 },
+  playerPickerTxt:    { flex: 1, fontSize: 14, color: Colors.gray },
+  playerPickerList:   { borderWidth: 1, borderColor: Colors.light, borderRadius: 10, overflow: 'hidden', marginBottom: 4 },
+  playerPickerRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: Colors.light },
+  playerPickerRowActive: { backgroundColor: GREEN + '0D' },
+  playerPickerName:   { fontSize: 14, color: Colors.black },
+
   subPillRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   subPill:      { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: Colors.light, backgroundColor: Colors.surf },
-  subPillActive: { backgroundColor: '#D97706', borderColor: '#D97706' },
+  subPillActive:      { backgroundColor: '#D97706', borderColor: '#D97706' },
+  subPillInjuryActive: { backgroundColor: Colors.red, borderColor: Colors.red },
+  subPillSeverity:    {},
+  subPillSevLeve:     { backgroundColor: '#16A34A', borderColor: '#16A34A' },
+  subPillSevMod:      { backgroundColor: '#D97706', borderColor: '#D97706' },
+  subPillSevGrave:    { backgroundColor: Colors.red, borderColor: Colors.red },
   subPillTxt:   { fontSize: 12, fontWeight: '700', color: Colors.gray },
 
   incidentCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.surf, borderRadius: 10, padding: 12, marginBottom: 8 },
