@@ -454,6 +454,10 @@ export const Profesor = {
     return (res?.data ?? res) as AttendanceIncident;
   },
 
+  // 8.F — Eliminar incidencia
+  deleteIncident: (sessionId: number, incidentId: number): Promise<{ ok: boolean }> =>
+    request<{ ok: boolean }>('DELETE', `/profesor/attendance/${sessionId}/incidents/${incidentId}`),
+
   // Convocatorias
   convocatoria: async (eventId: number): Promise<ConvocadoEstado[]> => {
     const res = await request<any>('GET', `/profesor/events/${eventId}/convocatoria`);

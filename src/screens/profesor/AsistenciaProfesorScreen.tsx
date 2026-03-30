@@ -706,7 +706,22 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                     <View style={{ alignItems: 'flex-end', gap: 6 }}>
                       <Text style={styles.incidentType}>{inc.type.toUpperCase()}</Text>
                       <TouchableOpacity
-                        onPress={() => setIncidents(prev => prev.filter(i => i.id !== inc.id))}
+                        onPress={() => {
+                          if (!activeSession) return;
+                          Alert.alert(
+                            'Eliminar incidencia',
+                            '¿Estás seguro de que quieres eliminar esta incidencia?',
+                            [
+                              { text: 'Cancelar', style: 'cancel' },
+                              { text: 'Eliminar', style: 'destructive', onPress: async () => {
+                                try {
+                                  await Profesor.deleteIncident(activeSession.id, inc.id);
+                                } catch { /* best-effort */ }
+                                setIncidents(prev => prev.filter(i => i.id !== inc.id));
+                              }},
+                            ]
+                          );
+                        }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Ionicons name="trash-outline" size={15} color={Colors.red} />
