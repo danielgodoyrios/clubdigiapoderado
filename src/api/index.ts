@@ -696,7 +696,12 @@ export const Profesor = {
     // Backend may return the roster under several key names.
     // match_players is the Eloquent relation name (ClubMatch::with('matchPlayers.player')),
     // where each entry has a nested `.player` sub-object.
-    const rawList: any[] = raw.convocados ?? raw.roster ?? raw.players ?? raw.squad ?? raw.nómina ?? raw.match_players ?? [];
+    // 'convocatoria' may be an array directly or an object wrapping the list
+    const convocatoriaRaw = raw.convocatoria;
+    const convocatoriaList = Array.isArray(convocatoriaRaw)
+      ? convocatoriaRaw
+      : (convocatoriaRaw?.players ?? convocatoriaRaw?.data ?? convocatoriaRaw?.roster ?? null);
+    const rawList: any[] = raw.convocados ?? raw.roster ?? raw.players ?? raw.squad ?? raw.nómina ?? raw.match_players ?? convocatoriaList ?? [];
     console.log('[matchDetail] rawList length:', rawList.length, '| first item:', JSON.stringify(rawList[0])?.slice(0, 200));
     const convocados: MatchConvocado[] = rawList.map((c: any): MatchConvocado => {
       // When coming from match_players the actual player fields are nested under c.player
