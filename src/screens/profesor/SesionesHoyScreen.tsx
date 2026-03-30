@@ -31,6 +31,7 @@ type SessionWithTeam = AsistenciaSession & { team_name: string; team_id: number 
 export default function SesionesHoyScreen({ navigation }: any) {
   const [sessions,   setSessions]   = useState<SessionWithTeam[]>([]);
   const [dismissed,  setDismissed]  = useState<Set<number>>(new Set());
+  const [tab,        setTab]        = useState<'pending' | 'sent'>('pending');
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
@@ -39,9 +40,9 @@ export default function SesionesHoyScreen({ navigation }: any) {
     try {
       const teams: ProfesorTeam[] = await Profesor.teams();
 
-      // Solo mostramos sesiones de los últimos 7 días
+      // Mostrar sesiones de los últimos 60 días
       const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 7);
+      cutoff.setDate(cutoff.getDate() - 60);
       const cutoffStr = cutoff.toISOString().slice(0, 10);
 
       const results = await Promise.allSettled(
@@ -113,6 +114,9 @@ export default function SesionesHoyScreen({ navigation }: any) {
   };
 
   const visible = sessions.filter(s => !dismissed.has(s.id));
+  const pendingList = visible.filter(s => !s.submitted);
+  const sentList    = visible.filter(s => s.submitted);
+  const tabData     = tab === 'pending' ? pendingList : sentList;
 
   const renderItem = ({ item: s }: { item: SessionWithTeam }) => (
     <TouchableOpacity
@@ -174,7 +178,7 @@ export default function SesionesHoyScreen({ navigation }: any) {
     </TouchableOpacity>
   );
 
-  const pendingCount = visible.filter(s => !s.submitted).length;
+  const pendingCount = pendingList.length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -197,12 +201,24 @@ export default function SesionesHoyScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* Info strip */}
-      <View style={styles.infoStrip}>
-        <Ionicons name="time-outline" size={13} color={Colors.gray} />
-        <Text style={styles.infoTxt}>
-          Sesiones de los últimos 7 días. Las más antiguas se archivan automáticamente.
-        </Text>
+      {/* Tabs */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === 'pending' && styles.tabBtnActive]}
+          onPress={() => setTab('pending')}
+        >
+          <Text style={[styles.tabTxt, tab === 'pending' && styles.tabTxtActive]}>
+            Pendientes{pendingCount > 0 ? ` (${pendingCount})` : ''}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === 'sent' && styles.tabBtnActive]}
+          onPress={() => setTab('sent')}
+        >
+          <Text style={[styles.tabTxt, tab === 'sent' && styles.tabTxtActive]}>
+            Enviadas{sentList.length > 0 ? ` (${sentList.length})` : ''}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -211,7 +227,7 @@ export default function SesionesHoyScreen({ navigation }: any) {
         </View>
       ) : (
         <FlatList
-          data={visible}
+          data={tabData}
           keyExtractor={s => String(s.id)}
           style={{ flex: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
@@ -219,9 +235,13 @@ export default function SesionesHoyScreen({ navigation }: any) {
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Ionicons name="clipboard-outline" size={48} color={Colors.light} />
-              <Text style={styles.emptyTitle}>Sin sesiones recientes</Text>
+              <Text style={styles.emptyTitle}>
+                {tab === 'pending' ? 'Sin sesiones pendientes' : 'Sin sesiones enviadas'}
+              </Text>
               <Text style={styles.emptyTxt}>
-                Crea una sesión desde la sección{'\n'}Programación para que aparezca aquí.
+                {tab === 'pending'
+                  ? 'Todas las sesiones recientes han sido enviadas.'
+                  : 'Aún no has enviado ninguna asistencia en los últimos 60 días.'}
               </Text>
             </View>
           }
@@ -240,6 +260,13 @@ const styles = StyleSheet.create({
 
   pendingStrip:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: ORANGE + '18', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: ORANGE + '30' },
   pendingStripTxt: { fontSize: 12, fontWeight: '700', color: ORANGE },
+
+  tabBar:     { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.light },
+  tabBtn:     { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabBtnActive: { borderBottomColor: GREEN },
+  tabTxt:     { fontSize: 13, fontWeight: '600', color: Colors.gray },
+  tabTxtActive: { color: GREEN, fontWeight: '800' },
+
   infoStrip:       { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.light },
   infoTxt:         { flex: 1, fontSize: 11, color: Colors.gray },
 
