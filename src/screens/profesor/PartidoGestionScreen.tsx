@@ -261,6 +261,7 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
               value={search}
               onChangeText={setSearch}
               placeholder="Buscar jugador…"
+              placeholderTextColor={Colors.gray}
               clearButtonMode="while-editing"
             />
           </View>
@@ -385,7 +386,7 @@ const styles = StyleSheet.create({
   listHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   listActions:  { flexDirection: 'row', gap: 8, alignItems: 'center' },
   linkAction:   { fontSize: 12, fontWeight: '700', color: GREEN },
-  searchInput:  { borderWidth: 1, borderColor: Colors.light, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, color: Colors.black, backgroundColor: '#fff' },
+  searchInput:  { borderWidth: 1, borderColor: Colors.light, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: Colors.black, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
 
   playerRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 12, backgroundColor: '#fff' },
   playerRowOn:  { backgroundColor: GREEN + '06' },

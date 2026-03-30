@@ -466,8 +466,11 @@ export const Profesor = {
   // Jugadores de un equipo
   players: async (teamId: number): Promise<ProfesorPlayer[]> => {
     const res = await request<any>('GET', `/profesor/teams/${teamId}/players`);
-    const arr = Array.isArray(res) ? res : (res.data ?? []);
-    return arr.map(mapProfesorPlayer);
+    const arr = Array.isArray(res)
+      ? res
+      : (res.data ?? res.players ?? res.roster ?? res.squad ?? []);
+    const list = Array.isArray(arr) ? arr : (arr.data ?? arr.players ?? arr.roster ?? []);
+    return list.map(mapProfesorPlayer);
   },
 
   // Eventos / Agenda
@@ -684,7 +687,7 @@ export const Profesor = {
   matchDetail: async (matchId: number): Promise<{ match: ProfesorMatch; convocados: MatchConvocado[] }> => {
     const res = await request<any>('GET', `/profesor/matches/${matchId}`);
     const raw = res?.data ?? res;
-    const convocados: MatchConvocado[] = (raw.convocados ?? raw.roster ?? []).map((c: any): MatchConvocado => ({
+    const convocados: MatchConvocado[] = (raw.convocados ?? raw.roster ?? raw.players ?? raw.squad ?? raw.nómina ?? []).map((c: any): MatchConvocado => ({
       pupil_id: c.pupil_id ?? c.id,
       name:     c.full_name ?? c.name ?? '',
       photo:    toAbsoluteUrl(c.photo_url ?? c.photo),
