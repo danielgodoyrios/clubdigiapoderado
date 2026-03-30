@@ -3655,3 +3655,197 @@ PUT /api/profesor/matches/{match_id}/result
 | `404` | Partido no encontrado |
 | `400` | Formato de score inválido |
 
+---
+
+## Sección 8 (bis): ASISTENCIA — Endpoints adicionales implementados en la app
+
+### 8.A — Agregar jugador registrado a la sesión
+
+Permite agregar un jugador de **cualquier equipo del club** (no solo del equipo de la sesión) a la lista de asistencia.
+
+```
+POST /api/profesor/attendance/{session_id}/players
+```
+**Auth:** Bearer `profesor`
+
+**Body:**
+```json
+{ "player_id": 42 }
+```
+
+**Response 200:**
+```json
+{
+  "record_id": 301,
+  "pupil_id": 42,
+  "name": "Matías Rojas",
+  "photo": "https://...",
+  "status": "present",
+  "is_guest": false
+}
+```
+
+**Errores:**
+
+| HTTP | Caso |
+|------|------|
+| `403` | El profesor no tiene acceso a la sesión |
+| `404` | Jugador o sesión no encontrada |
+| `409` | El jugador ya está en la sesión |
+
+---
+
+### 8.B — Agregar visitante no registrado
+
+```
+POST /api/profesor/attendance/{session_id}/guests
+```
+**Auth:** Bearer `profesor`
+
+**Body:**
+```json
+{
+  "guest_name":  "Juan Pérez",
+  "guest_phone": "+56912345678",
+  "status":      "present"
+}
+```
+`status` puede ser: `present` | `late` | `absent` | `excused`
+
+**Response 200:**
+```json
+{
+  "record_id": 302,
+  "pupil_id":  null,
+  "name":      "Juan Pérez",
+  "photo":     null,
+  "status":    "present",
+  "is_guest":  true,
+  "phone":     "+56912345678"
+}
+```
+
+---
+
+### 8.C — Eliminar visitante
+
+```
+DELETE /api/profesor/attendance/{session_id}/guests/{record_id}
+```
+**Auth:** Bearer `profesor`
+
+**Response 200:** `{ "ok": true }`
+
+**Errores:**
+
+| HTTP | Caso |
+|------|------|
+| `403` | Sin acceso a la sesión |
+| `404` | Registro no encontrado o no es visitante |
+
+---
+
+### 8.D — Listar incidencias de la sesión
+
+```
+GET /api/profesor/attendance/{session_id}/incidents
+```
+**Auth:** Bearer `profesor`
+
+**Response 200:**
+```json
+[
+  {
+    "id":          1,
+    "type":        "injury",
+    "title":       "Golpe en rodilla",
+    "notes":       "Salió cojeando al minuto 35",
+    "player_id":   17,
+    "player_name": "Carlos Fuentes",
+    "injury_id":   5,
+    "created_at":  "2026-03-29T18:40:00Z"
+  }
+]
+```
+
+---
+
+### 8.E — Registrar incidencia
+
+```
+POST /api/profesor/attendance/{session_id}/incidents
+```
+**Auth:** Bearer `profesor`
+
+**Body:**
+```json
+{
+  "type":        "injury",
+  "title":       "Golpe en rodilla",
+  "player_id":   17,
+  "notes":       "Salió cojeando",
+  "injury_type": "esguince",
+  "injury_zone": ["Rodilla"],
+  "severity":    "moderada"
+}
+```
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `type` | string | ✅ | `injury` \| `behavior` \| `expulsion` \| `medical` \| `other` |
+| `title` | string | ✅ | Descripción breve |
+| `player_id` | number | ❌ | Si aplica |
+| `notes` | string | ❌ | Texto libre |
+| `injury_type` | string | Solo si `type=injury` | `muscular`, `contractura`, `desgarro`, `esguince`, `ligamento`, `fractura`, `contusion`, `sangrado`, `otro` |
+| `injury_zone` | string[] | Solo si `type=injury` | `["Rodilla"]` |
+| `severity` | string | Solo si `type=injury` | `leve` \| `moderada` \| `grave` |
+
+**Comportamiento:**
+- Si `type=injury` → crear un `PlayerInjury` vinculado al jugador
+- Si `type=expulsion` o `behavior` → crear un `DisciplinaryRecord` con `status: pending`
+
+**Response 200:**
+```json
+{
+  "id":          10,
+  "type":        "injury",
+  "title":       "Golpe en rodilla",
+  "notes":       "Salió cojeando",
+  "player_id":   17,
+  "player_name": "Carlos Fuentes",
+  "injury_id":   6,
+  "created_at":  "2026-03-29T18:45:00Z"
+}
+```
+
+---
+
+### 8.F — Eliminar incidencia
+
+Permite al profesor borrar una incidencia registrada por error (antes o después del submit final de asistencia).
+
+```
+DELETE /api/profesor/attendance/{session_id}/incidents/{incident_id}
+```
+**Auth:** Bearer `profesor`
+
+**Comportamiento por tipo:**
+
+| Tipo de incidencia | Qué pasa con los registros vinculados |
+|---|---|
+| `injury` | La `PlayerInjury` se cierra (`status: closed`, `date_end: hoy`) — no se borra (trazabilidad médica) |
+| `expulsion` / `behavior` | El `DisciplinaryRecord` se elimina **solo si** sigue en `status: pending` |
+| `psychological`, `medical`, `other` | Solo se borra la incidencia |
+
+**Response 200:** `{ "ok": true }`
+
+**Errores:**
+
+| HTTP | Caso |
+|------|------|
+| `403` | El profesor no tiene acceso a la sesión |
+| `404` | Incidencia no encontrada en esa sesión |
+
+> Si el caso disciplinario ya fue procesado por el admin (`status ≠ pending`), la incidencia se elimina igualmente pero el `DisciplinaryRecord` queda intacto.
+
+
