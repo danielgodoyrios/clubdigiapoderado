@@ -13,13 +13,22 @@ const GREEN = '#0F7D4B';
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const DAYS   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 
+// Safely parse a date that might be 'YYYY-MM-DD' or a full ISO timestamp
+function dateToDay(s: string) {
+  return s ? s.slice(0, 10) : '';
+}
+
 function fmtDate(s: string) {
-  const d = new Date(s + 'T00:00:00');
+  const d = new Date(dateToDay(s) + 'T00:00:00');
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function matchDayTs(m: ProfesorMatch) {
+  return startOfDay(new Date(dateToDay(m.date) + 'T00:00:00'));
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -41,29 +50,28 @@ const STATUS_LABELS: Record<string, string> = {
 type Section = { title: string; data: ProfesorMatch[] };
 
 function buildSections(matches: ProfesorMatch[], teamFilter: number | null): Section[] {
-  const now = startOfDay(new Date());
+  const now  = startOfDay(new Date());
   const in7  = now + 7 * 86400000;
 
   const filtered = teamFilter
     ? matches.filter(m => m.team_id === teamFilter)
     : matches;
 
-  const thisWeek = filtered.filter(m => {
-    const t = startOfDay(new Date(m.date + 'T00:00:00'));
-    return t >= now && t <= in7 && m.status !== 'cancelled' && m.status !== 'played' && m.status !== 'finished';
-  });
-  const upcoming = filtered.filter(m => {
-    const t = startOfDay(new Date(m.date + 'T00:00:00'));
-    return t > in7 && m.status !== 'cancelled' && m.status !== 'played' && m.status !== 'finished';
-  });
-  const recently = filtered.filter(m =>
-    m.status === 'played' || m.status === 'finished',
-  ).slice(0, 5);
+  const isUpcoming  = (m: ProfesorMatch) => m.status !== 'cancelled' && m.status !== 'played' && m.status !== 'finished';
+  const isCompleted = (m: ProfesorMatch) => m.status === 'played' || m.status === 'finished';
+
+  const today    = filtered.filter(m => matchDayTs(m) === now && isUpcoming(m));
+  const thisWeek = filtered.filter(m => { const t = matchDayTs(m); return t > now && t <= in7 && isUpcoming(m); });
+  const upcoming = filtered.filter(m => matchDayTs(m) > in7 && isUpcoming(m));
+  const recently = filtered.filter(isCompleted)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 6);
 
   const sections: Section[] = [];
-  if (thisWeek.length)  sections.push({ title: 'ESTA SEMANA', data: thisWeek });
-  if (upcoming.length)  sections.push({ title: 'PRÓXIMOS', data: upcoming });
-  if (recently.length)  sections.push({ title: 'ÚLTIMOS RESULTADOS', data: recently });
+  if (today.length)    sections.push({ title: 'HOY', data: today });
+  if (thisWeek.length) sections.push({ title: 'ESTA SEMANA', data: thisWeek });
+  if (upcoming.length) sections.push({ title: 'PRÓXIMOS', data: upcoming });
+  if (recently.length) sections.push({ title: 'ÚLTIMOS RESULTADOS', data: recently });
   return sections;
 }
 
@@ -81,9 +89,10 @@ function SummaryCard({ icon, label, value, color, sub }: { icon: string; label: 
 }
 
 function MatchCard({ match, onPress }: { match: ProfesorMatch; onPress: () => void }) {
-  const isPlayed  = match.status === 'played' || match.status === 'finished';
+  const isPlayed    = match.status === 'played' || match.status === 'finished';
   const isCancelled = match.status === 'cancelled';
-  const stripColor = STATUS_COLORS[match.status] ?? Colors.gray;
+  const isToday     = matchDayTs(match) === startOfDay(new Date());
+  const stripColor  = isToday ? '#F59E0B' : (STATUS_COLORS[match.status] ?? Colors.gray);
   const pendingConf = match.convocados_count > 0
     ? match.convocados_count - match.confirmed_count
     : 0;
@@ -200,15 +209,18 @@ export default function PartidosDashboardScreen({ navigation }: any) {
   const now  = startOfDay(new Date());
   const in7  = now + 7 * 86400000;
 
-  const upcoming   = allMatches.filter(m => {
-    const t = startOfDay(new Date(m.date + 'T00:00:00'));
+  // Apply team filter to stats too (consistent with sections)
+  const filteredMatches = teamFilter ? allMatches.filter(m => m.team_id === teamFilter) : allMatches;
+
+  const upcoming   = filteredMatches.filter(m => {
+    const t = matchDayTs(m);
     return t >= now && m.status !== 'played' && m.status !== 'finished' && m.status !== 'cancelled';
   });
-  const thisWeek   = upcoming.filter(m => startOfDay(new Date(m.date + 'T00:00:00')) <= in7);
-  const pendingConv = allMatches.filter(m =>
+  const thisWeek   = upcoming.filter(m => matchDayTs(m) <= in7);
+  const pendingConv = filteredMatches.filter(m =>
     m.convocados_count > 0 && m.confirmed_count < m.convocados_count &&
     m.status !== 'played' && m.status !== 'finished' && m.status !== 'cancelled' &&
-    startOfDay(new Date(m.date + 'T00:00:00')) >= now,
+    matchDayTs(m) >= now,
   );
   const withoutConv = upcoming.filter(m => m.convocados_count === 0).length;
 
@@ -335,9 +347,13 @@ export default function PartidosDashboardScreen({ navigation }: any) {
                   {/* Section header */}
                   <View style={styles.secHeader}>
                     <View style={styles.secLblWrap}>
-                      <Text style={styles.secLbl}>{sec.title}</Text>
-                      <View style={styles.secCount}>
-                        <Text style={styles.secCountTxt}>{sec.data.length}</Text>
+                      <Text style={[styles.secLbl, sec.title === 'HOY' && { color: '#D97706' }]}>
+                        {sec.title}
+                      </Text>
+                      <View style={[styles.secCount, sec.title === 'HOY' && { backgroundColor: '#FEF3C7' }]}>
+                        <Text style={[styles.secCountTxt, sec.title === 'HOY' && { color: '#D97706' }]}>
+                          {sec.data.length}
+                        </Text>
                       </View>
                     </View>
                     {sec.title === 'ESTA SEMANA' || sec.title === 'PRÓXIMOS' ? (

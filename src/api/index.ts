@@ -648,7 +648,7 @@ export const Profesor = {
     const arr = Array.isArray(res) ? res : (res.data ?? []);
     return arr.map((r: any): ProfesorMatch => ({
       id:              r.id,
-      date:            r.date ?? '',
+      date:            (r.date ?? '').slice(0, 10),   // trim to YYYY-MM-DD (API may return full timestamp)
       time:            r.time ?? null,
       title:           r.title ?? '',
       status:          r.status ?? 'upcoming',
