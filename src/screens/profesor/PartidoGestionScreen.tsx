@@ -7,7 +7,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { Profesor, ProfesorMatch, MatchConvocado } from '../../api';
+import { Profesor, ProfesorMatch, MatchConvocado, ConvocadoStatus } from '../../api';
 
 const GREEN = '#0F7D4B';
 const BLUE  = '#1D4ED8';
@@ -19,14 +19,12 @@ function fmtDate(s: string) {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
-const STATUS_CONF: Record<string, { label: string; color: string; bg: string }> = {
-  confirmed:  { label: 'Confirmado', color: GREEN,    bg: '#DCFCE7' },
-  confirmado: { label: 'Confirmado', color: GREEN,    bg: '#DCFCE7' },
-  pending:    { label: 'Pendiente',  color: '#F59E0B', bg: '#FEF3C7' },
-  pendiente:  { label: 'Pendiente',  color: '#F59E0B', bg: '#FEF3C7' },
-  declined:   { label: 'No va',      color: '#EF4444', bg: '#FEF2F2' },
-  rechazado:  { label: 'No va',      color: '#EF4444', bg: '#FEF2F2' },
-  no_va:      { label: 'No va',      color: '#EF4444', bg: '#FEF2F2' },
+type StatusMeta = { label: string; color: string; bg: string; icon: string };
+const STATUS_META: Record<ConvocadoStatus, StatusMeta> = {
+  disponible: { label: 'Disponible',  color: Colors.gray,  bg: Colors.light, icon: 'person-outline'     },
+  convocado:  { label: 'Convocado',   color: '#F59E0B',    bg: '#FEF3C7',    icon: 'star-outline'        },
+  confirmado: { label: 'Confirmado',  color: GREEN,        bg: '#DCFCE7',    icon: 'checkmark-circle'    },
+  no_va:      { label: 'No va',       color: '#EF4444',    bg: '#FEF2F2',    icon: 'close-circle'        },
 };
 
 function Avatar({ name, size = 36 }: { name: string; size?: number }) {
@@ -43,16 +41,105 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
   const teamName: string = route.params?.teamName ?? 'Mi Equipo';
   const insets = useSafeAreaInsets();
 
-  const [match,     setMatch]     = useState<ProfesorMatch>(initMatch);
-  const [players,   setPlayers]   = useState<MatchConvocado[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [saving,    setSaving]    = useState(false);
-  const [sharing,   setSharing]   = useState(false);
-  const [search,    setSearch]    = useState('');
-  const [homeGoals, setHomeGoals] = useState(initMatch.score?.split(':')[0] ?? '');
-  const [awayGoals, setAwayGoals] = useState(initMatch.score?.split(':')[1] ?? '');
-  const [savingScore, setSavingScore] = useState(false);
-  const [creatingSession, setCreatingSession] = useState(false);
+  const [match,          setMatch]          = useState<ProfesorMatch>(initMatch);
+  const [players,        setPlayers]        = useState<MatchConvocado[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [togglingId,     setTogglingId]     = useState<number | null>(null);
+  const [statusUpdId,    setStatusUpdId]    = useState<number | null>(null);
+  const [sharing,        setSharing]        = useState(false);
+  const [search,         setSearch]         = useState('');
+  const [homeGoals,      setHomeGoals]      = useState(initMatch.score?.split(':')[0] ?? '');
+  const [awayGoals,      setAwayGoals]      = useState(initMatch.score?.split(':')[1] ?? '');
+  const [savingScore,    setSavingScore]    = useState(false);
+  const [creatingSession,setCreatingSession]= useState(false);
+
+  /** Load full plantel from the new endpoint; fall back to matchDetail */
+  const load = useCallback(async () => {
+    try {
+      const plantel = await Profesor.matchPlantel(match.id);
+      setPlayers(plantel);
+    } catch {
+      // Fallback: load from matchDetail (returns only convocados)
+      try {
+        const { match: m, convocados } = await Profesor.matchDetail(match.id);
+        setMatch(m);
+        setPlayers(convocados);
+      } catch {
+        setPlayers([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [match.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  /** Toggle disponible ↔ convocado with immediate API call */
+  const toggleConvocado = async (player: MatchConvocado) => {
+    const isIn = player.status !== 'disponible';
+    setTogglingId(player.pupil_id);
+    try {
+      if (isIn) {
+        await Profesor.removeFromConvocatoria(match.id, player.pupil_id);
+        setPlayers(prev => prev.map(p =>
+          p.pupil_id === player.pupil_id ? { ...p, status: 'disponible' } : p
+        ));
+      } else {
+        await Profesor.addToConvocatoria(match.id, player.pupil_id);
+        setPlayers(prev => prev.map(p =>
+          p.pupil_id === player.pupil_id ? { ...p, status: 'convocado' } : p
+        ));
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'No se pudo actualizar la convocatoria.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  /** Change status within convocatoria (convocado → confirmado | no_va) */
+  const changeStatus = (player: MatchConvocado) => {
+    if (player.status === 'disponible') return;
+    Alert.alert(
+      player.name,
+      'Cambiar estado',
+      [
+        { text: '⭐ Convocado (pendiente)', onPress: () => applyStatus(player, 'convocado') },
+        { text: '✅ Confirmado',            onPress: () => applyStatus(player, 'confirmado') },
+        { text: '❌ No va',                 onPress: () => askNoVa(player) },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
+  const askNoVa = (player: MatchConvocado) => {
+    // Alert.prompt is iOS-only; on Android we set no_va without justification
+    if (Alert.prompt) {
+      Alert.prompt(
+        'Motivo (opcional)',
+        `¿Por qué ${player.name} no va?`,
+        (text) => applyStatus(player, 'no_va', text || null),
+        'plain-text',
+        player.justification ?? '',
+      );
+    } else {
+      applyStatus(player, 'no_va', null);
+    }
+  };
+
+  const applyStatus = async (player: MatchConvocado, status: 'convocado' | 'confirmado' | 'no_va', justification?: string | null) => {
+    setStatusUpdId(player.pupil_id);
+    try {
+      await Profesor.updateConvocadoStatus(match.id, player.pupil_id, status, justification);
+      setPlayers(prev => prev.map(p =>
+        p.pupil_id === player.pupil_id ? { ...p, status, justification: justification ?? null } : p
+      ));
+    } catch {
+      Alert.alert('Error', 'No se pudo actualizar el estado.');
+    } finally {
+      setStatusUpdId(null);
+    }
+  };
 
   const handleOpenAsistencia = async () => {
     const sessionId = match.session_id;
@@ -61,7 +148,6 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
       navigation.navigate('AsistenciaProfesor', { sessionId, matchId: match.id, title });
       return;
     }
-    // Create session on demand
     setCreatingSession(true);
     try {
       const session = await Profesor.createAttendanceSession(match.team_id, {
@@ -78,48 +164,10 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
     }
   };
 
-  const load = useCallback(async () => {
-    try {
-      const { match: m, convocados } = await Profesor.matchDetail(match.id);
-      setMatch(m);
-      setPlayers(convocados);
-    } catch {
-      setPlayers([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [match.id]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const toggle = (pupilId: number) => {
-    setPlayers(prev => prev.map(p =>
-      p.pupil_id === pupilId ? { ...p, convocado: !p.convocado } : p
-    ));
-  };
-
-  const selectAll = () => setPlayers(prev => prev.map(p => ({ ...p, convocado: true })));
-  const clearAll  = () => setPlayers(prev => prev.map(p => ({ ...p, convocado: false })));
-
-  const handleSave = async () => {
-    const ids = players.filter(p => p.convocado).map(p => p.pupil_id);
-    setSaving(true);
-    try {
-      await Profesor.updateMatchConvocatoria(match.id, ids);
-      setMatch(prev => ({ ...prev, convocados_count: ids.length }));
-      Alert.alert('¡Listo!', `Convocatoria guardada (${ids.length} jugadores).`);
-    } catch {
-      Alert.alert('Error', 'No se pudo guardar la convocatoria.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleShare = async () => {
     setSharing(true);
     try {
       const link = await Profesor.matchShareLink(match.id);
-      // Try WhatsApp deep link first, fall back to system Share
       const opened = await Linking.canOpenURL(link.whatsapp_url);
       if (opened) {
         await Linking.openURL(link.whatsapp_url);
@@ -150,13 +198,13 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
     }
   };
 
-  const convocadoCount = players.filter(p => p.convocado).length;
-  const confirmedCount = players.filter(p => p.convocado && p.status === 'confirmed').length;
-  const pending        = players.filter(p => p.convocado && p.status !== 'confirmed' && p.status !== 'declined').length;
-  const declined       = players.filter(p => p.convocado && p.status === 'declined').length;
-  const isPlayed       = match.status === 'played' || match.status === 'finished';
-  const homeTeam       = match.home_team ?? teamName;
-  const awayTeam       = match.away_team ?? 'Rival';
+  const convocadoCount  = players.filter(p => p.status !== 'disponible').length;
+  const confirmedCount  = players.filter(p => p.status === 'confirmado').length;
+  const pendingCount    = players.filter(p => p.status === 'convocado').length;
+  const noVaCount       = players.filter(p => p.status === 'no_va').length;
+  const isPlayed        = match.status === 'played' || match.status === 'finished';
+  const homeTeam        = match.home_team ?? teamName;
+  const awayTeam        = match.away_team ?? 'Rival';
 
   const filteredPlayers = search
     ? players.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
@@ -266,14 +314,14 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
               </View>
             )}
 
-            {/* Convocatoria stats */}
+            {/* Convocatoria stats — 4 estados */}
             <View style={styles.statsCard}>
-              <Text style={styles.sectionLbl}>Convocatoria · {convocadoCount} jugadores</Text>
+              <Text style={styles.sectionLbl}>Convocatoria · {convocadoCount} / {players.length} jugadores</Text>
               <View style={styles.statsRow}>
                 {[
+                  { label: 'Convocados',  value: pendingCount,   color: '#F59E0B' },
                   { label: 'Confirmados', value: confirmedCount, color: GREEN },
-                  { label: 'Pendientes',  value: pending,        color: '#F59E0B' },
-                  { label: 'No van',      value: declined,       color: '#EF4444' },
+                  { label: 'No van',      value: noVaCount,      color: '#EF4444' },
                 ].map(s => (
                   <View key={s.label} style={styles.statItem}>
                     <Text style={[styles.statNum, { color: s.color }]}>{s.value}</Text>
@@ -285,12 +333,8 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
 
             {/* Player list header */}
             <View style={styles.listHeader}>
-              <Text style={styles.sectionLbl}>Nómina ({players.length})</Text>
-              <View style={styles.listActions}>
-                <TouchableOpacity onPress={selectAll}><Text style={styles.linkAction}>Todos</Text></TouchableOpacity>
-                <Text style={{ color: Colors.light }}>·</Text>
-                <TouchableOpacity onPress={clearAll}><Text style={styles.linkAction}>Ninguno</Text></TouchableOpacity>
-              </View>
+              <Text style={styles.sectionLbl}>Plantel ({players.length})</Text>
+              <Text style={styles.listHint}>Toca para convocar · mantén para estado</Text>
             </View>
 
             <TextInput
@@ -303,17 +347,24 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
             />
           </View>
         )}
-        renderItem={({ item: p }) => {
-          const st = p.status ? STATUS_CONF[p.status] : null;
+        renderItem={({ item: p, index: i }) => {
+          const meta   = STATUS_META[p.status];
+          const isIn   = p.status !== 'disponible';
+          const isBusy = togglingId === p.pupil_id || statusUpdId === p.pupil_id;
           return (
             <TouchableOpacity
-              style={[styles.playerRow, p.convocado && styles.playerRowOn]}
-              onPress={() => toggle(p.pupil_id)}
+              style={[styles.playerRow, isIn && styles.playerRowOn]}
+              onPress={() => !isBusy && toggleConvocado(p)}
+              onLongPress={() => !isBusy && changeStatus(p)}
               activeOpacity={0.75}
             >
-              <View style={[styles.checkBox, p.convocado && styles.checkBoxOn]}>
-                {p.convocado && <Ionicons name="checkmark" size={15} color="#fff" />}
-              </View>
+              {isBusy ? (
+                <ActivityIndicator size="small" color={GREEN} style={{ width: 24 }} />
+              ) : (
+                <View style={[styles.checkBox, isIn && styles.checkBoxOn]}>
+                  {isIn && <Ionicons name="checkmark" size={15} color="#fff" />}
+                </View>
+              )}
               <Avatar name={p.name} size={38} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.playerName}>{p.name}</Text>
@@ -324,12 +375,18 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
                     {p.position ?? ''}
                   </Text>
                 )}
+                {p.status === 'no_va' && p.justification && (
+                  <Text style={styles.justificationTxt} numberOfLines={1}>{p.justification}</Text>
+                )}
               </View>
-              {p.convocado && st && (
-                <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
-                  <Text style={[styles.statusBadgeTxt, { color: st.color }]}>{st.label}</Text>
-                </View>
-              )}
+              <TouchableOpacity
+                style={[styles.statusBadge, { backgroundColor: meta.bg }]}
+                onPress={() => isIn && !isBusy && changeStatus(p)}
+                disabled={!isIn || isBusy}
+              >
+                <Ionicons name={meta.icon as any} size={12} color={meta.color} />
+                <Text style={[styles.statusBadgeTxt, { color: meta.color }]}>{meta.label}</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         }}
@@ -341,19 +398,6 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
         {loading && <ActivityIndicator size="small" color={GREEN} style={{ marginBottom: 8 }} />}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.actionBtn, styles.savedBtn, saving && { opacity: 0.6 }]}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <>
-                  <Ionicons name="save-outline" size={16} color="#fff" />
-                  <Text style={styles.actionBtnTxt}>Guardar ({convocadoCount})</Text>
-                </>
-            }
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.actionBtn, styles.shareBtn, sharing && { opacity: 0.6 }]}
             onPress={handleShare}
             disabled={sharing}
@@ -362,7 +406,7 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
               ? <ActivityIndicator size="small" color="#fff" />
               : <>
                   <Ionicons name="logo-whatsapp" size={16} color="#fff" />
-                  <Text style={styles.actionBtnTxt}>Compartir</Text>
+                  <Text style={styles.actionBtnTxt}>Compartir convocatoria</Text>
                 </>
             }
           </TouchableOpacity>
@@ -435,13 +479,15 @@ const styles = StyleSheet.create({
   checkBoxOn:   { backgroundColor: GREEN, borderColor: GREEN },
   playerName:   { fontSize: 14, fontWeight: '700', color: Colors.black },
   playerMeta:   { fontSize: 12, color: Colors.gray, marginTop: 1 },
-  statusBadge:  { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  justificationTxt: { fontSize: 11, color: '#EF4444', marginTop: 2, fontStyle: 'italic' },
+  statusBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   statusBadgeTxt: { fontSize: 10, fontWeight: '800' },
+
+  listHint:     { fontSize: 11, color: Colors.gray, fontStyle: 'italic' },
 
   bottomBar:  { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.light, padding: 14, gap: 10 },
   actionRow:  { flexDirection: 'row', gap: 10 },
   actionBtn:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 13 },
-  savedBtn:   { backgroundColor: GREEN },
   shareBtn:   { backgroundColor: '#25D366' },
   actionBtnTxt: { fontSize: 14, fontWeight: '800', color: '#fff' },
   attendanceBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: GREEN + '40', backgroundColor: GREEN + '08' },

@@ -4182,12 +4182,20 @@ GET /api/profesor/matches/{match_id}
 **Notas:**
 - La lista `convocados` incluye **todos los jugadores del equipo**, no solo los convocados.
 - El campo `convocado` indica si fue seleccionado para el partido.
-- El campo `status` es `null` para no convocados, o `"confirmed"`, `"pending"`, `"declined"` para convocados.
+- El campo `status` usa el modelo de **4 estados**:
+
+| `status`      | Significado |
+|---|---|
+| `disponible`  | En el plantel del equipo, **no** seleccionado por el DT |
+| `convocado`   | DT lo seleccionó para el partido — respuesta pendiente |
+| `confirmado`  | Jugador confirmó asistencia |
+| `no_va`       | Jugador canceló (puede incluir campo `justificacion`) |
+
 - `session_id` es `null` si no hay sesión de asistencia vinculada al partido.
 
 ---
 
-### 10.4 — Actualizar convocatoria del partido
+### 10.4 — Reemplazar convocatoria completa (bulk)
 
 ```
 PUT /api/profesor/matches/{match_id}/convocatoria
@@ -4201,10 +4209,12 @@ PUT /api/profesor/matches/{match_id}/convocatoria
 
 **Comportamiento:**
 - Reemplaza la convocatoria completa con los IDs provistos.
-- Jugadores que estaban convocados pero no están en el nuevo array quedan con `convocado: false`.
-- Jugadores nuevos obtienen `convocado: true`, `status: "pending"`.
+- Jugadores ausentes del array pasan a `status: "disponible"`.
+- Jugadores nuevos obtienen `status: "convocado"`.
 
 **Response 200:** `{ "ok": true }`
+
+> Prefer los endpoints granulares 10.7 / 10.8 para operaciones individuales (checkbox UI).
 
 ---
 
@@ -4238,18 +4248,137 @@ GET /api/profesor/matches/{match_id}/share-link
 
 ---
 
-### 10.6 — Vista pública de convocatoria (sin login)
+### 10.6 — Obtener plantel completo del partido
+
+```
+GET /api/profesor/matches/{match_id}/plantel
+```
+**Auth:** Bearer `profesor`
+
+Devuelve **todos los jugadores del equipo** (plantel completo) con su estado en este partido.
+
+**Response 200:**
+```json
+[
+  {
+    "pupil_id": 42,
+    "name": "Matías González",
+    "photo": "https://cdn.clubdigital.cl/...",
+    "number": 10,
+    "position": "Mediocampista",
+    "status": "confirmado"
+  },
+  {
+    "pupil_id": 43,
+    "name": "José Ramírez",
+    "photo": null,
+    "number": 7,
+    "position": "Delantero",
+    "status": "disponible"
+  },
+  {
+    "pupil_id": 55,
+    "name": "Felipe Torres",
+    "photo": null,
+    "number": 3,
+    "position": "Defensa",
+    "status": "no_va",
+    "justificacion": "Lesión de tobillo"
+  }
+]
+```
+
+**Ordenamiento sugerido:** convocados primero (`status ≠ 'disponible'`), luego disponibles; dentro de cada grupo, por número de camiseta.
+
+---
+
+### 10.7 — Agregar jugador a la convocatoria
+
+```
+POST /api/profesor/matches/{match_id}/convocatoria/{pupil_id}
+```
+**Auth:** Bearer `profesor`
+
+Marca al jugador como convocado por el DT.
+
+**Body:** vacío (`{}`)
+
+**Comportamiento:**
+- Si el jugador ya está en algún estado ≠ `disponible`, retorna `200` sin cambios.
+- Si el jugador está `disponible`, pasa a `status: "convocado"`.
+
+**Response 200:**
+```json
+{ "ok": true, "status": "convocado" }
+```
+
+**Errores:**
+
+| HTTP | Caso |
+|---|---|
+| `403` | El partido no pertenece al equipo del profesor |
+| `404` | `pupil_id` no es parte del plantel del equipo |
+
+---
+
+### 10.8 — Quitar jugador de la convocatoria
+
+```
+DELETE /api/profesor/matches/{match_id}/convocatoria/{pupil_id}
+```
+**Auth:** Bearer `profesor`
+
+Revierte al jugador a `status: "disponible"`.
+
+**Response 200:** `{ "ok": true, "status": "disponible" }`
+
+---
+
+### 10.9 — Actualizar estado de un convocado
+
+```
+PATCH /api/profesor/matches/{match_id}/convocatoria/{pupil_id}
+```
+**Auth:** Bearer `profesor`
+
+Permite al DT actualizar manualmente el estado de un jugador ya convocado, o registrar la justificación cuando el estado es `no_va`.
+
+**Body:**
+```json
+{
+  "status": "no_va",
+  "justificacion": "Lesión de tobillo"
+}
+```
+
+| Campo | Tipo | Obligatorio | Valores permitidos |
+|---|---|---|---|
+| `status` | string | ✅ | `convocado` \| `confirmado` \| `no_va` |
+| `justificacion` | string | Solo si `status=no_va` | Texto libre |
+
+**Comportamiento:**
+- Solo puede cambiar entre `convocado`, `confirmado` y `no_va` (no puede saltar a `disponible` — para eso usar 10.8).
+- Si `status=no_va` sin `justificacion`, se guarda igual — el frontend debería pedirla al usuario.
+
+**Response 200:**
+```json
+{ "ok": true, "status": "no_va", "justificacion": "Lesión de tobillo" }
+```
+
+---
+
+### 10.10 — Vista pública de convocatoria (sin login)
 
 ```
 GET /api/pub/convocatoria/{match_id}
 ```
 **Auth:** Ninguna
 
-**Response 200:** Lista de convocados con su estado de confirmación. Permite ver quiénes confirmaron sin necesidad de login.
+**Response 200:** Lista de convocados (`status ≠ 'disponible'`) con su estado. Permite ver quiénes confirmaron sin necesidad de login.
 
 ---
 
-### 10.7 — Confirmar/rechazar convocatoria (jugador vía link)
+### 10.11 — Confirmar/rechazar convocatoria (jugador vía link)
 
 ```
 POST /api/pub/confirmar/{match_player_id}/{token}
@@ -4258,10 +4387,10 @@ POST /api/pub/confirmar/{match_player_id}/{token}
 
 **Body:**
 ```json
-{ "status": "confirmed" }
+{ "status": "confirmado" }
 ```
 
-Permite que el jugador confirme o rechace su participación desde el link compartido por WhatsApp.
+Permite que el jugador confirme o rechace su participación desde el link compartido por WhatsApp. El valor `status` debe ser `confirmado` o `no_va`. Al recibir `no_va`, el backend puede incluir `justificacion` en el body.
 
 ---
 
