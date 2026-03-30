@@ -48,6 +48,31 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
   const [homeGoals, setHomeGoals] = useState(initMatch.score?.split(':')[0] ?? '');
   const [awayGoals, setAwayGoals] = useState(initMatch.score?.split(':')[1] ?? '');
   const [savingScore, setSavingScore] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
+
+  const handleOpenAsistencia = async () => {
+    const sessionId = match.session_id;
+    const title = `Asistencia – ${match.home_team ?? teamName} vs ${match.away_team ?? 'Rival'}`;
+    if (sessionId) {
+      navigation.navigate('AsistenciaProfesor', { sessionId, matchId: match.id, title });
+      return;
+    }
+    // Create session on demand
+    setCreatingSession(true);
+    try {
+      const session = await Profesor.createAttendanceSession(match.team_id, {
+        type: 'match',
+        title,
+        match_id: match.id,
+      });
+      setMatch(prev => ({ ...prev, session_id: session.id }));
+      navigation.navigate('AsistenciaProfesor', { sessionId: session.id, matchId: match.id, title });
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? e?.error ?? 'No se pudo crear la sesión de asistencia.');
+    } finally {
+      setCreatingSession(false);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -338,19 +363,20 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
             }
           </TouchableOpacity>
         </View>
-        {match.session_id && (
-          <TouchableOpacity
-            style={styles.attendanceBtn}
-            onPress={() => navigation.navigate('AsistenciaProfesor', {
-              sessionId: match.session_id,
-              matchId:   match.id,
-              title: `Asistencia – ${homeTeam} vs ${awayTeam}`,
-            })}
-          >
-            <Ionicons name="clipboard-outline" size={15} color={GREEN} />
-            <Text style={styles.attendanceBtnTxt}>Pasar asistencia</Text>
-          </TouchableOpacity>
-        )}
+        {/* Attendance button — always visible, creates session on demand */}
+        <TouchableOpacity
+          style={[styles.attendanceBtn, creatingSession && { opacity: 0.6 }]}
+          onPress={handleOpenAsistencia}
+          disabled={creatingSession}
+        >
+          {creatingSession
+            ? <ActivityIndicator size="small" color={GREEN} />
+            : <Ionicons name="clipboard-outline" size={15} color={GREEN} />
+          }
+          <Text style={styles.attendanceBtnTxt}>
+            {creatingSession ? 'Creando sesión...' : 'Pasar asistencia'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

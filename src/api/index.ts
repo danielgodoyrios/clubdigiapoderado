@@ -717,7 +717,28 @@ export const Profesor = {
       };
     });
     console.log('[matchDetail] mapped convocados count:', convocados.length);
-    return { match: raw as ProfesorMatch, convocados };
+    // Map raw backend fields (opponent_name, is_home, played_at, etc.) to ProfesorMatch shape
+    const homeTeam = raw.is_home ? (raw.team_name ?? null) : (raw.opponent_name ?? null);
+    const awayTeam = raw.is_home ? (raw.opponent_name ?? null) : (raw.team_name ?? null);
+    const mappedMatch: ProfesorMatch = {
+      id:               raw.id,
+      date:             (raw.played_at ?? raw.date ?? '').slice(0, 10),
+      time:             raw.convocatoria_hora ?? raw.time ?? null,
+      title:            raw.title ?? (homeTeam && awayTeam ? `${homeTeam} vs ${awayTeam}` : (raw.match_type_label ?? raw.match_type ?? '')),
+      status:           raw.status ?? 'upcoming',
+      location:         raw.venue ?? raw.location ?? null,
+      competition:      raw.competition_name ?? raw.competition ?? null,
+      home_team:        homeTeam,
+      away_team:        awayTeam,
+      team_id:          raw.team_id ?? 0,
+      team_name:        raw.team_name ?? null,
+      convocados_count: raw.players_count ?? raw.convocados_count ?? raw.convocados ?? 0,
+      confirmed_count:  raw.confirmed_count ?? raw.confirmados ?? 0,
+      score:            raw.score ?? null,
+      session_id:       raw.session_id ?? null,
+    };
+    console.log('[matchDetail] mapped session_id:', mappedMatch.session_id, '| home:', homeTeam, '| away:', awayTeam);
+    return { match: mappedMatch, convocados };
   },
 
   // 10.4 — Update match convocatoria
