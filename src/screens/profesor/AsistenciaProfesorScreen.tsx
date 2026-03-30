@@ -148,13 +148,30 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
       late: r.late,
       notes: null,
     }));
+
+    // ── DEBUG LOG ─────────────────────────────────────────────
+    console.log('[AsistenciaProfesor] ========== SUBMIT ==========');
+    console.log('[AsistenciaProfesor] session_id :', activeSession.id);
+    console.log('[AsistenciaProfesor] session date:', activeSession.date);
+    console.log('[AsistenciaProfesor] session type:', activeSession.type);
+    console.log('[AsistenciaProfesor] session title:', activeSession.title);
+    console.log('[AsistenciaProfesor] records count:', list.length);
+    console.log('[AsistenciaProfesor] payload body :', JSON.stringify({ records: list }, null, 2));
+    // ─────────────────────────────────────────────────────────
+
     setSubmitting(true);
     try {
-      await Profesor.submitAttendance(activeSession.id, list);
+      const result = await Profesor.submitAttendance(activeSession.id, list);
+      console.log('[AsistenciaProfesor] submit OK:', JSON.stringify(result));
       Alert.alert('¡Listo!', 'Asistencia registrada correctamente.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (e: any) {
+      console.log('[AsistenciaProfesor] submit ERROR raw:', JSON.stringify(e));
+      console.log('[AsistenciaProfesor] error.status  :', e?.status);
+      console.log('[AsistenciaProfesor] error.message :', e?.message);
+      console.log('[AsistenciaProfesor] error.error   :', e?.error);
+      console.log('[AsistenciaProfesor] error.errors  :', JSON.stringify(e?.errors));
       const msg = e?.message ?? e?.error ?? e?.errors?.[0] ?? 'No se pudo guardar la asistencia. Intenta nuevamente.';
       Alert.alert('Error', String(msg));
     } finally {
