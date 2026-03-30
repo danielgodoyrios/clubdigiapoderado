@@ -4186,10 +4186,12 @@ GET /api/profesor/matches/{match_id}
 
 | `status`      | Significado |
 |---|---|
-| `disponible`  | En el plantel del equipo, **no** seleccionado por el DT |
-| `convocado`   | DT lo seleccionó para el partido — respuesta pendiente |
+| `null`        | En el plantel del equipo, **no** convocado por el DT |
+| `pendiente`   | DT lo convocó — respuesta del jugador pendiente |
 | `confirmado`  | Jugador confirmó asistencia |
-| `no_va`       | Jugador canceló (puede incluir campo `justificacion`) |
+| `no_va`       | Jugador canceló (puede incluir campo `cancel_reason`) |
+
+> ⚠️ `confirmed: bool` fue eliminado. Usar `status` enum en su lugar.
 
 - `session_id` es `null` si no hay sesión de asistencia vinculada al partido.
 
@@ -4262,33 +4264,47 @@ Devuelve **todos los jugadores del equipo** (plantel completo) con su estado en 
 [
   {
     "pupil_id": 42,
+    "match_player_id": 5,
     "name": "Matías González",
     "photo": "https://cdn.clubdigital.cl/...",
     "number": 10,
     "position": "Mediocampista",
+    "convocado": true,
     "status": "confirmado"
   },
   {
     "pupil_id": 43,
+    "match_player_id": null,
     "name": "José Ramírez",
     "photo": null,
     "number": 7,
     "position": "Delantero",
-    "status": "disponible"
+    "convocado": false,
+    "status": null
   },
   {
     "pupil_id": 55,
+    "match_player_id": 7,
     "name": "Felipe Torres",
     "photo": null,
     "number": 3,
     "position": "Defensa",
+    "convocado": true,
     "status": "no_va",
-    "justificacion": "Lesión de tobillo"
+    "cancel_reason": "Lesión de tobillo"
   }
 ]
 ```
 
-**Ordenamiento sugerido:** convocados primero (`status ≠ 'disponible'`), luego disponibles; dentro de cada grupo, por número de camiseta.
+**Campos por jugador:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `pupil_id` | int | ID del jugador |
+| `match_player_id` | int \| null | ID del registro en `match_players` — `null` si no está convocado. **Requerido para PATCH 10.9** |
+| `convocado` | bool | Si el DT lo incluyó en la nómina |
+| `status` | string \| null | `pendiente` \| `confirmado` \| `no_va` \| `null` (null = no convocado) |
+| `cancel_reason` | string \| null | Solo presente cuando `status = "no_va"` |
 
 ---
 
@@ -4304,12 +4320,12 @@ Marca al jugador como convocado por el DT.
 **Body:** vacío (`{}`)
 
 **Comportamiento:**
-- Si el jugador ya está en algún estado ≠ `disponible`, retorna `200` sin cambios.
-- Si el jugador está `disponible`, pasa a `status: "convocado"`.
+- Si el jugador ya está convocado (`convocado: true`), retorna `200` sin cambios.
+- Si el jugador no está convocado, crea un registro `match_player` y pasa a `status: "pendiente"`.
 
 **Response 200:**
 ```json
-{ "ok": true, "status": "convocado" }
+{ "ok": true, "match_player_id": 5, "status": "pendiente" }
 ```
 
 **Errores:**
@@ -4330,39 +4346,37 @@ DELETE /api/profesor/matches/{match_id}/convocatoria/{pupil_id}
 
 Revierte al jugador a `status: "disponible"`.
 
-**Response 200:** `{ "ok": true, "status": "disponible" }`
+**Response 200:** `{ "ok": true, "status": null }`
 
 ---
 
 ### 10.9 — Actualizar estado de un convocado
 
 ```
-PATCH /api/profesor/matches/{match_id}/convocatoria/{pupil_id}
+PATCH /api/profesor/matches/{match_id}/match-players/{match_player_id}
 ```
 **Auth:** Bearer `profesor`
 
-Permite al DT actualizar manualmente el estado de un jugador ya convocado, o registrar la justificación cuando el estado es `no_va`.
+Permite al DT marcar manualmente a un convocado como `confirmado` o `no_va`, sin esperar la confirmación del jugador vía WhatsApp.
 
 **Body:**
 ```json
 {
   "status": "no_va",
-  "justificacion": "Lesión de tobillo"
+  "cancel_reason": "Lesión de tobillo"
 }
 ```
 
 | Campo | Tipo | Obligatorio | Valores permitidos |
 |---|---|---|---|
-| `status` | string | ✅ | `convocado` \| `confirmado` \| `no_va` |
-| `justificacion` | string | Solo si `status=no_va` | Texto libre |
+| `status` | string | ✅ | `pendiente` \| `confirmado` \| `no_va` |
+| `cancel_reason` | string | Solo si `status=no_va` | Texto libre |
 
-**Comportamiento:**
-- Solo puede cambiar entre `convocado`, `confirmado` y `no_va` (no puede saltar a `disponible` — para eso usar 10.8).
-- Si `status=no_va` sin `justificacion`, se guarda igual — el frontend debería pedirla al usuario.
+**Nota:** `cancel_reason` solo se guarda cuando `status = "no_va"`. Para otros estados, el campo es ignorado.
 
 **Response 200:**
 ```json
-{ "ok": true, "status": "no_va", "justificacion": "Lesión de tobillo" }
+{ "ok": true, "status": "no_va", "cancel_reason": "Lesión de tobillo" }
 ```
 
 ---

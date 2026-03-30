@@ -278,19 +278,23 @@ export type ProfesorMatch = {
   session_id?: number | null;
 };
 
-/** 4-state status for a player in a match */
-export type ConvocadoStatus = 'disponible' | 'convocado' | 'confirmado' | 'no_va';
+/** Confirmation status for a convocado player (backend enum) */
+export type ConvocadoStatus = 'pendiente' | 'confirmado' | 'no_va';
 
 /** Player row in match plantel / convocatoria */
 export type MatchConvocado = {
   pupil_id: number;
+  /** ID of the match_players record. null when player is not yet in convocatoria. Required for PATCH 10.9 */
+  match_player_id: number | null;
   name: string;
   photo: string | null;
   number: number | null;
   position: string | null;
-  /** 4-state status: disponible → convocado (DT pick) → confirmado | no_va (player response) */
-  status: ConvocadoStatus;
-  justification?: string | null;
+  /** Whether the DT has included this player in the nómina */
+  convocado: boolean;
+  /** Confirmation status: pendiente (waiting) | confirmado | no_va. null when not convocado */
+  status: ConvocadoStatus | null;
+  cancel_reason?: string | null;
 };
 
 /** Response from share-link endpoint */
@@ -718,19 +722,22 @@ export const Profesor = {
       // When coming from match_players the actual player fields are nested under c.player
       const p = c.player ?? c;
       const rawStatus = c.status ?? p.status ?? null;
-      // Items in the detail endpoint are already in convocatoria — default to 'convocado' if status unknown
-      const status: ConvocadoStatus =
-        rawStatus ? normalizeConvocadoStatus(rawStatus)
-        : (Boolean(c.convocado ?? c.selected ?? c.in_squad ?? true) ? 'convocado' : 'disponible');
-      console.log('[matchDetail] player:', c.player_name ?? p.name, '| rawStatus:', rawStatus, '| status:', status, '| pupil_id:', c.pupil_id ?? c.player_id);
+      // Items in the detail endpoint are already in convocatoria — treat as pendiente if status missing
+      const status: ConvocadoStatus | null = rawStatus
+        ? normalizeConvocadoStatus(rawStatus)
+        : (Boolean(c.convocado ?? c.selected ?? c.in_squad) ? 'pendiente' : null);
+      const convocado = Boolean(c.convocado ?? c.selected ?? c.in_squad ?? (status != null));
+      console.log('[matchDetail] player:', c.player_name ?? p.name, '| rawStatus:', rawStatus, '| status:', status, '| convocado:', convocado);
       return {
-        pupil_id:     c.pupil_id ?? c.player_id ?? p.pupil_id ?? p.player_id ?? p.id ?? c.id ?? idx,
-        name:         c.player_name ?? p.full_name ?? p.player_name ?? (`${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || (p.name ?? '')),
-        photo:        toAbsoluteUrl(c.player_photo ?? p.photo_url ?? p.player_photo ?? p.photo),
-        number:       c.jersey_number ?? p.jersey_number ?? p.number ?? c.number ?? null,
-        position:     c.position ?? p.position ?? null,
+        pupil_id:        c.pupil_id ?? c.player_id ?? p.pupil_id ?? p.player_id ?? p.id ?? c.id ?? idx,
+        match_player_id: c.match_player_id != null ? Number(c.match_player_id) : null,
+        name:            c.player_name ?? p.full_name ?? p.player_name ?? (`${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || (p.name ?? '')),
+        photo:           toAbsoluteUrl(c.player_photo ?? p.photo_url ?? p.player_photo ?? p.photo),
+        number:          c.jersey_number ?? p.jersey_number ?? p.number ?? c.number ?? null,
+        position:        c.position ?? p.position ?? null,
+        convocado,
         status,
-        justification: c.justificacion ?? c.justification ?? null,
+        cancel_reason:   c.cancel_reason ?? c.justificacion ?? c.justification ?? null,
       };
     });
     console.log('[matchDetail] mapped convocados count:', convocados.length);
@@ -773,27 +780,29 @@ export const Profesor = {
     const res = await request<any>('GET', `/profesor/matches/${matchId}/plantel`);
     const arr: any[] = Array.isArray(res) ? res : (res?.data ?? res?.players ?? []);
     return arr.map((c: any, i: number): MatchConvocado => ({
-      pupil_id:     c.pupil_id ?? c.player_id ?? c.id ?? i,
-      name:         c.name ?? c.player_name ?? c.full_name ?? `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim(),
-      photo:        toAbsoluteUrl(c.photo ?? c.photo_url ?? c.player_photo ?? null),
-      number:       c.number ?? c.jersey_number ?? null,
-      position:     c.position ?? null,
-      status:       normalizeConvocadoStatus(c.status),
-      justification: c.justificacion ?? c.justification ?? null,
+      pupil_id:        c.pupil_id ?? c.player_id ?? c.id ?? i,
+      match_player_id: c.match_player_id != null ? Number(c.match_player_id) : null,
+      name:            c.name ?? c.player_name ?? c.full_name ?? `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim(),
+      photo:           toAbsoluteUrl(c.photo ?? c.photo_url ?? c.player_photo ?? null),
+      number:          c.number ?? c.jersey_number ?? null,
+      position:        c.position ?? null,
+      convocado:       Boolean(c.convocado ?? (c.status != null && c.status !== 'disponible')),
+      status:          normalizeConvocadoStatus(c.status),
+      cancel_reason:   c.cancel_reason ?? c.justificacion ?? c.justification ?? null,
     }));
   },
 
   // 10.7 — Add player to convocatoria (checkbox ON)
-  addToConvocatoria: (matchId: number, pupilId: number): Promise<{ ok: boolean; status: string }> =>
-    request<{ ok: boolean; status: string }>('POST', `/profesor/matches/${matchId}/convocatoria/${pupilId}`, {}),
+  addToConvocatoria: (matchId: number, pupilId: number): Promise<{ ok: boolean; match_player_id: number; status: string }> =>
+    request<{ ok: boolean; match_player_id: number; status: string }>('POST', `/profesor/matches/${matchId}/convocatoria/${pupilId}`, {}),
 
   // 10.8 — Remove player from convocatoria (checkbox OFF)
-  removeFromConvocatoria: (matchId: number, pupilId: number): Promise<{ ok: boolean; status: string }> =>
-    request<{ ok: boolean; status: string }>('DELETE', `/profesor/matches/${matchId}/convocatoria/${pupilId}`),
+  removeFromConvocatoria: (matchId: number, pupilId: number): Promise<{ ok: boolean; status: null }> =>
+    request<{ ok: boolean; status: null }>('DELETE', `/profesor/matches/${matchId}/convocatoria/${pupilId}`),
 
-  // 10.9 — Update player status within convocatoria
-  updateConvocadoStatus: (matchId: number, pupilId: number, status: 'convocado' | 'confirmado' | 'no_va', justification?: string | null): Promise<{ ok: boolean }> =>
-    request<{ ok: boolean }>('PATCH', `/profesor/matches/${matchId}/convocatoria/${pupilId}`, { status, justificacion: justification ?? undefined }),
+  // 10.9 — Update player confirmation status (uses match_player_id from 10.6)
+  updateConvocadoStatus: (matchId: number, matchPlayerId: number, status: ConvocadoStatus, cancelReason?: string | null): Promise<{ ok: boolean }> =>
+    request<{ ok: boolean }>('PATCH', `/profesor/matches/${matchId}/match-players/${matchPlayerId}`, { status, cancel_reason: cancelReason ?? undefined }),
 
   // 11.1 — Profesor home dashboard
   getHome: async (): Promise<ProfesorHome> => {
@@ -899,14 +908,13 @@ function toAbsoluteUrl(url: string | null | undefined): string | null {
   return STORAGE_BASE + (url.startsWith('/') ? '' : '/') + url;
 }
 
-function normalizeConvocadoStatus(raw: string | null | undefined): ConvocadoStatus {
-  if (!raw) return 'disponible';
+function normalizeConvocadoStatus(raw: string | null | undefined): ConvocadoStatus | null {
+  if (!raw) return null;
   const s = raw.toLowerCase();
   if (s === 'confirmado' || s === 'confirmed' || s === 'asiste') return 'confirmado';
   if (s === 'no_va' || s === 'declined' || s === 'rechazado' || s === 'cancelado') return 'no_va';
-  if (s === 'convocado' || s === 'pending' || s === 'pendiente') return 'convocado';
-  if (s === 'disponible' || s === 'available') return 'disponible';
-  return 'disponible';
+  if (s === 'pendiente' || s === 'pending' || s === 'convocado') return 'pendiente';
+  return null;
 }
 
 function toStr(v: any): string | null {

@@ -71,7 +71,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
   const loadNominaIntoSession = useCallback(async () => {
     if (!activeSession || isSubmitted || convocados.length === 0) return;
-    const convocadoList = convocados.filter(c => c.status !== 'disponible' && c.pupil_id);
+    const convocadoList = convocados.filter(c => c.convocado && c.pupil_id);
     if (convocadoList.length === 0) return;
     setLoadingFromNomina(true);
     try {

@@ -21,11 +21,11 @@ function fmtDate(s: string) {
 
 type StatusMeta = { label: string; color: string; bg: string; icon: string };
 const STATUS_META: Record<ConvocadoStatus, StatusMeta> = {
-  disponible: { label: 'Disponible',  color: Colors.gray,  bg: Colors.light, icon: 'person-outline'     },
-  convocado:  { label: 'Convocado',   color: '#F59E0B',    bg: '#FEF3C7',    icon: 'star-outline'        },
-  confirmado: { label: 'Confirmado',  color: GREEN,        bg: '#DCFCE7',    icon: 'checkmark-circle'    },
-  no_va:      { label: 'No va',       color: '#EF4444',    bg: '#FEF2F2',    icon: 'close-circle'        },
+  pendiente:  { label: 'Pendiente',   color: '#F59E0B', bg: '#FEF3C7', icon: 'star-outline'     },
+  confirmado: { label: 'Confirmado',  color: GREEN,     bg: '#DCFCE7', icon: 'checkmark-circle' },
+  no_va:      { label: 'No va',       color: '#EF4444', bg: '#FEF2F2', icon: 'close-circle'     },
 };
+const STATUS_META_NONE: StatusMeta = { label: 'Disponible', color: Colors.gray, bg: Colors.light, icon: 'person-outline' };
 
 function Avatar({ name, size = 36 }: { name: string; size?: number }) {
   const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -74,20 +74,21 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
 
   useEffect(() => { load(); }, [load]);
 
-  /** Toggle disponible ↔ convocado with immediate API call */
+  /** Toggle not-convocado ↔ convocado with immediate API call */
   const toggleConvocado = async (player: MatchConvocado) => {
-    const isIn = player.status !== 'disponible';
     setTogglingId(player.pupil_id);
     try {
-      if (isIn) {
+      if (player.convocado) {
         await Profesor.removeFromConvocatoria(match.id, player.pupil_id);
         setPlayers(prev => prev.map(p =>
-          p.pupil_id === player.pupil_id ? { ...p, status: 'disponible' } : p
+          p.pupil_id === player.pupil_id ? { ...p, convocado: false, match_player_id: null, status: null } : p
         ));
       } else {
-        await Profesor.addToConvocatoria(match.id, player.pupil_id);
+        const res = await Profesor.addToConvocatoria(match.id, player.pupil_id);
         setPlayers(prev => prev.map(p =>
-          p.pupil_id === player.pupil_id ? { ...p, status: 'convocado' } : p
+          p.pupil_id === player.pupil_id
+            ? { ...p, convocado: true, match_player_id: res.match_player_id ?? p.match_player_id, status: 'pendiente' }
+            : p
         ));
       }
     } catch (e: any) {
@@ -97,42 +98,42 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
     }
   };
 
-  /** Change status within convocatoria (convocado → confirmado | no_va) */
+  /** Change confirmation status within convocatoria (pendiente → confirmado | no_va) */
   const changeStatus = (player: MatchConvocado) => {
-    if (player.status === 'disponible') return;
+    if (!player.convocado || player.match_player_id == null) return;
     Alert.alert(
       player.name,
       'Cambiar estado',
       [
-        { text: '⭐ Convocado (pendiente)', onPress: () => applyStatus(player, 'convocado') },
-        { text: '✅ Confirmado',            onPress: () => applyStatus(player, 'confirmado') },
-        { text: '❌ No va',                 onPress: () => askNoVa(player) },
+        { text: '⏳ Pendiente',   onPress: () => applyStatus(player, 'pendiente') },
+        { text: '✅ Confirmado',  onPress: () => applyStatus(player, 'confirmado') },
+        { text: '❌ No va',       onPress: () => askNoVa(player) },
         { text: 'Cancelar', style: 'cancel' },
       ]
     );
   };
 
   const askNoVa = (player: MatchConvocado) => {
-    // Alert.prompt is iOS-only; on Android we set no_va without justification
     if (Alert.prompt) {
       Alert.prompt(
         'Motivo (opcional)',
         `¿Por qué ${player.name} no va?`,
         (text) => applyStatus(player, 'no_va', text || null),
         'plain-text',
-        player.justification ?? '',
+        player.cancel_reason ?? '',
       );
     } else {
       applyStatus(player, 'no_va', null);
     }
   };
 
-  const applyStatus = async (player: MatchConvocado, status: 'convocado' | 'confirmado' | 'no_va', justification?: string | null) => {
+  const applyStatus = async (player: MatchConvocado, status: ConvocadoStatus, cancelReason?: string | null) => {
+    if (player.match_player_id == null) return;
     setStatusUpdId(player.pupil_id);
     try {
-      await Profesor.updateConvocadoStatus(match.id, player.pupil_id, status, justification);
+      await Profesor.updateConvocadoStatus(match.id, player.match_player_id, status, cancelReason);
       setPlayers(prev => prev.map(p =>
-        p.pupil_id === player.pupil_id ? { ...p, status, justification: justification ?? null } : p
+        p.pupil_id === player.pupil_id ? { ...p, status, cancel_reason: cancelReason ?? null } : p
       ));
     } catch {
       Alert.alert('Error', 'No se pudo actualizar el estado.');
@@ -198,9 +199,9 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
     }
   };
 
-  const convocadoCount  = players.filter(p => p.status !== 'disponible').length;
+  const convocadoCount  = players.filter(p => p.convocado).length;
   const confirmedCount  = players.filter(p => p.status === 'confirmado').length;
-  const pendingCount    = players.filter(p => p.status === 'convocado').length;
+  const pendingCount    = players.filter(p => p.status === 'pendiente').length;
   const noVaCount       = players.filter(p => p.status === 'no_va').length;
   const isPlayed        = match.status === 'played' || match.status === 'finished';
   const homeTeam        = match.home_team ?? teamName;
@@ -348,8 +349,8 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
           </View>
         )}
         renderItem={({ item: p, index: i }) => {
-          const meta   = STATUS_META[p.status];
-          const isIn   = p.status !== 'disponible';
+          const meta   = p.status ? STATUS_META[p.status] : STATUS_META_NONE;
+          const isIn   = p.convocado;
           const isBusy = togglingId === p.pupil_id || statusUpdId === p.pupil_id;
           return (
             <TouchableOpacity
@@ -375,8 +376,8 @@ export default function PartidoGestionScreen({ navigation, route }: any) {
                     {p.position ?? ''}
                   </Text>
                 )}
-                {p.status === 'no_va' && p.justification && (
-                  <Text style={styles.justificationTxt} numberOfLines={1}>{p.justification}</Text>
+                {p.status === 'no_va' && p.cancel_reason && (
+                  <Text style={styles.justificationTxt} numberOfLines={1}>{p.cancel_reason}</Text>
                 )}
               </View>
               <TouchableOpacity
