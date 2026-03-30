@@ -528,7 +528,7 @@ export const Profesor = {
     } as AsistenciaSession;
   },
 
-  createAttendanceSession: async (teamId: number, data: { date: string; type: string; title?: string; match_id?: number }): Promise<AsistenciaSession> => {
+  createAttendanceSession: async (teamId: number, data: { date?: string; type: string; title?: string; match_id?: number }): Promise<AsistenciaSession> => {
     const res = await request<any>('POST', `/profesor/teams/${teamId}/attendance`, data);
     const session = (res?.data ?? res) as AsistenciaSession;
     if (!Array.isArray(session.records)) session.records = [];

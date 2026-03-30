@@ -37,6 +37,7 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [creating,    setCreating]    = useState<Record<number, boolean>>({});
 
   const load = useCallback(async () => {
     try {
@@ -73,7 +74,31 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
     const cfg = TYPE_CONFIG[ev.type] ?? TYPE_CONFIG.event;
     const isMatch = ev.type === 'match';
     const isDone      = ev.status === 'finished' || !!ev.submitted;
-    const canPassList = !!ev.session_id && !isDone;
+    // Matches always allow passing list (backend creates session on demand);
+    // non-match types require an existing session_id.
+    const canPassList = !isDone && (isMatch || !!ev.session_id);
+
+    const handlePasarLista = async () => {
+      if (creating[ev.id]) return;
+      if (ev.session_id) {
+        navigation.navigate('AsistenciaProfesor', { sessionId: ev.session_id, title: ev.title });
+        return;
+      }
+      // No session yet — create it now (backend infers date from match)
+      try {
+        setCreating(prev => ({ ...prev, [ev.id]: true }));
+        const session = await Profesor.createAttendanceSession(ev.team_id, {
+          type: 'match',
+          title: ev.title,
+          match_id: ev.id,
+        });
+        navigation.navigate('AsistenciaProfesor', { sessionId: session.id, title: ev.title });
+      } catch {
+        // silently fail — user can retry
+      } finally {
+        setCreating(prev => ({ ...prev, [ev.id]: false }));
+      }
+    };
 
     return (
       <TouchableOpacity
@@ -132,17 +157,17 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
             </Text>
           )}
 
-          {/* Pasar lista button — only when session exists and not done */}
+          {/* Pasar lista button — shows for all match events; creates session on demand if needed */}
           {canPassList && (
             <TouchableOpacity
-              style={styles.pasarListaBtn}
-              onPress={() => navigation.navigate('AsistenciaProfesor', {
-                sessionId: ev.session_id,
-                title: ev.title,
-              })}
+              style={[styles.pasarListaBtn, creating[ev.id] && { opacity: 0.6 }]}
+              onPress={handlePasarLista}
+              disabled={!!creating[ev.id]}
             >
               <Ionicons name="clipboard-outline" size={13} color="#fff" />
-              <Text style={styles.pasarListaTxt}>Pasar lista</Text>
+              <Text style={styles.pasarListaTxt}>
+                {creating[ev.id] ? 'Creando...' : 'Pasar lista'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
