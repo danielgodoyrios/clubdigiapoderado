@@ -28,7 +28,7 @@ function fmtDate(dateStr: string) {
 
 type SessionWithTeam = AsistenciaSession & { team_name: string; team_id: number };
 
-export default function SesionesHoyScreen({ navigation }: any) {
+export default function SesionesHoyScreen({ navigation, route }: any) {
   const [sessions,   setSessions]   = useState<SessionWithTeam[]>([]);
   const [dismissed,  setDismissed]  = useState<Set<number>>(new Set());
   const [tab,        setTab]        = useState<'pending' | 'sent'>('pending');
@@ -101,7 +101,17 @@ export default function SesionesHoyScreen({ navigation }: any) {
   useEffect(() => { load(); }, [load]);
 
   // Reload when screen comes back into focus (e.g. after going back from AsistenciaProfesor)
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    // Optimistically mark a just-submitted session before the API reloads
+    const submittedId = route?.params?.submittedSessionId;
+    if (submittedId) {
+      setSessions(prev => prev.map(s =>
+        s.id === submittedId ? { ...s, submitted: true } : s
+      ));
+      navigation.setParams({ submittedSessionId: undefined });
+    }
+    load();
+  }, [load, route?.params?.submittedSessionId]));
 
   const onRefresh = () => { setRefreshing(true); load(); };
 

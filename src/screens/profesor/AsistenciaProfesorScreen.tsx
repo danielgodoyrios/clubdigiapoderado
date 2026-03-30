@@ -62,12 +62,23 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
       // Skip team + session selection, load session directly
       Profesor.attendanceDetail(directSessionId)
         .then(detail => {
+          // Dedup records + filter empty names
+          const seen = new Set<number>();
+          const cleanRecords = (detail.records ?? []).filter(r => {
+            if (!r.name?.trim()) return false;
+            if (seen.has(r.pupil_id)) return false;
+            seen.add(r.pupil_id);
+            return true;
+          });
+          detail.records = cleanRecords;
           setActiveSession(detail);
           const map = new Map<number, { present: boolean; late: boolean }>();
-          (detail.records ?? []).forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
+          cleanRecords.forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
           setRecords(map);
           setIsSubmitted(detail.submitted ?? false);
           setStep('attendance');
+          // Pre-load incidents silently
+          Profesor.sessionIncidents(detail.id).then(setIncidents).catch(() => {});
         })
         .catch(() => {
           Alert.alert('Error', 'No se pudo cargar la sesión.', [
@@ -111,12 +122,23 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
     setLoading(true);
     try {
       const detail = await Profesor.attendanceDetail(session.id);
+      // Dedup records by pupil_id and filter out entries with empty names
+      const seen = new Set<number>();
+      const cleanRecords = (detail.records ?? []).filter(r => {
+        if (!r.name?.trim()) return false;
+        if (seen.has(r.pupil_id)) return false;
+        seen.add(r.pupil_id);
+        return true;
+      });
+      detail.records = cleanRecords;
       setActiveSession(detail);
       const map = new Map<number, { present: boolean; late: boolean }>();
-      detail.records.forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
+      cleanRecords.forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
       setRecords(map);
       setIsSubmitted(detail.submitted ?? false);
       setStep('attendance');
+      // Pre-load incidents silently
+      Profesor.sessionIncidents(detail.id).then(setIncidents).catch(() => {});
     } catch {
       // fallback: usar session sin detalle
       setActiveSession(session);
@@ -385,6 +407,8 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
       setIsSubmitted(true);
       setActiveSession(prev => prev ? { ...prev, submitted: true } : prev);
       Alert.alert('¡Listo!', 'Asistencia registrada correctamente.');
+      // Signal SesionesHoy to refresh this session's status on next focus
+      navigation.setParams?.({ submittedSessionId: activeSession.id });
     } catch (e: any) {
       console.log('[AsistenciaProfesor] submit ERROR raw:', JSON.stringify(e));
       console.log('[AsistenciaProfesor] error.status  :', e?.status);
@@ -479,7 +503,9 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         {isSubmitted && (
           <View style={styles.submittedBanner}>
             <Ionicons name="checkmark-circle" size={18} color="#fff" />
-            <Text style={styles.submittedBannerTxt}>Asistencia registrada</Text>
+            <Text style={styles.submittedBannerTxt}>
+              Asistencia registrada · {presentCount} presentes · {(totalCount || recs.length) - presentCount} ausentes
+            </Text>
           </View>
         )}
 
