@@ -687,15 +687,23 @@ export const Profesor = {
   matchDetail: async (matchId: number): Promise<{ match: ProfesorMatch; convocados: MatchConvocado[] }> => {
     const res = await request<any>('GET', `/profesor/matches/${matchId}`);
     const raw = res?.data ?? res;
-    const convocados: MatchConvocado[] = (raw.convocados ?? raw.roster ?? raw.players ?? raw.squad ?? raw.nómina ?? []).map((c: any): MatchConvocado => ({
-      pupil_id: c.pupil_id ?? c.id,
-      name:     c.full_name ?? c.name ?? '',
-      photo:    toAbsoluteUrl(c.photo_url ?? c.photo),
-      number:   c.number ?? null,
-      position: c.position ?? null,
-      convocado: c.convocado ?? false,
-      status:   c.status ?? null,
-    }));
+    // Backend may return the roster under several key names.
+    // match_players is the Eloquent relation name (ClubMatch::with('matchPlayers.player')),
+    // where each entry has a nested `.player` sub-object.
+    const rawList: any[] = raw.convocados ?? raw.roster ?? raw.players ?? raw.squad ?? raw.nómina ?? raw.match_players ?? [];
+    const convocados: MatchConvocado[] = rawList.map((c: any): MatchConvocado => {
+      // When coming from match_players the actual player fields are nested under c.player
+      const p = c.player ?? c;
+      return {
+        pupil_id:  c.pupil_id ?? p.pupil_id ?? p.id ?? c.id,
+        name:      p.full_name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || p.name ?? '',
+        photo:     toAbsoluteUrl(p.photo_url ?? p.photo),
+        number:    p.number ?? c.number ?? null,
+        position:  p.position ?? c.position ?? null,
+        convocado: c.convocado ?? true,
+        status:    c.status ?? null,
+      };
+    });
     return { match: raw as ProfesorMatch, convocados };
   },
 
