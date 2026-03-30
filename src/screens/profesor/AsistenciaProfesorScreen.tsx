@@ -383,27 +383,26 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   const handleSubmit = async () => {
     if (!activeSession) return;
 
-    // If the session has no players yet (backend didn't return records),
-    // we can still submit an empty list — but warn the user first.
+    // If the session has no players yet just warn, don't block
     const recs = activeSession.records ?? [];
     if (records.size === 0 && recs.length === 0) {
       Alert.alert(
         'Sin jugadores',
-        'Esta sesión no tiene jugadores cargados. El backend aún no vinculó la nómina del equipo. Intenta volver y abrir la sesión nuevamente.',
+        'La sesión no tiene jugadores cargados aún. Puedes enviarla igualmente o volver más tarde.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Enviar igual', style: 'default', onPress: () => doSubmit([]) },
+        ],
       );
       return;
     }
-
-    // Guests have negative pupil_id — exclude them from the payload
-    // (they were already saved by addGuestToSession on the backend)
-    const list: AsistenciaRegistro[] = Array.from(records.entries())
+    doSubmit(Array.from(records.entries())
       .filter(([pupil_id]) => pupil_id > 0)
-      .map(([pupil_id, r]) => ({
-        pupil_id,
-        present: r.present,
-        late: r.late,
-        notes: null,
-      }));
+      .map(([pupil_id, r]) => ({ pupil_id, present: r.present, late: r.late, notes: null })));
+  };
+
+  const doSubmit = async (list: AsistenciaRegistro[]) => {
+    if (!activeSession) return;
 
     // ── DEBUG LOG ─────────────────────────────────────────────
     console.log('[AsistenciaProfesor] ========== SUBMIT ==========');

@@ -171,6 +171,7 @@ export type ProfesorEvent = {
   session_id?: number | null;
   submitted?: boolean;
   can_take_attendance?: boolean;
+  match_id?: number | null;   // explicit match ID for match-type events
 };
 
 export type AsistenciaRegistro = {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  FlatList, ActivityIndicator, RefreshControl,
+  FlatList, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,23 +78,33 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
     // non-match types require an existing session_id.
     const canPassList = !isDone && (isMatch || !!ev.session_id);
 
+    const matchId = ev.match_id ?? (isMatch ? ev.id : undefined);
+
     const handlePasarLista = async () => {
       if (creating[ev.id]) return;
       if (ev.session_id) {
-        navigation.navigate('AsistenciaProfesor', { sessionId: ev.session_id, title: ev.title });
+        navigation.navigate('AsistenciaProfesor', {
+          sessionId: ev.session_id,
+          title: ev.title,
+          ...(isMatch && matchId ? { matchId } : {}),
+        });
         return;
       }
-      // No session yet — create it now (backend infers date from match)
+      // No session yet — create one now (backend infers date from match.played_at)
       try {
         setCreating(prev => ({ ...prev, [ev.id]: true }));
         const session = await Profesor.createAttendanceSession(ev.team_id, {
           type: 'match',
           title: ev.title,
-          match_id: ev.id,
+          match_id: matchId,
         });
-        navigation.navigate('AsistenciaProfesor', { sessionId: session.id, title: ev.title });
-      } catch {
-        // silently fail — user can retry
+        navigation.navigate('AsistenciaProfesor', {
+          sessionId: session.id,
+          title: ev.title,
+          ...(matchId ? { matchId } : {}),
+        });
+      } catch (e: any) {
+        Alert.alert('Error', e?.message ?? e?.error ?? 'No se pudo crear la sesión de asistencia.');
       } finally {
         setCreating(prev => ({ ...prev, [ev.id]: false }));
       }
