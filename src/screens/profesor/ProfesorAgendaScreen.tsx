@@ -72,24 +72,25 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
   const renderEventCard = (ev: ProfesorEvent, archived = false) => {
     const cfg = TYPE_CONFIG[ev.type] ?? TYPE_CONFIG.event;
     const isMatch = ev.type === 'match';
-    const canPassList = !archived && !!ev.session_id && !ev.submitted && ev.status !== 'finished';
+    const isDone      = ev.status === 'finished' || !!ev.submitted;
+    const canPassList = !!ev.session_id && !isDone;
 
     return (
       <TouchableOpacity
         key={String(ev.id)}
-        style={[styles.eventCard, archived && styles.eventCardArchived]}
+        style={[styles.eventCard, (archived || isDone) && styles.eventCardArchived]}
         activeOpacity={0.82}
         onPress={() => isModuloHabilitado('convocatorias') && isMatch
           ? navigation.navigate('ConvocatoriaGestion', { event: ev })
           : undefined
         }
       >
-        {/* Left accent */}
-        <View style={[styles.accent, { backgroundColor: archived ? Colors.light : cfg.color }]} />
+        {/* Left accent — grey when done/archived, colored when pending */}
+        <View style={[styles.accent, { backgroundColor: (archived || isDone) ? Colors.light : cfg.color }]} />
 
         {/* Date badge */}
         <View style={styles.dateBadge}>
-          <Text style={[styles.dateBadgeDay, archived && { color: Colors.gray }]}>
+          <Text style={[styles.dateBadgeDay, (archived || isDone) && { color: Colors.gray }]}>
             {new Date(ev.date + 'T00:00:00').getDate()}
           </Text>
           <Text style={styles.dateBadgeMon}>
@@ -99,14 +100,15 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
 
         {/* Content */}
         <View style={{ flex: 1, paddingRight: 8, paddingVertical: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-            <View style={[styles.typeChip, { backgroundColor: archived ? Colors.light : cfg.bg }]}>
-              <Text style={[styles.typeChipTxt, { color: archived ? Colors.gray : cfg.color }]}>{cfg.label}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
+            <View style={[styles.typeChip, { backgroundColor: (archived || isDone) ? Colors.light : cfg.bg }]}>
+              <Text style={[styles.typeChipTxt, { color: (archived || isDone) ? Colors.gray : cfg.color }]}>{cfg.label}</Text>
             </View>
             {ev.team_name && (
               <Text style={{ fontSize: 10, color: Colors.gray }}>{ev.team_name}</Text>
             )}
-            {archived && (ev.status === 'finished' || ev.submitted) && (
+            {/* Lista tomada badge — visible on ALL cards when done */}
+            {isDone && (
               <View style={styles.doneBadge}>
                 <Ionicons name="checkmark-circle" size={11} color={GREEN} />
                 <Text style={styles.doneBadgeTxt}>Lista tomada</Text>
@@ -114,7 +116,7 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
             )}
           </View>
 
-          <Text style={[styles.eventTitle, archived && { color: Colors.gray }]} numberOfLines={1}>
+          <Text style={[styles.eventTitle, (archived || isDone) && { color: Colors.gray }]} numberOfLines={1}>
             {isMatch && ev.home_team && ev.away_team
               ? `${ev.home_team} vs ${ev.away_team}`
               : ev.title
@@ -125,12 +127,12 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
             <Text style={styles.eventMeta}><Ionicons name="location-outline" size={10} /> {ev.location}</Text>
           )}
           {isMatch && (
-            <Text style={{ fontSize: 11, color: archived ? Colors.gray : GREEN, fontWeight: '600', marginTop: 2 }}>
+            <Text style={{ fontSize: 11, color: (archived || isDone) ? Colors.gray : GREEN, fontWeight: '600', marginTop: 2 }}>
               {ev.convocados} convocados · {ev.confirmados} confirmaron
             </Text>
           )}
 
-          {/* Pasar lista button — only on active non-match events with a session */}
+          {/* Pasar lista button — only when session exists and not done */}
           {canPassList && (
             <TouchableOpacity
               style={styles.pasarListaBtn}
@@ -145,7 +147,7 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
           )}
         </View>
 
-        {isMatch && !archived && isModuloHabilitado('convocatorias') && (
+        {isMatch && !archived && !isDone && isModuloHabilitado('convocatorias') && (
           <Ionicons name="chevron-forward" size={16} color={Colors.light} style={{ marginRight: 8 }} />
         )}
       </TouchableOpacity>
