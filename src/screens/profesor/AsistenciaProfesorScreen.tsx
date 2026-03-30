@@ -276,7 +276,12 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
     setClubSearch('');
     setLoadingClub(true);
     try {
-      const allTeams = teams.length > 0 ? teams : (activeTeam ? [activeTeam] : []);
+      let allTeams = teams.length > 0 ? teams : (activeTeam ? [activeTeam] : []);
+      // Si llegamos directo por directSessionId, teams nunca se cargó — buscarlos ahora
+      if (allTeams.length === 0) {
+        allTeams = await Profesor.teams();
+        if (allTeams.length > 0) setTeams(allTeams);
+      }
       const results = await Promise.all(
         allTeams.map(t => Profesor.players(t.id).then(ps => ps.map(p => ({ id: p.id, name: p.name, teamName: t.name }))))
       );
