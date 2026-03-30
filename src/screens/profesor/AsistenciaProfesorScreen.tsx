@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  FlatList, ActivityIndicator, ScrollView, Alert,
+  FlatList, ActivityIndicator, ScrollView, Alert, TextInput, Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
-import { Profesor, ProfesorTeam, AsistenciaSession, AsistenciaRegistro } from '../../api';
+import { Profesor, ProfesorTeam, AsistenciaSession, AsistenciaRegistro, AttendanceIncident } from '../../api';
 
 const GREEN = '#0F7D4B';
 
@@ -19,6 +19,22 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   const [loading,     setLoading]     = useState(true);
   const [submitting,  setSubmitting]  = useState(false);
   const [step,        setStep]        = useState<'team' | 'session' | 'attendance'>('team');
+
+  // Incidents
+  const [incidents,       setIncidents]       = useState<AttendanceIncident[]>([]);
+  const [showIncidents,   setShowIncidents]   = useState(false);
+  const [incidentModal,   setIncidentModal]   = useState(false);
+  const [incidentType,    setIncidentType]    = useState<AttendanceIncident['type']>('other');
+  const [incidentTitle,   setIncidentTitle]   = useState('');
+  const [incidentNotes,   setIncidentNotes]   = useState('');
+  const [incidentPlayer,  setIncidentPlayer]  = useState('');
+  const [savingIncident,  setSavingIncident]  = useState(false);
+
+  // Add guest
+  const [guestModal,   setGuestModal]   = useState(false);
+  const [guestName,    setGuestName]    = useState('');
+  const [guestPhone,   setGuestPhone]   = useState('');
+  const [savingGuest,  setSavingGuest]  = useState(false);
 
   // Whether we jumped directly to a session (from Programacion screen)
   const directSessionId: number | undefined = route?.params?.sessionId;
@@ -126,6 +142,74 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
       next.set(pupilId, { present: true, late: !cur.late });
       return next;
     });
+  };
+
+  const loadIncidents = useCallback(async () => {
+    if (!activeSession) return;
+    try {
+      const list = await Profesor.sessionIncidents(activeSession.id);
+      setIncidents(list);
+    } catch { /* silent */ }
+  }, [activeSession]);
+
+  const saveIncident = async () => {
+    if (!activeSession || !incidentTitle.trim()) return;
+    const playerId = incidentPlayer.trim() ? parseInt(incidentPlayer.trim(), 10) : undefined;
+    setSavingIncident(true);
+    try {
+      const inc = await Profesor.createIncident(activeSession.id, {
+        type:      incidentType,
+        title:     incidentTitle.trim(),
+        notes:     incidentNotes.trim() || undefined,
+        player_id: isNaN(playerId as number) ? undefined : playerId,
+      });
+      setIncidents(prev => [inc, ...prev]);
+      setIncidentModal(false);
+      setIncidentTitle(''); setIncidentNotes(''); setIncidentPlayer('');
+      Alert.alert('Incidencia registrada', incidentType === 'injury' ? 'La lesión fue registrada y el jugador marcado como ausente.' : 'Incidencia guardada.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? e?.error ?? 'No se pudo registrar la incidencia.');
+    } finally {
+      setSavingIncident(false);
+    }
+  };
+
+  const saveGuest = async () => {
+    if (!activeSession || !guestName.trim()) return;
+    setSavingGuest(true);
+    try {
+      const rec = await Profesor.addGuestToSession(activeSession.id, {
+        guest_name:  guestName.trim(),
+        guest_phone: guestPhone.trim() || undefined,
+        status:      'present',
+      });
+      // Add to records map with a negative key to distinguish guests
+      setRecords(prev => {
+        const next = new Map(prev);
+        next.set(-(rec.record_id), { present: true, late: false });
+        return next;
+      });
+      // Also add to the active session records so it appears in the list
+      if (activeSession) {
+        setActiveSession(prev => prev ? {
+          ...prev,
+          records: [...(prev.records ?? []), {
+            pupil_id: -(rec.record_id),
+            name:     rec.name + ' (Visitante)',
+            photo:    null,
+            present:  true,
+            late:     false,
+            notes:    null,
+          }],
+        } : prev);
+      }
+      setGuestModal(false);
+      setGuestName(''); setGuestPhone('');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? e?.error ?? 'No se pudo agregar el visitante.');
+    } finally {
+      setSavingGuest(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -308,6 +392,26 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
         {/* Submit */}
         <View style={[styles.submitRow, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+          {/* Extra actions row */}
+          <View style={styles.extraActions}>
+            <TouchableOpacity
+              style={styles.extraBtn}
+              onPress={() => { setGuestModal(true); }}
+            >
+              <Ionicons name="person-add-outline" size={16} color={GREEN} />
+              <Text style={styles.extraBtnTxt}>Visitante</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.extraBtn}
+              onPress={() => { loadIncidents(); setShowIncidents(true); }}
+            >
+              <Ionicons name="warning-outline" size={16} color="#F59E0B" />
+              <Text style={[styles.extraBtnTxt, { color: '#F59E0B' }]}>
+                Incidencias{incidents.length > 0 ? ` (${incidents.length})` : ''}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
             onPress={handleSubmit}
@@ -319,6 +423,150 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
             }
           </TouchableOpacity>
         </View>
+
+        {/* ── MODAL: Agregar visitante ── */}
+        <Modal visible={guestModal} transparent animationType="slide" onRequestClose={() => setGuestModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>Agregar visitante</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Nombre completo *"
+                value={guestName}
+                onChangeText={setGuestName}
+                autoFocus
+              />
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Teléfono (opcional)"
+                value={guestPhone}
+                onChangeText={setGuestPhone}
+                keyboardType="phone-pad"
+              />
+              <View style={styles.modalBtns}>
+                <TouchableOpacity style={styles.modalCancel} onPress={() => setGuestModal(false)}>
+                  <Text style={styles.modalCancelTxt}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalConfirm, (!guestName.trim() || savingGuest) && { opacity: 0.5 }]}
+                  onPress={saveGuest}
+                  disabled={!guestName.trim() || savingGuest}
+                >
+                  {savingGuest
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.modalConfirmTxt}>Agregar</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── MODAL: Incidencias ── */}
+        <Modal visible={showIncidents} transparent animationType="slide" onRequestClose={() => setShowIncidents(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalSheet, { maxHeight: '80%' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <Text style={styles.modalTitle}>Incidencias</Text>
+                <TouchableOpacity
+                  style={[styles.modalConfirm, { paddingHorizontal: 12, paddingVertical: 7 }]}
+                  onPress={() => { setIncidentModal(true); }}
+                >
+                  <Text style={styles.modalConfirmTxt}>+ Nueva</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ flex: 1 }}>
+                {incidents.length === 0 ? (
+                  <Text style={{ color: Colors.gray, textAlign: 'center', paddingVertical: 24 }}>Sin incidencias registradas</Text>
+                ) : incidents.map(inc => (
+                  <View key={inc.id} style={styles.incidentCard}>
+                    <View style={[styles.incidentDot, {
+                      backgroundColor: inc.type === 'injury' ? Colors.red
+                        : inc.type === 'expulsion' ? '#7C3AED'
+                        : inc.type === 'behavior'  ? '#F59E0B'
+                        : Colors.gray,
+                    }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.incidentTitle}>{inc.title}</Text>
+                      {inc.player_name && <Text style={styles.incidentSub}>{inc.player_name}</Text>}
+                      {inc.notes && <Text style={styles.incidentNotes}>{inc.notes}</Text>}
+                    </View>
+                    <Text style={styles.incidentType}>{inc.type.toUpperCase()}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              <TouchableOpacity style={[styles.modalCancel, { marginTop: 12 }]} onPress={() => setShowIncidents(false)}>
+                <Text style={styles.modalCancelTxt}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── MODAL: Nueva incidencia ── */}
+        <Modal visible={incidentModal} transparent animationType="slide" onRequestClose={() => setIncidentModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>Registrar incidencia</Text>
+
+              {/* Tipo */}
+              <Text style={styles.modalLabel}>Tipo *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {(['injury','behavior','expulsion','medical','other'] as const).map(t => (
+                    <TouchableOpacity
+                      key={t}
+                      style={[styles.typePill, incidentType === t && styles.typePillActive]}
+                      onPress={() => setIncidentType(t)}
+                    >
+                      <Text style={[styles.typePillTxt, incidentType === t && { color: '#fff' }]}>
+                        {t === 'injury' ? 'Lesión' : t === 'behavior' ? 'Conducta' : t === 'expulsion' ? 'Expulsión' : t === 'medical' ? 'Médico' : 'Otro'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Descripción breve *"
+                value={incidentTitle}
+                onChangeText={setIncidentTitle}
+              />
+              <TextInput
+                style={[styles.modalInput, { height: 72, textAlignVertical: 'top' }]}
+                placeholder="Notas adicionales (opcional)"
+                value={incidentNotes}
+                onChangeText={setIncidentNotes}
+                multiline
+              />
+              {(incidentType === 'injury' || incidentType === 'behavior' || incidentType === 'expulsion') && (
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="ID del jugador involucrado (opcional)"
+                  value={incidentPlayer}
+                  onChangeText={setIncidentPlayer}
+                  keyboardType="numeric"
+                />
+              )}
+
+              <View style={styles.modalBtns}>
+                <TouchableOpacity style={styles.modalCancel} onPress={() => setIncidentModal(false)}>
+                  <Text style={styles.modalCancelTxt}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalConfirm, (!incidentTitle.trim() || savingIncident) && { opacity: 0.5 }]}
+                  onPress={saveIncident}
+                  disabled={!incidentTitle.trim() || savingIncident}
+                >
+                  {savingIncident
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.modalConfirmTxt}>Guardar</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   };
@@ -409,6 +657,32 @@ const styles = StyleSheet.create({
   submitRow:    { padding: 14, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.light },
   submitBtn:    { backgroundColor: GREEN, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   submitTxt:    { fontSize: 15, fontWeight: '800', color: '#fff' },
+
+  extraActions: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  extraBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, paddingVertical: 9, borderWidth: 1, borderColor: Colors.light, backgroundColor: '#fff' },
+  extraBtnTxt:  { fontSize: 12, fontWeight: '700', color: GREEN },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalSheet:   { backgroundColor: '#fff', borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 20, paddingBottom: 30 },
+  modalTitle:   { fontSize: 16, fontWeight: '800', color: Colors.black, marginBottom: 14 },
+  modalLabel:   { fontSize: 12, fontWeight: '700', color: Colors.gray, marginBottom: 6 },
+  modalInput:   { borderWidth: 1, borderColor: Colors.light, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: Colors.black, backgroundColor: Colors.surf, marginBottom: 10 },
+  modalBtns:    { flexDirection: 'row', gap: 10, marginTop: 6 },
+  modalCancel:  { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: Colors.light },
+  modalCancelTxt: { fontSize: 14, fontWeight: '600', color: Colors.gray },
+  modalConfirm: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center', backgroundColor: GREEN },
+  modalConfirmTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  typePill:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: Colors.light, backgroundColor: Colors.surf },
+  typePillActive: { backgroundColor: GREEN, borderColor: GREEN },
+  typePillTxt:  { fontSize: 12, fontWeight: '700', color: Colors.gray },
+
+  incidentCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.surf, borderRadius: 10, padding: 12, marginBottom: 8 },
+  incidentDot:  { width: 10, height: 10, borderRadius: 5, marginTop: 3 },
+  incidentTitle: { fontSize: 13, fontWeight: '700', color: Colors.black },
+  incidentSub:  { fontSize: 11, color: Colors.gray, marginTop: 1 },
+  incidentNotes: { fontSize: 11, color: Colors.gray, marginTop: 3, fontStyle: 'italic' },
+  incidentType: { fontSize: 9, fontWeight: '800', color: Colors.gray },
 
   emptyBox:     { alignItems: 'center', paddingVertical: 48, gap: 10 },
   emptyTxt:     { fontSize: 13, color: Colors.gray },

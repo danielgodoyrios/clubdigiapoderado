@@ -177,6 +177,30 @@ export type AsistenciaRegistro = {
   notes?: string | null;
 };
 
+/** A single record returned from attendance detail (player OR guest). */
+export type AttendanceRecord = {
+  record_id:     number;
+  pupil_id:      number | null;
+  name:          string;
+  photo:         string | null;
+  number?:       number | null;
+  status:        string;          // 'present' | 'absent' | 'late' | 'excused'
+  justification: string | null;
+  is_guest:      boolean;
+  phone?:        string | null;
+};
+
+export type AttendanceIncident = {
+  id:          number;
+  type:        'injury' | 'behavior' | 'expulsion' | 'medical' | 'other';
+  title:       string;
+  notes:       string | null;
+  player_id:   number | null;
+  player_name: string | null;
+  injury_id:   number | null;
+  created_at:  string;
+};
+
 export type AsistenciaSession = {
   id: number;
   date: string;
@@ -388,6 +412,47 @@ export const Profesor = {
 
   submitAttendance: (sessionId: number, records: AsistenciaRegistro[]) =>
     request<{ ok: boolean }>('POST', `/profesor/attendance/${sessionId}/submit`, { records }),
+
+  // 8.A — Agregar jugador registrado a la sesión
+  addPlayerToSession: async (sessionId: number, playerId: number): Promise<AttendanceRecord> => {
+    const res = await request<any>('POST', `/profesor/attendance/${sessionId}/players`, { player_id: playerId });
+    return (res?.data ?? res) as AttendanceRecord;
+  },
+
+  // 8.B — Agregar visitante no registrado
+  addGuestToSession: async (sessionId: number, data: {
+    guest_name: string;
+    guest_phone?: string;
+    status?: 'present' | 'late' | 'absent' | 'excused';
+  }): Promise<AttendanceRecord> => {
+    const res = await request<any>('POST', `/profesor/attendance/${sessionId}/guests`, data);
+    return (res?.data ?? res) as AttendanceRecord;
+  },
+
+  // 8.C — Eliminar visitante de la sesión
+  removeGuestFromSession: (sessionId: number, recordId: number): Promise<{ ok: boolean }> =>
+    request<{ ok: boolean }>('DELETE', `/profesor/attendance/${sessionId}/guests/${recordId}`),
+
+  // 8.D — Listar incidencias de la sesión
+  sessionIncidents: async (sessionId: number): Promise<AttendanceIncident[]> => {
+    const res = await request<any>('GET', `/profesor/attendance/${sessionId}/incidents`);
+    const arr = Array.isArray(res) ? res : (res.data ?? []);
+    return arr as AttendanceIncident[];
+  },
+
+  // 8.E — Registrar incidencia
+  createIncident: async (sessionId: number, data: {
+    type:         'injury' | 'behavior' | 'expulsion' | 'medical' | 'other';
+    title:        string;
+    player_id?:   number | null;
+    notes?:       string;
+    injury_type?: string;
+    injury_zone?: string[];
+    severity?:    'leve' | 'moderada' | 'grave';
+  }): Promise<AttendanceIncident> => {
+    const res = await request<any>('POST', `/profesor/attendance/${sessionId}/incidents`, data);
+    return (res?.data ?? res) as AttendanceIncident;
+  },
 
   // Convocatorias
   convocatoria: async (eventId: number): Promise<ConvocadoEstado[]> => {
