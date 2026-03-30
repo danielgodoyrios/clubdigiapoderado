@@ -399,9 +399,28 @@ export const Profesor = {
 
   attendanceDetail: async (sessionId: number): Promise<AsistenciaSession> => {
     const res = await request<any>('GET', `/profesor/attendance/${sessionId}`);
-    const session = (res?.data ?? res) as AsistenciaSession;
-    if (!Array.isArray(session.records)) session.records = [];
-    return session;
+    const raw = (res?.data ?? res) as any;
+    // Normalise records — backend may return { status: 'present'|'late'|'absent' }
+    // instead of { present: boolean, late: boolean }.
+    const rawRecords: any[] = Array.isArray(raw.records) ? raw.records : [];
+    const records = rawRecords.map((r: any) => ({
+      pupil_id: r.pupil_id != null ? Number(r.pupil_id)
+                                   : (r.record_id ? -(Number(r.record_id)) : -(Date.now())),
+      name:    r.name ?? '',
+      photo:   r.photo ?? r.photo_url ?? null,
+      present: r.present !== undefined
+                 ? Boolean(r.present)
+                 : (r.status === 'present' || r.status === 'late'),
+      late:    r.late !== undefined
+                 ? Boolean(r.late)
+                 : r.status === 'late',
+      notes:   r.notes ?? r.justification ?? null,
+    }));
+    return {
+      ...raw,
+      submitted: Boolean(raw.submitted),
+      records,
+    } as AsistenciaSession;
   },
 
   createAttendanceSession: async (teamId: number, data: { date: string; type: string; title?: string; match_id?: number }): Promise<AsistenciaSession> => {

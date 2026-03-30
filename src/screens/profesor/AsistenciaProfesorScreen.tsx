@@ -563,13 +563,24 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                     </TouchableOpacity>
                   )
                 ) : isSubmitted ? (
-                  /* Read-only presence indicator */
-                  <View style={[styles.presentBtn, rec.present ? styles.presentBtnOn : styles.presentBtnOff]}>
-                    <Ionicons
-                      name={rec.present ? 'checkmark' : 'close'}
-                      size={18}
-                      color={rec.present ? '#fff' : Colors.gray}
-                    />
+                  /* Read-only locked state — clear present/absent/late indicators */
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {rec.late && (
+                      <View style={[styles.lateBtn, styles.lateBtnActive]}>
+                        <Text style={styles.lateTxtActive}>TARDE</Text>
+                      </View>
+                    )}
+                    <View style={[
+                      styles.presentBtn,
+                      rec.present ? styles.presentBtnOn : styles.presentBtnAbsent,
+                      { opacity: 0.8 },
+                    ]}>
+                      <Ionicons
+                        name={rec.present ? 'checkmark' : 'close'}
+                        size={18}
+                        color="#fff"
+                      />
+                    </View>
                   </View>
                 ) : (
                   <>
@@ -1099,8 +1110,9 @@ const styles = StyleSheet.create({
   lateTxt:      { fontSize: 9, fontWeight: '800', color: Colors.gray },
   lateTxtActive:{ color: '#D97706' },
   presentBtn:   { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  presentBtnOn: { backgroundColor: GREEN },
-  presentBtnOff:{ backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.light },
+  presentBtnOn:     { backgroundColor: GREEN },
+  presentBtnOff:    { backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.light },
+  presentBtnAbsent: { backgroundColor: '#EF4444' },
 
   submittedBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, paddingVertical: 10 },
   submittedBannerTxt: { fontSize: 13, fontWeight: '800', color: '#fff' },

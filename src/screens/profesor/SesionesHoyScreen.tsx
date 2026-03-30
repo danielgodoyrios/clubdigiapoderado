@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   FlatList, ActivityIndicator, RefreshControl, Alert,
@@ -35,6 +35,9 @@ export default function SesionesHoyScreen({ navigation, route }: any) {
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
+
+  // Sessions submitted locally — persisted in a ref so load() can't wipe them
+  const submittedOverrides = useRef<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -102,15 +105,21 @@ export default function SesionesHoyScreen({ navigation, route }: any) {
 
   // Reload when screen comes back into focus (e.g. after going back from AsistenciaProfesor)
   useFocusEffect(useCallback(() => {
-    // Optimistically mark a just-submitted session before the API reloads
-    const submittedId = route?.params?.submittedSessionId;
+    // Capture the just-submitted session ID before load overwrites state
+    const submittedId: number | undefined = route?.params?.submittedSessionId;
     if (submittedId) {
-      setSessions(prev => prev.map(s =>
-        s.id === submittedId ? { ...s, submitted: true } : s
-      ));
+      submittedOverrides.current.add(submittedId);
       navigation.setParams({ submittedSessionId: undefined });
     }
-    load();
+    // After load() settles, re-apply all known-submitted overrides
+    load().then(() => {
+      if (submittedOverrides.current.size > 0) {
+        const ids = submittedOverrides.current;
+        setSessions(prev => prev.map(s =>
+          ids.has(s.id) ? { ...s, submitted: true } : s
+        ));
+      }
+    });
   }, [load, route?.params?.submittedSessionId]));
 
   const onRefresh = () => { setRefreshing(true); load(); };
