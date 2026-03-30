@@ -696,7 +696,7 @@ export const Profesor = {
       const p = c.player ?? c;
       return {
         pupil_id:  c.pupil_id ?? p.pupil_id ?? p.id ?? c.id,
-        name:      p.full_name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || p.name ?? '',
+        name:      p.full_name ?? (`${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || p.name ?? ''),
         photo:     toAbsoluteUrl(p.photo_url ?? p.photo),
         number:    p.number ?? c.number ?? null,
         position:  p.position ?? c.position ?? null,
