@@ -3153,6 +3153,7 @@ GET /api/profesor/teams/{team_id}/attendance
 [
   {
     "id": 10,
+    "session_code": "SES-000010",
     "date": "2025-02-05",
     "type": "training",
     "title": "Entrenamiento",
@@ -3160,10 +3161,16 @@ GET /api/profesor/teams/{team_id}/attendance
     "submitted": true,
     "total": 22,
     "present_count": 18,
-    "absent_count": 4
+    "absent_count": 4,
+    "submitted_by_coach_id":   7,
+    "submitted_by_coach_name": "Carlos Mendoza",
+    "submitted_at": "2026-03-29T19:05:00Z"
   }
 ]
 ```
+
+> ⚠️ **CRÍTICO:** El campo `submitted` debe reflejarse correctamente **inmediatamente** después de llamar al endpoint 8.8 (submit). Si una sesión fue enviada por cualquier coach, `submitted: true` debe aparecer en este listado en la siguiente consulta. Ver sección 8.G.  
+> `submitted_by_coach_name` permite a cualquier coach ver quién ya pasó lista, evitando doble registro.
 
 ---
 
@@ -3177,26 +3184,60 @@ GET /api/profesor/attendance/{session_id}
 ```json
 {
   "id": 10,
+  "session_code": "SES-000010",
   "date": "2025-02-05",
   "type": "training",
   "title": "Entrenamiento",
   "team_id": 1,
-  "submitted": false,
+  "submitted": true,
   "total": 22,
-  "present_count": 0,
-  "absent_count": 0,
+  "present_count": 18,
+  "absent_count": 4,
+  "submitted_by_coach_id":   7,
+  "submitted_by_coach_name": "Carlos Mendoza",
+  "submitted_at": "2026-03-29T19:05:00Z",
   "records": [
     {
       "pupil_id": 101,
       "name": "Martín López",
       "photo": null,
+      "present": true,
+      "late": false,
+      "notes": null
+    },
+    {
+      "pupil_id": 102,
+      "name": "Pedro Soto",
+      "photo": null,
       "present": false,
       "late": false,
+      "notes": "Permiso"
+    },
+    {
+      "pupil_id": 103,
+      "name": "Lucas García",
+      "photo": null,
+      "present": true,
+      "late": true,
       "notes": null
     }
   ]
 }
 ```
+
+**Campos de records:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `pupil_id` | `int` | ID del jugador. Para visitantes (invitados) debe ser `null` o un número negativo (`-record_id`) |
+| `name` | `string` | Nombre completo — **nunca vacío** |
+| `photo` | `string\|null` | URL absoluta de foto |
+| `present` | `bool` | `true` si asistió |
+| `late` | `bool` | `true` si llegó tarde (implica `present: true`) |
+| `notes` | `string\|null` | Justificativo u observación |
+
+> ⚠️ **REQUERIMIENTO:** Los registros `records` **nunca deben tener `pupil_id` duplicado** dentro de la misma sesión, ni tener `name` vacío. Si el jugador no tiene nombre, omitir ese registro.
+> El campo `submitted` debe ser `true` cuando la sesión fue enviada, tanto en este endpoint como en 8.5.
 
 ---
 
@@ -3817,6 +3858,21 @@ POST /api/profesor/attendance/{session_id}/incidents
   "created_at":  "2026-03-29T18:45:00Z"
 }
 ```
+
+---
+
+### 8.G — ⚠️ CRÍTICO: Estado `submitted` debe sincronizarse después del envío
+
+**Problema reportado:** Después de llamar a `POST /profesor/attendance/{session_id}/submit` (8.8), el endpoint de listado `GET /profesor/teams/{team_id}/attendance` (8.5) sigue devolviendo `submitted: false` para esa sesión.
+
+**Comportamiento esperado:** Inmediatamente después de un submit exitoso, cualquier consulta que incluya esa sesión debe devolver `submitted: true`, junto con los conteos actualizados (`present_count`, `absent_count`, `total`).
+
+**Por qué es crítico:** Varios coaches pueden tener acceso a la misma sesión. Si uno pasa lista y el estado no se actualiza, otro coach puede pasar lista nuevamente, duplicando registros o sobreescribiendo datos. El frontend **no puede** fiarse de estado local para esto.
+
+**Fix requerido en el backend:**
+1. Al procesar `POST /profesor/attendance/{session_id}/submit`, marcar la sesión con `submitted: true` y guardar `submitted_by_coach_id`, `submitted_at`.
+2. Asegurarse de que `GET /profesor/teams/{team_id}/attendance` lee el estado actualizado (no cachéa el valor previo).
+3. `GET /profesor/attendance/{session_id}` también debe retornar `submitted: true` tras el envío.
 
 ---
 

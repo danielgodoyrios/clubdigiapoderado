@@ -212,6 +212,10 @@ export type AsistenciaSession = {
   total: number;
   present_count: number;
   absent_count: number;
+  /** Coach who submitted the attendance — returned by the backend once submitted */
+  submitted_by_coach_id?:   number | null;
+  submitted_by_coach_name?: string | null;
+  submitted_at?:            string | null;
   records: Array<{
     pupil_id: number;
     name: string;
@@ -419,6 +423,9 @@ export const Profesor = {
     return {
       ...raw,
       submitted: Boolean(raw.submitted),
+      submitted_by_coach_id:   raw.submitted_by_coach_id   ?? null,
+      submitted_by_coach_name: raw.submitted_by_coach_name ?? null,
+      submitted_at:            raw.submitted_at            ?? null,
       records,
     } as AsistenciaSession;
   },

@@ -505,6 +505,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
             <Ionicons name="checkmark-circle" size={18} color="#fff" />
             <Text style={styles.submittedBannerTxt}>
               Asistencia registrada · {presentCount} presentes · {(totalCount || recs.length) - presentCount} ausentes
+              {activeSession?.submitted_by_coach_name ? `  ·  ${activeSession.submitted_by_coach_name}` : ''}
             </Text>
           </View>
         )}
