@@ -36,7 +36,7 @@ export default function ProfesorAgendaScreen({ navigation, route }: any) {
   const [events,      setEvents]      = useState<ProfesorEvent[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
-  const [showArchive, setShowArchive] = useState(false);
+  const [showArchive, setShowArchive] = useState(true);
   const [creating,    setCreating]    = useState<Record<number, boolean>>({});
 
   const load = useCallback(async () => {

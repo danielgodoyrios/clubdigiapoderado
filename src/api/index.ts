@@ -402,9 +402,15 @@ function mapProfesorEvent(raw: any): ProfesorEvent {
   const dateRaw: string = raw.date ?? raw.fecha ?? '';
   const date = dateRaw.length > 10 ? dateRaw.slice(0, 10) : dateRaw;
   const time = dateRaw.length > 10 ? dateRaw.slice(11, 16) : (raw.time ?? raw.hora ?? null);
+  // Backend may send type as 'item_type' or 'type'; also match the Spanish 'partido'/'entrenamiento'
+  const rawType = raw.type ?? raw.item_type ?? raw.tipo ?? 'training';
+  const type: ProfesorEvent['type'] =
+      rawType === 'match'   || rawType === 'partido'       ? 'match'
+    : rawType === 'event'   || rawType === 'evento'        ? 'event'
+    : 'training';
   return {
     id:          raw.id,
-    type:        raw.type ?? raw.tipo ?? 'training',
+    type,
     title:       raw.title ?? raw.titulo ?? '',
     date,
     time,
@@ -421,6 +427,7 @@ function mapProfesorEvent(raw: any): ProfesorEvent {
     session_id:  raw.session_id ?? null,
     submitted:   raw.submitted ?? false,
     can_take_attendance: raw.can_take_attendance ?? false,
+    match_id:    raw.match_id ?? ((rawType === 'match' || rawType === 'partido') ? raw.id : null),
   };
 }
 
