@@ -488,7 +488,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
         <FlatList
           style={{ flex: 1 }}
           data={recs}
-          keyExtractor={r => r.pupil_id != null ? String(r.pupil_id) : `guest-${r.name}`}
+          keyExtractor={(r, i) => r.pupil_id != null ? String(r.pupil_id) : `guest-${i}-${r.name}`}
           contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 8 }}
           renderItem={({ item: r }) => {
             const isGuest = r.pupil_id < 0;
