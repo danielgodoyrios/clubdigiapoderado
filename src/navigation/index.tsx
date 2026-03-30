@@ -72,6 +72,7 @@ import LesionesScreen             from '../screens/profesor/LesionesScreen';
 import LesionDetalleScreen        from '../screens/profesor/LesionDetalleScreen';
 import PartidosEquipoScreen       from '../screens/profesor/PartidosEquipoScreen';
 import PartidoGestionScreen       from '../screens/profesor/PartidoGestionScreen';
+import PartidosDashboardScreen    from '../screens/profesor/PartidosDashboardScreen';
 
 // ── Admin ─────────────────────────────────────────────────────
 import AdminHomeScreen from '../screens/admin/HomeScreen';
@@ -98,6 +99,7 @@ function ProfesorTabs() {
         tabBarIcon: ({ color }) => {
           const icons: Record<string, string> = {
             Inicio:   'home-outline',
+            Partidos: 'football-outline',
             Equipos:  'shield-outline',
             Agenda:   'calendar-outline',
           };
@@ -105,7 +107,8 @@ function ProfesorTabs() {
         },
       })}
     >
-      <Tab.Screen name="Inicio"  component={ProfesorHomeScreen} />
+      <Tab.Screen name="Inicio"   component={ProfesorHomeScreen} />
+      <Tab.Screen name="Partidos" component={PartidosDashboardScreen} />
       <Tab.Screen name="Equipos" component={MisEquiposScreen} />
       <Tab.Screen name="Agenda"  component={ProfesorAgendaScreen} />
     </Tab.Navigator>
