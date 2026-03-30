@@ -237,6 +237,21 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
     }
   };
 
+  const removeGuest = async (guestKey: number) => {
+    if (!activeSession) return;
+    // guestKey is negative: -record_id
+    const recordId = -guestKey;
+    try {
+      await Profesor.removeGuestFromSession(activeSession.id, recordId);
+    } catch { /* best-effort — remove locally regardless */ }
+    setRecords(prev => { const next = new Map(prev); next.delete(guestKey); return next; });
+    setActiveSession(prev => prev ? {
+      ...prev,
+      records: (prev.records ?? []).filter(r => r.pupil_id !== guestKey),
+    } : prev);
+  };
+
+
   const handleSubmit = async () => {
     if (!activeSession) return;
 
@@ -390,30 +405,46 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
           keyExtractor={r => r.pupil_id != null ? String(r.pupil_id) : `guest-${r.name}`}
           contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 8 }}
           renderItem={({ item: r }) => {
+            const isGuest = r.pupil_id < 0;
             const rec = records.get(r.pupil_id) ?? { present: false, late: false };
             return (
-              <View style={styles.playerRow}>
+              <View style={[styles.playerRow, isGuest && styles.guestRow]}>
+                {isGuest && <View style={styles.guestStripe} />}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.playerName}>{r.name}</Text>
+                  {isGuest && <Text style={styles.guestBadge}>Visitante</Text>}
                 </View>
-                {/* Tarde button */}
-                <TouchableOpacity
-                  style={[styles.lateBtn, rec.late && styles.lateBtnActive]}
-                  onPress={() => toggleLate(r.pupil_id)}
-                >
-                  <Text style={[styles.lateTxt, rec.late && styles.lateTxtActive]}>TARDE</Text>
-                </TouchableOpacity>
-                {/* Present toggle */}
-                <TouchableOpacity
-                  style={[styles.presentBtn, rec.present ? styles.presentBtnOn : styles.presentBtnOff]}
-                  onPress={() => togglePresent(r.pupil_id)}
-                >
-                  <Ionicons
-                    name={rec.present ? 'checkmark' : 'close'}
-                    size={18}
-                    color={rec.present ? '#fff' : Colors.gray}
-                  />
-                </TouchableOpacity>
+                {/* Delete guest */}
+                {isGuest ? (
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => removeGuest(r.pupil_id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={Colors.red} />
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    {/* Tarde button */}
+                    <TouchableOpacity
+                      style={[styles.lateBtn, rec.late && styles.lateBtnActive]}
+                      onPress={() => toggleLate(r.pupil_id)}
+                    >
+                      <Text style={[styles.lateTxt, rec.late && styles.lateTxtActive]}>TARDE</Text>
+                    </TouchableOpacity>
+                    {/* Present toggle */}
+                    <TouchableOpacity
+                      style={[styles.presentBtn, rec.present ? styles.presentBtnOn : styles.presentBtnOff]}
+                      onPress={() => togglePresent(r.pupil_id)}
+                    >
+                      <Ionicons
+                        name={rec.present ? 'checkmark' : 'close'}
+                        size={18}
+                        color={rec.present ? '#fff' : Colors.gray}
+                      />
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             );
           }}
@@ -521,7 +552,15 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                       {inc.player_name && <Text style={styles.incidentSub}>{inc.player_name}</Text>}
                       {inc.notes && <Text style={styles.incidentNotes}>{inc.notes}</Text>}
                     </View>
-                    <Text style={styles.incidentType}>{inc.type.toUpperCase()}</Text>
+                    <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                      <Text style={styles.incidentType}>{inc.type.toUpperCase()}</Text>
+                      <TouchableOpacity
+                        onPress={() => setIncidents(prev => prev.filter(i => i.id !== inc.id))}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={15} color={Colors.red} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))}
               </ScrollView>
@@ -786,8 +825,12 @@ const styles = StyleSheet.create({
   summaryTxt:   { fontSize: 13, fontWeight: '600', color: Colors.black },
   markAllBtn:   { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
 
-  playerRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 10, marginBottom: 8, gap: 8, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3, elevation: 1 },
+  playerRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 10, marginBottom: 8, gap: 8, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3, elevation: 1, overflow: 'hidden' },
   playerName:   { fontSize: 13, fontWeight: '600', color: Colors.black },
+  guestRow:     { borderWidth: 1, borderColor: '#0D9488' + '40', backgroundColor: '#F0FDFA' },
+  guestStripe:  { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: '#0D9488', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+  guestBadge:   { fontSize: 10, fontWeight: '700', color: '#0D9488', marginTop: 1 },
+  deleteBtn:    { padding: 4 },
   lateBtn:      { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: Colors.light },
   lateBtnActive:{ backgroundColor: '#FEF3C7' },
   lateTxt:      { fontSize: 9, fontWeight: '800', color: Colors.gray },
