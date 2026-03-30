@@ -153,7 +153,7 @@ export default function ProfesorHomeScreen({ navigation }: any) {
         {/* Pasar Asistencia — CTA prominente siempre visible */}
         <TouchableOpacity
           style={styles.ctaAsistencia}
-          onPress={() => navigate('Programacion')}
+          onPress={() => navigate('SesionesHoy')}
           activeOpacity={0.85}
         >
           <View style={styles.ctaIconWrap}>
@@ -161,7 +161,7 @@ export default function ProfesorHomeScreen({ navigation }: any) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.ctaTitle}>Pasar Asistencia</Text>
-            <Text style={styles.ctaSub}>Registra la asistencia de hoy</Text>
+            <Text style={styles.ctaSub}>Ver y gestionar sesiones activas</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
         </TouchableOpacity>

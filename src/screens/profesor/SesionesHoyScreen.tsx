@@ -1,0 +1,233 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet,
+  FlatList, ActivityIndicator, RefreshControl, Alert,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../theme';
+import { Profesor, ProfesorTeam, AsistenciaSession } from '../../api';
+
+const GREEN  = '#0F7D4B';
+const ORANGE = '#F59E0B';
+const DAYS   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+const TODAY = new Date().toISOString().slice(0, 10);
+
+function fmtDate(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.floor((today.getTime() - d.getTime()) / 86400000);
+  if (diff === 0) return 'Hoy';
+  if (diff === 1) return 'Ayer';
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+type SessionWithTeam = AsistenciaSession & { team_name: string; team_id: number };
+
+export default function SesionesHoyScreen({ navigation }: any) {
+  const [sessions,   setSessions]   = useState<SessionWithTeam[]>([]);
+  const [dismissed,  setDismissed]  = useState<Set<number>>(new Set());
+  const [loading,    setLoading]    = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  const load = useCallback(async () => {
+    try {
+      const teams: ProfesorTeam[] = await Profesor.teams();
+
+      // Solo mostramos sesiones de los últimos 7 días
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 7);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+      const results = await Promise.allSettled(
+        teams.map(async (t: ProfesorTeam) => {
+          const ss = await Profesor.attendanceSessions(t.id);
+          return ss
+            .filter(s => s.date >= cutoffStr)
+            .map(s => ({ ...s, team_name: t.name, team_id: t.id } as SessionWithTeam));
+        })
+      );
+
+      const all: SessionWithTeam[] = [];
+      results.forEach(r => { if (r.status === 'fulfilled') all.push(...r.value); });
+
+      // Pending primero, luego por fecha descendente
+      all.sort((a, b) => {
+        if (a.submitted !== b.submitted) return a.submitted ? 1 : -1;
+        return b.date.localeCompare(a.date);
+      });
+
+      setSessions(all);
+    } catch {
+      // fallo silencioso — mostrar vacío
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const onRefresh = () => { setRefreshing(true); load(); };
+
+  const archive = (id: number) => {
+    Alert.alert('Archivar sesión', '¿Ocultar esta sesión de la lista?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Archivar', style: 'destructive', onPress: () =>
+          setDismissed(prev => new Set([...prev, id]))
+      },
+    ]);
+  };
+
+  const visible = sessions.filter(s => !dismissed.has(s.id));
+
+  const renderItem = ({ item: s }: { item: SessionWithTeam }) => (
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.82}
+      onPress={() => navigation.navigate('AsistenciaProfesor', {
+        sessionId: s.id,
+        title:     s.title ?? (s.type === 'match' ? 'Partido' : 'Entrenamiento'),
+      })}
+    >
+      {/* Barra lateral de color según estado */}
+      <View style={[styles.statusBar, { backgroundColor: s.submitted ? GREEN : ORANGE }]} />
+
+      <View style={{ flex: 1, gap: 2 }}>
+        {/* Fecha */}
+        <View style={styles.dateRow}>
+          <Text style={[styles.dateTxt, s.date === TODAY && { color: GREEN, fontWeight: '800' }]}>
+            {fmtDate(s.date)}
+          </Text>
+          {s.date === TODAY && <View style={styles.todayDot} />}
+        </View>
+
+        {/* Título */}
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {s.title ?? (s.type === 'match' ? 'Partido' : 'Entrenamiento')}
+        </Text>
+
+        {/* Equipo */}
+        <Text style={styles.cardSub}>{s.team_name}</Text>
+
+        {/* Stats si ya fue enviada */}
+        {s.submitted && s.total > 0 && (
+          <Text style={styles.cardStats}>
+            {s.present_count} presentes · {s.absent_count} ausentes · {s.total} total
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.cardRight}>
+        {/* Badge estado */}
+        <View style={[styles.badge, { backgroundColor: s.submitted ? GREEN + '18' : ORANGE + '18' }]}>
+          <Text style={[styles.badgeTxt, { color: s.submitted ? GREEN : ORANGE }]}>
+            {s.submitted ? 'ENVIADA' : 'PENDIENTE'}
+          </Text>
+        </View>
+
+        <View style={styles.cardActions}>
+          {/* Botón archivar */}
+          <TouchableOpacity
+            onPress={() => archive(s.id)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.archiveBtn}
+          >
+            <Ionicons name="archive-outline" size={16} color={Colors.gray} />
+          </TouchableOpacity>
+          <Ionicons name="chevron-forward" size={16} color={Colors.light} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const pendingCount = visible.filter(s => !s.submitted).length;
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={20} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Mis Sesiones</Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      {/* Strip resumen */}
+      {!loading && pendingCount > 0 && (
+        <View style={styles.pendingStrip}>
+          <Ionicons name="alert-circle-outline" size={15} color={ORANGE} />
+          <Text style={styles.pendingStripTxt}>
+            {pendingCount} sesión{pendingCount !== 1 ? 'es' : ''} pendiente{pendingCount !== 1 ? 's' : ''} de enviar
+          </Text>
+        </View>
+      )}
+
+      {/* Info strip */}
+      <View style={styles.infoStrip}>
+        <Ionicons name="time-outline" size={13} color={Colors.gray} />
+        <Text style={styles.infoTxt}>
+          Sesiones de los últimos 7 días. Las más antiguas se archivan automáticamente.
+        </Text>
+      </View>
+
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={GREEN} />
+        </View>
+      ) : (
+        <FlatList
+          data={visible}
+          keyExtractor={s => String(s.id)}
+          style={{ flex: 1 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
+          contentContainerStyle={{ padding: 14, paddingBottom: Math.max(insets.bottom, 20) }}
+          ListEmptyComponent={
+            <View style={styles.emptyBox}>
+              <Ionicons name="clipboard-outline" size={48} color={Colors.light} />
+              <Text style={styles.emptyTitle}>Sin sesiones recientes</Text>
+              <Text style={styles.emptyTxt}>
+                Crea una sesión desde la sección{'\n'}Programación para que aparezca aquí.
+              </Text>
+            </View>
+          }
+          renderItem={renderItem}
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe:        { flex: 1, backgroundColor: Colors.surf },
+  header:      { backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+  back:        { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '800', color: '#fff' },
+
+  pendingStrip:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: ORANGE + '18', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: ORANGE + '30' },
+  pendingStripTxt: { fontSize: 12, fontWeight: '700', color: ORANGE },
+  infoStrip:       { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.light },
+  infoTxt:         { flex: 1, fontSize: 11, color: Colors.gray },
+
+  card:       { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, marginBottom: 10, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2, paddingRight: 12, paddingVertical: 12, gap: 10 },
+  statusBar:  { width: 4, alignSelf: 'stretch' },
+  dateRow:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dateTxt:    { fontSize: 11, fontWeight: '600', color: Colors.gray },
+  todayDot:   { width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN },
+  cardTitle:  { fontSize: 14, fontWeight: '700', color: Colors.black },
+  cardSub:    { fontSize: 12, color: Colors.gray },
+  cardStats:  { fontSize: 11, color: GREEN, fontWeight: '600', marginTop: 2 },
+  cardRight:  { alignItems: 'flex-end', gap: 8 },
+  badge:      { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  badgeTxt:   { fontSize: 9, fontWeight: '800' },
+  cardActions:{ flexDirection: 'row', alignItems: 'center', gap: 8 },
+  archiveBtn: { padding: 2 },
+
+  emptyBox:   { alignItems: 'center', paddingVertical: 70, paddingHorizontal: 32, gap: 10 },
+  emptyTitle: { fontSize: 15, fontWeight: '700', color: Colors.black },
+  emptyTxt:   { fontSize: 13, color: Colors.gray, textAlign: 'center', lineHeight: 20 },
+});
