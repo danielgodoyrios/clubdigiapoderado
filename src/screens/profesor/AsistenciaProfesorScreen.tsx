@@ -44,6 +44,9 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   const [injurySeverity, setInjurySeverity] = useState<'leve'|'moderada'|'grave'>('leve');
   const [savingIncident,  setSavingIncident]  = useState(false);
 
+  // Submitted / read-only mode
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
   // Add guest
   const [guestModal,   setGuestModal]   = useState(false);
   const [guestName,    setGuestName]    = useState('');
@@ -63,6 +66,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
           const map = new Map<number, { present: boolean; late: boolean }>();
           (detail.records ?? []).forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
           setRecords(map);
+          setIsSubmitted(detail.submitted ?? false);
           setStep('attendance');
         })
         .catch(() => {
@@ -111,6 +115,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
       const map = new Map<number, { present: boolean; late: boolean }>();
       detail.records.forEach(r => map.set(r.pupil_id, { present: r.present, late: r.late }));
       setRecords(map);
+      setIsSubmitted(detail.submitted ?? false);
       setStep('attendance');
     } catch {
       // fallback: usar session sin detalle
@@ -377,9 +382,9 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
     try {
       const result = await Profesor.submitAttendance(activeSession.id, list);
       console.log('[AsistenciaProfesor] submit OK:', JSON.stringify(result));
-      Alert.alert('¡Listo!', 'Asistencia registrada correctamente.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      setIsSubmitted(true);
+      setActiveSession(prev => prev ? { ...prev, submitted: true } : prev);
+      Alert.alert('¡Listo!', 'Asistencia registrada correctamente.');
     } catch (e: any) {
       console.log('[AsistenciaProfesor] submit ERROR raw:', JSON.stringify(e));
       console.log('[AsistenciaProfesor] error.status  :', e?.status);
@@ -470,19 +475,29 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
     const recs = activeSession?.records ?? [];
     return (
       <View style={{ flex: 1 }}>
+        {/* Submitted banner */}
+        {isSubmitted && (
+          <View style={styles.submittedBanner}>
+            <Ionicons name="checkmark-circle" size={18} color="#fff" />
+            <Text style={styles.submittedBannerTxt}>Asistencia registrada</Text>
+          </View>
+        )}
+
         {/* Summary bar */}
         <View style={styles.summaryBar}>
           <Text style={styles.summaryTxt}>Presentes: <Text style={{ color: GREEN, fontWeight: '800' }}>{presentCount}</Text> / {totalCount || recs.length}</Text>
-          <TouchableOpacity
-            style={[styles.markAllBtn, { backgroundColor: GREEN + '18' }]}
-            onPress={() => {
-              const next = new Map<number, { present: boolean; late: boolean }>();
-              recs.forEach(r => next.set(r.pupil_id, { present: true, late: false }));
-              setRecords(next);
-            }}
-          >
-            <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>Marcar todos presentes</Text>
-          </TouchableOpacity>
+          {!isSubmitted && (
+            <TouchableOpacity
+              style={[styles.markAllBtn, { backgroundColor: GREEN + '18' }]}
+              onPress={() => {
+                const next = new Map<number, { present: boolean; late: boolean }>();
+                recs.forEach(r => next.set(r.pupil_id, { present: true, late: false }));
+                setRecords(next);
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>Marcar todos presentes</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <FlatList
@@ -502,13 +517,24 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                 </View>
                 {/* Delete guest */}
                 {isGuest ? (
-                  <TouchableOpacity
-                    style={styles.deleteBtn}
-                    onPress={() => removeGuest(r.pupil_id)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={Colors.red} />
-                  </TouchableOpacity>
+                  !isSubmitted && (
+                    <TouchableOpacity
+                      style={styles.deleteBtn}
+                      onPress={() => removeGuest(r.pupil_id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={Colors.red} />
+                    </TouchableOpacity>
+                  )
+                ) : isSubmitted ? (
+                  /* Read-only presence indicator */
+                  <View style={[styles.presentBtn, rec.present ? styles.presentBtnOn : styles.presentBtnOff]}>
+                    <Ionicons
+                      name={rec.present ? 'checkmark' : 'close'}
+                      size={18}
+                      color={rec.present ? '#fff' : Colors.gray}
+                    />
+                  </View>
                 ) : (
                   <>
                     {/* Tarde button */}
@@ -538,8 +564,8 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
         {/* Submit */}
         <View style={[styles.submitRow, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-          {/* Extra actions row */}
-          <View style={styles.extraActions}>
+          {/* Extra actions row — hidden when submitted */}
+          {!isSubmitted && <View style={styles.extraActions}>
             <TouchableOpacity
               style={styles.extraBtn}
               onPress={() => { setGuestModal(true); }}
@@ -563,18 +589,37 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                 Incidencias{incidents.length > 0 ? ` (${incidents.length})` : ''}
               </Text>
             </TouchableOpacity>
-          </View>
+          </View>}
 
-          <TouchableOpacity
-            style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
-            onPress={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.submitTxt}>Guardar Asistencia</Text>
-            }
-          </TouchableOpacity>
+          {isSubmitted ? (
+            <TouchableOpacity
+              style={[styles.submitBtn, { backgroundColor: Colors.gray }]}
+              onPress={() => {
+                Alert.alert(
+                  'Editar asistencia',
+                  '¿Quieres desbloquear esta asistencia para corregir errores?',
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Desbloquear', style: 'destructive', onPress: () => setIsSubmitted(false) },
+                  ]
+                );
+              }}
+            >
+              <Ionicons name="pencil-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={styles.submitTxt}>Editar asistencia</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
+              onPress={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.submitTxt}>Guardar Asistencia</Text>
+              }
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── MODAL: Buscar jugador del club ── */}
@@ -1020,8 +1065,11 @@ const styles = StyleSheet.create({
   presentBtnOn: { backgroundColor: GREEN },
   presentBtnOff:{ backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.light },
 
+  submittedBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, paddingVertical: 10 },
+  submittedBannerTxt: { fontSize: 13, fontWeight: '800', color: '#fff' },
+
   submitRow:    { padding: 14, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.light },
-  submitBtn:    { backgroundColor: GREEN, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  submitBtn:    { backgroundColor: GREEN, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
   submitTxt:    { fontSize: 15, fontWeight: '800', color: '#fff' },
 
   extraActions: { flexDirection: 'row', gap: 8, marginBottom: 10 },
