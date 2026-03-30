@@ -688,10 +688,16 @@ export const Profesor = {
   matchDetail: async (matchId: number): Promise<{ match: ProfesorMatch; convocados: MatchConvocado[] }> => {
     const res = await request<any>('GET', `/profesor/matches/${matchId}`);
     const raw = res?.data ?? res;
+    console.log('[matchDetail] raw keys:', Object.keys(raw ?? {}));
+    console.log('[matchDetail] raw.convocados:', JSON.stringify(raw?.convocados)?.slice(0, 200));
+    console.log('[matchDetail] raw.match_players:', JSON.stringify(raw?.match_players)?.slice(0, 200));
+    console.log('[matchDetail] raw.players:', JSON.stringify(raw?.players)?.slice(0, 200));
+    console.log('[matchDetail] raw.roster:', JSON.stringify(raw?.roster)?.slice(0, 200));
     // Backend may return the roster under several key names.
     // match_players is the Eloquent relation name (ClubMatch::with('matchPlayers.player')),
     // where each entry has a nested `.player` sub-object.
     const rawList: any[] = raw.convocados ?? raw.roster ?? raw.players ?? raw.squad ?? raw.nómina ?? raw.match_players ?? [];
+    console.log('[matchDetail] rawList length:', rawList.length, '| first item:', JSON.stringify(rawList[0])?.slice(0, 200));
     const convocados: MatchConvocado[] = rawList.map((c: any): MatchConvocado => {
       // When coming from match_players the actual player fields are nested under c.player
       const p = c.player ?? c;
@@ -705,6 +711,7 @@ export const Profesor = {
         status:    c.status ?? null,
       };
     });
+    console.log('[matchDetail] mapped convocados count:', convocados.length);
     return { match: raw as ProfesorMatch, convocados };
   },
 

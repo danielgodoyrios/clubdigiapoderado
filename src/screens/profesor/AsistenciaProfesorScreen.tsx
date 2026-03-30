@@ -63,15 +63,24 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   const directMatchId:   number | undefined = route?.params?.matchId;
   const directTitle: string | undefined = route?.params?.title;
 
+  // Log params on every render to confirm values arriving
+  console.log('[AsistenciaProfesor] params -> sessionId:', directSessionId, '| matchId:', directMatchId, '| title:', directTitle);
+
   useEffect(() => {
     if (directSessionId) {
       // Load match convocados concurrently if we arrived from a match
       if (directMatchId) {
+        console.log('[AsistenciaProfesor] loading nomina for matchId:', directMatchId);
         setLoadingNomina(true);
         Profesor.matchDetail(directMatchId)
-          .then(({ convocados: cv }) => setConvocados(cv))
-          .catch(() => {})
+          .then(({ convocados: cv }) => {
+            console.log('[AsistenciaProfesor] nomina loaded, count:', cv.length);
+            setConvocados(cv);
+          })
+          .catch(e => console.log('[AsistenciaProfesor] nomina load ERROR:', JSON.stringify(e)))
           .finally(() => setLoadingNomina(false));
+      } else {
+        console.log('[AsistenciaProfesor] no matchId — nomina section will NOT render');
       }
 
       // Skip team + session selection, load session directly
