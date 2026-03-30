@@ -1,13 +1,13 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, RefreshControl,
+  ScrollView, ActivityIndicator, RefreshControl, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
-import { Profesor, ProfesorTeam, ProfesorEvent, Lesion } from '../../api';
+import { Profesor, ProfesorTeam, ProfesorEvent, Lesion, ProfesorHome, LeagueCarouselItem, CategoryCarouselItem } from '../../api';
 import ProfesorSideMenu from '../../components/ProfesorSideMenu';
 
 const GREEN = '#0F7D4B';
@@ -29,6 +29,7 @@ export default function ProfesorHomeScreen({ navigation }: any) {
   const [teams,        setTeams]        = useState<ProfesorTeam[]>([]);
   const [nextEvents,   setNextEvents]   = useState<ProfesorEvent[]>([]);
   const [lesiones,     setLesiones]     = useState<Lesion[]>([]);
+  const [homeData,     setHomeData]     = useState<ProfesorHome | null>(null);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
 
@@ -37,18 +38,25 @@ export default function ProfesorHomeScreen({ navigation }: any) {
       const now  = new Date();
       const from = now.toISOString().slice(0, 10);
       const to   = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
-      const [ts, evs] = await Promise.allSettled([
+      const [ts, evs, homeRes] = await Promise.allSettled([
         Profesor.teams(),
         Profesor.allEvents(from, to),
+        Profesor.getHome(),
       ]);
       if (ts.status === 'fulfilled') setTeams(ts.value);
       if (evs.status === 'fulfilled') setNextEvents(evs.value.slice(0, 5));
-
-      // Cargamos lesiones del primer equipo como muestra
-      if (ts.status === 'fulfilled' && ts.value.length > 0) {
-        const lesRes = await Profesor.injuries(ts.value[0].id).catch(() => []);
-        setLesiones(lesRes.filter((l: Lesion) => l.is_active));
+      if (homeRes.status === 'fulfilled') {
+        setHomeData(homeRes.value);
       }
+
+      // Lesiones: preferir allInjuries (global), fallback a equipo
+      const injRes = await Profesor.allInjuries(true).catch(async () => {
+        if (ts.status === 'fulfilled' && ts.value.length > 0) {
+          return Profesor.injuries(ts.value[0].id).catch(() => []);
+        }
+        return [];
+      });
+      setLesiones(injRes.filter((l: Lesion) => l.is_active));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,9 +72,12 @@ export default function ProfesorHomeScreen({ navigation }: any) {
     navigation.navigate(screen, params);
   };
 
-  const totalPlayers    = teams.reduce((s, t) => s + t.player_count, 0);
-  const upcomingMatches = nextEvents.filter(e => e.type === 'match');
-  const teamsToShow     = teams.slice(0, 6);
+  const totalPlayers     = teams.reduce((s, t) => s + t.player_count, 0);
+  const upcomingMatches  = nextEvents.filter(e => e.type === 'match');
+  const teamsToShow      = teams.slice(0, 6);
+  const activeLesiones   = homeData?.active_injuries_count ?? lesiones.length;
+  const leagueCarousel   = homeData?.leagues_carousel ?? [];
+  const catCarousel      = homeData?.categories_carousel ?? [];
 
   if (loading) {
     return (
@@ -132,8 +143,8 @@ export default function ProfesorHomeScreen({ navigation }: any) {
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statPill}>
-            <Text style={[styles.statNum, lesiones.length > 0 && { color: '#FBBF24' }]}>
-              {lesiones.length}
+            <Text style={[styles.statNum, activeLesiones > 0 && { color: '#FBBF24' }]}>
+              {activeLesiones}
             </Text>
             <Text style={styles.statLbl}>Lesionados</Text>
           </View>
@@ -176,7 +187,8 @@ export default function ProfesorHomeScreen({ navigation }: any) {
             { id: 'agenda',       icon: 'calendar-outline',   label: 'Agenda',       screen: 'ProfesorAgenda', modulo: 'agenda' },
             { id: 'equipos',      icon: 'people-outline',     label: 'Mis Equipos',  screen: 'MisEquipos',     modulo: null },
             { id: 'convocatoria', icon: 'megaphone-outline',  label: 'Convocar',     screen: 'ProfesorAgenda', modulo: 'convocatorias' },
-            { id: 'lesiones',     icon: 'medkit-outline',     label: 'Lesiones',     screen: 'LesionesEquipo', modulo: null },
+            { id: 'lesiones',     icon: 'medkit-outline',     label: 'Lesiones',     screen: 'Lesiones',       modulo: null },
+            { id: 'partidos',     icon: 'football-outline',   label: 'Partidos',     screen: 'PartidosEquipo', modulo: null },
             { id: 'crearEvento',  icon: 'add-circle-outline', label: 'Crear Evento', screen: 'CrearEvento',    modulo: null },
           ].filter(a => !a.modulo || isModuloHabilitado(a.modulo)).map(a => {
             const esNuevo = a.modulo ? isModuloNuevo(a.modulo) : false;
@@ -197,6 +209,97 @@ export default function ProfesorHomeScreen({ navigation }: any) {
             );
           })}
         </ScrollView>
+
+        {/* Ligas y competencias — carousel */}
+        {leagueCarousel.length > 0 && (
+          <View style={{ marginTop: 20 }}>
+            <View style={[styles.sectionHeader, { paddingHorizontal: 16, marginBottom: 10 }]}>
+              <Text style={styles.sectionLbl}>LIGAS Y COMPETENCIAS</Text>
+            </View>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={leagueCarousel}
+              keyExtractor={it => String(it.team_id)}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+              renderItem={({ item }: { item: LeagueCarouselItem }) => (
+                <TouchableOpacity
+                  style={styles.leagueCard}
+                  onPress={() => navigation.navigate('PartidosEquipo', { teamId: item.team_id, teamName: item.team_name })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.leagueCardHeader}>
+                    <Text style={styles.leagueTeam} numberOfLines={1}>{item.team_name}</Text>
+                    {item.competition && (
+                      <View style={styles.compChip}>
+                        <Text style={styles.compChipTxt} numberOfLines={1}>{item.competition}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.leagueRecord}>
+                    {[['G', item.wins, '#10B981'], ['E', item.draws, '#F59E0B'], ['P', item.losses, '#EF4444'], ['Pts', item.points, GREEN]].map(([label, val, color]) => (
+                      <View key={String(label)} style={styles.recordItem}>
+                        <Text style={[styles.recordVal, { color: color as string }]}>{String(val)}</Text>
+                        <Text style={styles.recordLbl}>{String(label)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  {item.next_match_date && (
+                    <Text style={styles.nextMatchTxt}>
+                      Próx: {new Date(item.next_match_date + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                      {item.next_match_rival ? ` vs ${item.next_match_rival}` : ''}
+                    </Text>
+                  )}
+                  <View style={styles.leagueArrow}>
+                    <Ionicons name="chevron-forward" size={12} color={GREEN} />
+                    <Text style={styles.leagueArrowTxt}>Ver partidos</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+
+        {/* Categorías — carousel */}
+        {catCarousel.length > 0 && (
+          <View style={{ marginTop: 20 }}>
+            <View style={[styles.sectionHeader, { paddingHorizontal: 16, marginBottom: 10 }]}>
+              <Text style={styles.sectionLbl}>MIS CATEGORÍAS</Text>
+            </View>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={catCarousel}
+              keyExtractor={it => String(it.team_id)}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+              renderItem={({ item }: { item: CategoryCarouselItem }) => (
+                <TouchableOpacity
+                  style={styles.catCard}
+                  onPress={() => navigation.navigate('MisEquipos', { teamId: item.team_id })}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.catTeam} numberOfLines={1}>{item.team_name}</Text>
+                  {item.category && <Text style={styles.catSub}>{item.category}</Text>}
+                  <View style={styles.catStats}>
+                    <View style={styles.catStat}>
+                      <Ionicons name="people-outline" size={13} color={GREEN} />
+                      <Text style={styles.catStatTxt}>{item.player_count}</Text>
+                    </View>
+                    {item.active_injuries > 0 && (
+                      <View style={[styles.catStat, { backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 5 }]}>
+                        <Ionicons name="medkit-outline" size={11} color="#D97706" />
+                        <Text style={[styles.catStatTxt, { color: '#D97706' }]}>{item.active_injuries}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {item.next_event_title && (
+                    <Text style={styles.catNextTxt} numberOfLines={1}>{item.next_event_title}</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
 
         {/* Próximos eventos */}
         {isModuloHabilitado('agenda') && nextEvents.length > 0 && (
@@ -299,7 +402,7 @@ export default function ProfesorHomeScreen({ navigation }: any) {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionLbl}>LESIONES ACTIVAS</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('LesionesEquipo')}>
+              <TouchableOpacity onPress={() => navigation.navigate('Lesiones')}>
                 <Text style={styles.sectionLink}>Ver todas →</Text>
               </TouchableOpacity>
             </View>
@@ -400,4 +503,27 @@ const styles = StyleSheet.create({
 
   emptyBox:  { alignItems: 'center', paddingVertical: 24, gap: 8 },
   emptyTxt:  { fontSize: 13, color: Colors.gray },
+
+  // Leagues carousel
+  leagueCard:   { width: 170, backgroundColor: '#fff', borderRadius: 14, padding: 13, gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 1 },
+  leagueCardHeader: { gap: 4 },
+  leagueTeam:   { fontSize: 13, fontWeight: '800', color: Colors.black },
+  compChip:     { backgroundColor: GREEN + '14', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
+  compChipTxt:  { fontSize: 9, fontWeight: '700', color: GREEN },
+  leagueRecord: { flexDirection: 'row', justifyContent: 'space-between' },
+  recordItem:   { alignItems: 'center', gap: 1 },
+  recordVal:    { fontSize: 16, fontWeight: '900' },
+  recordLbl:    { fontSize: 9, fontWeight: '600', color: Colors.gray },
+  nextMatchTxt: { fontSize: 10, color: Colors.gray },
+  leagueArrow:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  leagueArrowTxt: { fontSize: 10, fontWeight: '700', color: GREEN },
+
+  // Categories carousel
+  catCard:    { width: 140, backgroundColor: '#fff', borderRadius: 14, padding: 13, gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 1 },
+  catTeam:    { fontSize: 13, fontWeight: '800', color: Colors.black },
+  catSub:     { fontSize: 10, color: GREEN, fontWeight: '600' },
+  catStats:   { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  catStat:    { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  catStatTxt: { fontSize: 12, fontWeight: '700', color: Colors.gray },
+  catNextTxt: { fontSize: 9, color: Colors.gray },
 });

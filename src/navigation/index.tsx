@@ -68,6 +68,10 @@ import LesionesEquipoScreen       from '../screens/profesor/LesionesEquipoScreen
 import RegistroLesionScreen       from '../screens/profesor/RegistroLesionScreen';
 import CrearEventoScreen          from '../screens/profesor/CrearEventoScreen';
 import SesionesHoyScreen          from '../screens/profesor/SesionesHoyScreen';
+import LesionesScreen             from '../screens/profesor/LesionesScreen';
+import LesionDetalleScreen        from '../screens/profesor/LesionDetalleScreen';
+import PartidosEquipoScreen       from '../screens/profesor/PartidosEquipoScreen';
+import PartidoGestionScreen       from '../screens/profesor/PartidoGestionScreen';
 
 // ── Admin ─────────────────────────────────────────────────────
 import AdminHomeScreen from '../screens/admin/HomeScreen';
@@ -211,6 +215,10 @@ function AppStack({ role }: { role: string }) {
       <Stack.Screen name="RegistroLesion"         component={RegistroLesionScreen} />
       <Stack.Screen name="CrearEvento"            component={CrearEventoScreen} />
       <Stack.Screen name="SesionesHoy"            component={SesionesHoyScreen} />
+      <Stack.Screen name="Lesiones"               component={LesionesScreen} />
+      <Stack.Screen name="LesionDetalle"          component={LesionDetalleScreen} />
+      <Stack.Screen name="PartidosEquipo"         component={PartidosEquipoScreen} />
+      <Stack.Screen name="PartidoGestion"         component={PartidoGestionScreen} />
 
       {/* ── Admin ── */}
       <Stack.Screen name="AdminHome" component={AdminHomeScreen} />

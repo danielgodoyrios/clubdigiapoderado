@@ -3904,4 +3904,432 @@ DELETE /api/profesor/attendance/{session_id}/incidents/{incident_id}
 
 > Si el caso disciplinario ya fue procesado por el admin (`status ≠ pending`), la incidencia se elimina igualmente pero el `DisciplinaryRecord` queda intacto.
 
+---
 
+## Sección 8 (ter): LESIONES — Endpoints adicionales (globales)
+
+### 8.11b — Lesiones activas de todos los equipos del profesor
+
+Permite obtener **todas las lesiones activas** de todos los equipos asignados al profesor, en un solo request.
+
+```
+GET /api/profesor/injuries?active_only=1
+```
+**Auth:** Bearer `profesor`
+
+**Query params:**
+
+| Param | Tipo | Descripción |
+|---|---|---|
+| `active_only` | `0\|1` | Con `1` filtra solo lesiones activas (is_active = true) |
+
+**Response 200:**
+```json
+[
+  {
+    "id": 45,
+    "pupil_id": 12,
+    "pupil_name": "Sebastián López",
+    "pupil_photo": "https://cdn.clubdigital.cl/...",
+    "type": "muscular",
+    "zone": "muslo derecho",
+    "zone_label": "Muslo Derecho",
+    "severity": "moderada",
+    "severity_label": "Moderada",
+    "date_start": "2025-06-01",
+    "date_end": null,
+    "is_active": true,
+    "notes": "Elongación grado 2",
+    "description": "Elongación grado 2 en bíceps femoral derecho",
+    "training_status": "rest",
+    "expected_return_date": "2025-06-20",
+    "team_id": 3,
+    "team_name": "Sub-17 Fútbol"
+  }
+]
+```
+
+**Nuevos campos respecto a 8.11 por-equipo:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `zone_label` | `string` | Zona con formato legible (capitalizado) |
+| `severity_label` | `string` | Severidad con formato legible |
+| `description` | `string\|null` | Descripción detallada de la lesión |
+| `training_status` | `string\|null` | Estado de entrenamiento: `"rest"`, `"partial"`, `"full"` |
+| `expected_return_date` | `string\|null` | Fecha estimada de alta (ISO) |
+| `team_id` | `number` | ID del equipo |
+| `team_name` | `string` | Nombre del equipo |
+
+---
+
+### 8.11c — Actualizar lesión
+
+```
+PATCH /api/profesor/injuries/{injury_id}
+```
+**Auth:** Bearer `profesor`
+
+**Body (todos opcionales):**
+```json
+{
+  "type": "muscular",
+  "zone": "muslo derecho",
+  "severity": "leve",
+  "notes": "Evolución positiva",
+  "training_status": "partial",
+  "expected_return_date": "2025-06-15"
+}
+```
+
+**Validaciones:**
+- `training_status` debe ser `"rest"`, `"partial"` o `"full"`.
+- `expected_return_date` debe ser fecha futura (ISO).
+- La lesión debe pertenecer a un jugador de un equipo del profesor.
+
+**Response 200:** Objeto lesión actualizada (mismo formato que 8.11b).
+
+**Errores:**
+
+| HTTP | Caso |
+|---|---|
+| `403` | La lesión no pertenece a un equipo del profesor |
+| `404` | Lesión no encontrada |
+| `422` | Valor de `training_status` inválido |
+
+---
+
+### 8.11d — Agregar nota de seguimiento a una lesión
+
+```
+POST /api/profesor/injuries/{injury_id}/followups
+```
+**Auth:** Bearer `profesor`
+
+**Body:**
+```json
+{ "notes": "Evolución positiva, inicia entrenamiento diferenciado." }
+```
+
+**Validaciones:**
+- `notes` requerido, mínimo 5 caracteres.
+
+**Response 200:**
+```json
+{
+  "id": 22,
+  "notes": "Evolución positiva, inicia entrenamiento diferenciado.",
+  "created_at": "2025-06-05T10:30:00Z",
+  "created_by_name": "Carlos Pérez"
+}
+```
+
+---
+
+### 8.11e — Obtener notas de seguimiento de una lesión
+
+```
+GET /api/profesor/injuries/{injury_id}/followups
+```
+**Auth:** Bearer `profesor`
+
+**Response 200:**
+```json
+[
+  {
+    "id": 20,
+    "notes": "Inicio de reposo",
+    "created_at": "2025-06-01T08:00:00Z",
+    "created_by_name": "Carlos Pérez"
+  },
+  {
+    "id": 22,
+    "notes": "Evolución positiva",
+    "created_at": "2025-06-05T10:30:00Z",
+    "created_by_name": "Carlos Pérez"
+  }
+]
+```
+
+---
+
+## Sección 10: PARTIDOS Y CONVOCATORIAS (Profesor)
+
+### 10.1 — Listar partidos de un equipo
+
+```
+GET /api/profesor/teams/{team_id}/matches
+```
+**Auth:** Bearer `profesor`
+
+**Response 200:**
+```json
+[
+  {
+    "id": 88,
+    "date": "2025-06-15",
+    "time": "15:30",
+    "title": "Sub-17 vs Racing Club",
+    "status": "upcoming",
+    "location": "Estadio Municipal",
+    "competition": "Liga Regional 2025",
+    "home_team": "Sub-17 Fútbol",
+    "away_team": "Racing Club",
+    "team_id": 3,
+    "team_name": "Sub-17 Fútbol",
+    "convocados_count": 18,
+    "confirmed_count": 12,
+    "score": null
+  }
+]
+```
+
+**Campos `status`:**
+
+| Valor | Descripción |
+|---|---|
+| `upcoming` / `scheduled` | Partido próximo, sin resultado |
+| `played` / `finished` | Partido jugado, con score |
+| `cancelled` | Cancelado |
+
+**Ordenamiento:** Los más próximos primero (ascendente por fecha).
+
+---
+
+### 10.2 — Crear partido
+
+```
+POST /api/profesor/teams/{team_id}/matches
+```
+**Auth:** Bearer `profesor`
+
+**Body:**
+```json
+{
+  "date": "2025-06-20",
+  "time": "16:00",
+  "home_team": "Sub-17 Fútbol",
+  "away_team": "Club Rivadavia",
+  "location": "Cancha Sintética Norte",
+  "competition": "Liga Regional 2025"
+}
+```
+
+**Comportamiento esperado:**
+- Al crear el partido, el backend **auto-puebla la nómina** con todos los jugadores activos del equipo (todos con `convocado: false` por defecto).
+- El campo `title` se puede auto-generar como `"{home_team} vs {away_team}"` si no se provee.
+
+**Response 200:** Objeto partido creado (mismo formato que 10.1 ítem).
+
+**Errores:**
+
+| HTTP | Caso |
+|---|---|
+| `403` | El equipo no pertenece al profesor |
+| `404` | Equipo no encontrado |
+| `422` | `date` inválida o en el pasado |
+
+---
+
+### 10.3 — Obtener detalle de un partido (con convocados)
+
+```
+GET /api/profesor/matches/{match_id}
+```
+**Auth:** Bearer `profesor`
+
+**Response 200:**
+```json
+{
+  "id": 88,
+  "date": "2025-06-15",
+  "time": "15:30",
+  "title": "Sub-17 vs Racing Club",
+  "status": "upcoming",
+  "location": "Estadio Municipal",
+  "competition": "Liga Regional 2025",
+  "home_team": "Sub-17 Fútbol",
+  "away_team": "Racing Club",
+  "team_id": 3,
+  "team_name": "Sub-17 Fútbol",
+  "convocados_count": 18,
+  "confirmed_count": 12,
+  "score": null,
+  "session_id": null,
+  "convocados": [
+    {
+      "pupil_id": 42,
+      "name": "Matías González",
+      "photo": "https://cdn.clubdigital.cl/...",
+      "number": 10,
+      "position": "Mediocampista",
+      "convocado": true,
+      "status": "confirmed"
+    },
+    {
+      "pupil_id": 43,
+      "name": "José Ramírez",
+      "photo": null,
+      "number": 7,
+      "position": "Delantero",
+      "convocado": false,
+      "status": null
+    }
+  ]
+}
+```
+
+**Notas:**
+- La lista `convocados` incluye **todos los jugadores del equipo**, no solo los convocados.
+- El campo `convocado` indica si fue seleccionado para el partido.
+- El campo `status` es `null` para no convocados, o `"confirmed"`, `"pending"`, `"declined"` para convocados.
+- `session_id` es `null` si no hay sesión de asistencia vinculada al partido.
+
+---
+
+### 10.4 — Actualizar convocatoria del partido
+
+```
+PUT /api/profesor/matches/{match_id}/convocatoria
+```
+**Auth:** Bearer `profesor`
+
+**Body:**
+```json
+{ "pupil_ids": [42, 45, 50, 51, 52, 60] }
+```
+
+**Comportamiento:**
+- Reemplaza la convocatoria completa con los IDs provistos.
+- Jugadores que estaban convocados pero no están en el nuevo array quedan con `convocado: false`.
+- Jugadores nuevos obtienen `convocado: true`, `status: "pending"`.
+
+**Response 200:** `{ "ok": true }`
+
+---
+
+### 10.5 — Obtener link de compartir (WhatsApp)
+
+```
+GET /api/profesor/matches/{match_id}/share-link
+```
+**Auth:** Bearer `profesor`
+
+**Response 200:**
+```json
+{
+  "whatsapp_url": "https://wa.me/?text=...",
+  "match_url": "https://app.clubdigital.cl/convocatoria/88",
+  "message": "📋 Convocatoria Sub-17 vs Racing Club - 15 Jun\n\nEstás convocado al partido...",
+  "player_links": [
+    {
+      "pupil_id": 42,
+      "name": "Matías González",
+      "url": "https://app.clubdigital.cl/pub/confirmar/88/abc123token"
+    }
+  ]
+}
+```
+
+**Descripción:**
+- `whatsapp_url`: URL de WhatsApp con el mensaje completo pre-formateado y encoded (listo para `Linking.openURL`).
+- `match_url`: URL pública de la convocatoria (vista sin login).
+- `player_links`: Links individuales para cada jugador convocado (para que cada uno confirme su asistencia).
+
+---
+
+### 10.6 — Vista pública de convocatoria (sin login)
+
+```
+GET /api/pub/convocatoria/{match_id}
+```
+**Auth:** Ninguna
+
+**Response 200:** Lista de convocados con su estado de confirmación. Permite ver quiénes confirmaron sin necesidad de login.
+
+---
+
+### 10.7 — Confirmar/rechazar convocatoria (jugador vía link)
+
+```
+POST /api/pub/confirmar/{match_player_id}/{token}
+```
+**Auth:** Ninguna (token firmado por tiempo)
+
+**Body:**
+```json
+{ "status": "confirmed" }
+```
+
+Permite que el jugador confirme o rechace su participación desde el link compartido por WhatsApp.
+
+---
+
+## Sección 11: DASHBOARD HOME DEL PROFESOR
+
+### 11.1 — Resumen del home (carouseles, lesiones, partidos)
+
+```
+GET /api/profesor/home
+```
+**Auth:** Bearer `profesor`
+
+**Response 200:**
+```json
+{
+  "leagues_carousel": [
+    {
+      "team_id": 3,
+      "team_name": "Sub-17 Fútbol",
+      "competition": "Liga Regional 2025",
+      "next_match_date": "2025-06-20",
+      "next_match_rival": "Racing Club",
+      "wins": 4,
+      "draws": 2,
+      "losses": 1,
+      "points": 14
+    }
+  ],
+  "categories_carousel": [
+    {
+      "team_id": 3,
+      "team_name": "Sub-17 Fútbol",
+      "category": "Sub-17",
+      "player_count": 22,
+      "active_injuries": 2,
+      "next_event_date": "2025-06-15",
+      "next_event_title": "Partido vs Racing Club"
+    }
+  ],
+  "active_injuries_count": 5,
+  "next_matches": [
+    {
+      "id": 88,
+      "date": "2025-06-15",
+      "time": "15:30",
+      "title": "Sub-17 vs Racing Club",
+      "status": "upcoming",
+      "team_id": 3,
+      "team_name": "Sub-17 Fútbol",
+      "competition": "Liga Regional 2025",
+      "convocados_count": 18,
+      "confirmed_count": 12,
+      "score": null
+    }
+  ]
+}
+```
+
+**Descripción de cada sección:**
+
+| Campo | Descripción |
+|---|---|
+| `leagues_carousel` | Equipos del profesor que participan en competencias organizadas. Muestra tabla de posiciones resumida (G-E-P-Pts) y próximo partido. |
+| `categories_carousel` | Todos los equipos del profesor con su info básica (categoría, jugadores, lesiones activas, próximo evento). |
+| `active_injuries_count` | Suma de lesiones activas en todos los equipos. |
+| `next_matches` | Los 3 partidos más próximos de todos los equipos del profesor. |
+
+**Notas de implementación:**
+- Si un equipo no tiene competencia registrada, puede aparecer solo en `categories_carousel` y no en `leagues_carousel`.
+- `wins`, `draws`, `losses`, `points` se calculan a partir de los resultados de partidos jugados en la `competition` del equipo.
+- Este endpoint es optimizado para el home del profesor: carga todo en un solo request para reducir latencia.

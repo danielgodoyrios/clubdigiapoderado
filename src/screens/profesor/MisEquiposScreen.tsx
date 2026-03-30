@@ -246,6 +246,36 @@ export default function MisEquiposScreen({ navigation, route }: any) {
         </View>
       )}
 
+      {/* Quick actions for active team */}
+      {activeTeam && (
+        <View style={styles.teamActions}>
+          <TouchableOpacity
+            style={styles.teamActionBtn}
+            onPress={() => navigation.navigate('PartidosEquipo', { teamId: activeTeam.id, teamName: activeTeam.name })}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="football-outline" size={16} color={GREEN} />
+            <Text style={styles.teamActionTxt}>Partidos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.teamActionBtn}
+            onPress={() => navigation.navigate('LesionesEquipo', { teamId: activeTeam.id, teamName: activeTeam.name })}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="medkit-outline" size={16} color="#D97706" />
+            <Text style={[styles.teamActionTxt, { color: '#D97706' }]}>Lesiones</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.teamActionBtn}
+            onPress={() => navigation.navigate('CrearEvento', { teamId: activeTeam.id, teamName: activeTeam.name })}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add-circle-outline" size={16} color={Colors.blue} />
+            <Text style={[styles.teamActionTxt, { color: Colors.blue }]}>Evento</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Status filter chips */}
       {activeTeam && (
         <ScrollView
@@ -389,6 +419,11 @@ const styles = StyleSheet.create({
   teamSelectorCat:      { fontSize: 11, color: GREEN, fontWeight: '600', marginTop: 1 },
   teamSelectorBadge:    { backgroundColor: GREEN + '15', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
   teamSelectorBadgeTxt: { fontSize: 10, fontWeight: '700', color: GREEN },
+
+  // Team quick actions
+  teamActions:    { flexDirection: 'row', paddingHorizontal: 12, gap: 8, marginBottom: 4 },
+  teamActionBtn:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: '#fff', borderRadius: 10, paddingVertical: 9, borderWidth: 1, borderColor: Colors.light },
+  teamActionTxt:  { fontSize: 12, fontWeight: '700', color: GREEN },
 
   // Team picker modal
   pickerModal:        { flex: 1, backgroundColor: Colors.surf },

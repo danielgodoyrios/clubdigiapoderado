@@ -231,13 +231,95 @@ export type Lesion = {
   pupil_id: number;
   pupil_name: string;
   pupil_photo: string | null;
+  /** Team the lesion belongs to */
+  team_id?:   number | null;
+  team_name?: string | null;
   type: string;         // "muscular", "ligamento", "fractura", "contusion", "otro"
   zone: string;         // "rodilla", "tobillo", "hombro", etc.
+  zone_label?: string | null;
   severity: 'leve' | 'moderada' | 'grave';
+  severity_label?: string | null;
   date_start: string;
   date_end: string | null;
   is_active: boolean;
   notes: string | null;
+  description?: string | null;
+  training_status?: string | null;      // "no_train" | "partial" | "full" | null
+  expected_return_date?: string | null;
+};
+
+export type InjuryFollowup = {
+  id: number;
+  notes: string;
+  created_at: string;
+  created_by_name: string | null;
+};
+
+/** Match from /profesor/teams/{id}/matches or /profesor/matches/{id} */
+export type ProfesorMatch = {
+  id: number;
+  date: string;
+  time: string | null;
+  title: string;
+  status: 'upcoming' | 'scheduled' | 'played' | 'cancelled' | 'pending' | 'finished';
+  location: string | null;
+  competition: string | null;
+  home_team: string | null;
+  away_team: string | null;
+  team_id: number;
+  team_name: string | null;
+  convocados_count: number;
+  confirmed_count: number;
+  score: string | null;
+  session_id?: number | null;
+};
+
+/** Player row in match convocatoria */
+export type MatchConvocado = {
+  pupil_id: number;
+  name: string;
+  photo: string | null;
+  number: number | null;
+  position: string | null;
+  convocado: boolean;
+  status: 'confirmed' | 'pending' | 'declined' | null;
+};
+
+/** Response from share-link endpoint */
+export type MatchShareLink = {
+  whatsapp_url: string;
+  match_url: string;
+  message: string;
+  player_links: Array<{ pupil_id: number; name: string; url: string }>;
+};
+
+export type LeagueCarouselItem = {
+  team_id: number;
+  team_name: string;
+  competition: string | null;
+  next_match_date: string | null;
+  next_match_rival: string | null;
+  wins: number;
+  draws: number;
+  losses: number;
+  points: number;
+};
+
+export type CategoryCarouselItem = {
+  team_id: number;
+  team_name: string;
+  category: string | null;
+  player_count: number;
+  active_injuries: number;
+  next_event_date: string | null;
+  next_event_title: string | null;
+};
+
+export type ProfesorHome = {
+  leagues_carousel:    LeagueCarouselItem[];
+  categories_carousel: CategoryCarouselItem[];
+  active_injuries_count: number;
+  next_matches: ProfesorMatch[];
 };
 
 export type ConvocadoEstado = {
@@ -341,13 +423,20 @@ function mapLesion(raw: any): Lesion {
     pupil_id:    raw.pupil_id ?? raw.deportista_id,
     pupil_name:  raw.pupil_name ?? raw.full_name ?? raw.name ?? '',
     pupil_photo: toAbsoluteUrl(raw.photo_url ?? raw.photo),
+    team_id:     raw.team_id ?? null,
+    team_name:   raw.team_name ?? null,
     type:        raw.type ?? raw.tipo ?? 'otro',
     zone:        raw.zone ?? raw.zona ?? '',
+    zone_label:  raw.zone_label ?? null,
     severity:    raw.severity ?? raw.gravedad ?? 'leve',
+    severity_label: raw.severity_label ?? null,
     date_start:  raw.date_start ?? raw.fecha_inicio ?? '',
     date_end:    raw.date_end ?? raw.fecha_fin ?? null,
     is_active:   raw.is_active ?? raw.activa ?? true,
     notes:       raw.notes ?? raw.observaciones ?? null,
+    description: raw.description ?? null,
+    training_status: raw.training_status ?? null,
+    expected_return_date: raw.expected_return_date ?? null,
   };
 }
 
@@ -525,7 +614,97 @@ export const Profesor = {
   closeInjury: (injuryId: number, data: { date_end: string; notes?: string }): Promise<Lesion> =>
     request<Lesion>('PATCH', `/profesor/injuries/${injuryId}/close`, data),
 
-  // Programación semanal (S.1 + S.2)
+  // 8.11b — All injuries across all teams
+  allInjuries: async (activeOnly = true): Promise<Lesion[]> => {
+    const res = await request<any>('GET', `/profesor/injuries${activeOnly ? '?active_only=1' : ''}`);
+    const arr = Array.isArray(res) ? res : (res.data ?? []);
+    return arr.map(mapLesion);
+  },
+
+  // Update injury details
+  updateInjury: (injuryId: number, data: {
+    type?: string; zone?: string; severity?: string;
+    notes?: string; training_status?: string;
+    expected_return_date?: string; description?: string;
+  }): Promise<Lesion> =>
+    request<Lesion>('PATCH', `/profesor/injuries/${injuryId}`, data),
+
+  // Add followup note
+  addInjuryFollowup: async (injuryId: number, notes: string): Promise<InjuryFollowup> => {
+    const res = await request<any>('POST', `/profesor/injuries/${injuryId}/followups`, { notes });
+    return (res?.data ?? res) as InjuryFollowup;
+  },
+
+  // Get followups for an injury
+  injuryFollowups: async (injuryId: number): Promise<InjuryFollowup[]> => {
+    const res = await request<any>('GET', `/profesor/injuries/${injuryId}/followups`);
+    const arr = Array.isArray(res) ? res : (res.data ?? []);
+    return arr as InjuryFollowup[];
+  },
+
+  // 10.1 — Team matches list
+  teamMatches: async (teamId: number): Promise<ProfesorMatch[]> => {
+    const res = await request<any>('GET', `/profesor/teams/${teamId}/matches`);
+    const arr = Array.isArray(res) ? res : (res.data ?? []);
+    return arr.map((r: any): ProfesorMatch => ({
+      id:              r.id,
+      date:            r.date ?? '',
+      time:            r.time ?? null,
+      title:           r.title ?? '',
+      status:          r.status ?? 'upcoming',
+      location:        r.location ?? null,
+      competition:     r.competition ?? null,
+      home_team:       r.home_team ?? null,
+      away_team:       r.away_team ?? null,
+      team_id:         r.team_id ?? teamId,
+      team_name:       r.team_name ?? null,
+      convocados_count: r.convocados_count ?? r.convocados ?? 0,
+      confirmed_count: r.confirmed_count ?? r.confirmados ?? 0,
+      score:           r.score ?? null,
+      session_id:      r.session_id ?? null,
+    }));
+  },
+
+  // 10.2 — Create match
+  createMatch: async (teamId: number, data: {
+    date: string; time?: string; title?: string; location?: string;
+    competition?: string; home_team?: string; away_team?: string;
+  }): Promise<ProfesorMatch> => {
+    const res = await request<any>('POST', `/profesor/teams/${teamId}/matches`, data);
+    return (res?.data ?? res) as ProfesorMatch;
+  },
+
+  // 10.3 — Match detail with convocados
+  matchDetail: async (matchId: number): Promise<{ match: ProfesorMatch; convocados: MatchConvocado[] }> => {
+    const res = await request<any>('GET', `/profesor/matches/${matchId}`);
+    const raw = res?.data ?? res;
+    const convocados: MatchConvocado[] = (raw.convocados ?? raw.roster ?? []).map((c: any): MatchConvocado => ({
+      pupil_id: c.pupil_id ?? c.id,
+      name:     c.full_name ?? c.name ?? '',
+      photo:    toAbsoluteUrl(c.photo_url ?? c.photo),
+      number:   c.number ?? null,
+      position: c.position ?? null,
+      convocado: c.convocado ?? false,
+      status:   c.status ?? null,
+    }));
+    return { match: raw as ProfesorMatch, convocados };
+  },
+
+  // 10.4 — Update match convocatoria
+  updateMatchConvocatoria: (matchId: number, pupilIds: number[]): Promise<{ ok: boolean }> =>
+    request<{ ok: boolean }>('PUT', `/profesor/matches/${matchId}/convocatoria`, { pupil_ids: pupilIds }),
+
+  // 10.5 — WhatsApp share link
+  matchShareLink: async (matchId: number): Promise<MatchShareLink> => {
+    const res = await request<any>('GET', `/profesor/matches/${matchId}/share-link`);
+    return (res?.data ?? res) as MatchShareLink;
+  },
+
+  // 11.1 — Profesor home dashboard
+  getHome: async (): Promise<ProfesorHome> => {
+    const res = await request<any>('GET', '/profesor/home');
+    return (res?.data ?? res) as ProfesorHome;
+  },
   schedule: async (): Promise<ScheduleSlot[]> => {
     const res = await request<any>('GET', '/profesor/schedule');
     const arr = Array.isArray(res) ? res : (res.data ?? []);
