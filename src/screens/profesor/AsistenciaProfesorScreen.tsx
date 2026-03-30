@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   FlatList, ActivityIndicator, ScrollView, Alert, TextInput, Modal,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +25,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
   const [incidents,       setIncidents]       = useState<AttendanceIncident[]>([]);
   const [showIncidents,   setShowIncidents]   = useState(false);
   const [incidentModal,   setIncidentModal]   = useState(false);
-  const [incidentType,    setIncidentType]    = useState<AttendanceIncident['type']>('other');
+  const [incidentType,    setIncidentType]    = useState<AttendanceIncident['type']>('behavior');
   const [incidentTitle,   setIncidentTitle]   = useState('');
   const [incidentNotes,   setIncidentNotes]   = useState('');
   const [incidentPlayer,  setIncidentPlayer]  = useState('');
@@ -154,19 +155,26 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
   const saveIncident = async () => {
     if (!activeSession || !incidentTitle.trim()) return;
-    const playerId = incidentPlayer.trim() ? parseInt(incidentPlayer.trim(), 10) : undefined;
+    // Look up player_id by name from session roster
+    const nameQuery = incidentPlayer.trim().toLowerCase();
+    const matchedRecord = nameQuery
+      ? activeSession.records.find(r => r.name.toLowerCase().includes(nameQuery))
+      : undefined;
     setSavingIncident(true);
     try {
       const inc = await Profesor.createIncident(activeSession.id, {
         type:      incidentType,
         title:     incidentTitle.trim(),
         notes:     incidentNotes.trim() || undefined,
-        player_id: isNaN(playerId as number) ? undefined : playerId,
+        player_id: matchedRecord?.pupil_id,
       });
       setIncidents(prev => [inc, ...prev]);
       setIncidentModal(false);
-      setIncidentTitle(''); setIncidentNotes(''); setIncidentPlayer('');
-      Alert.alert('Incidencia registrada', incidentType === 'injury' ? 'La lesión fue registrada y el jugador marcado como ausente.' : 'Incidencia guardada.');
+      setIncidentTitle(''); setIncidentNotes(''); setIncidentPlayer(''); setIncidentType('behavior');
+      Alert.alert(
+        incidentType === 'injury' ? 'Lesión registrada' : 'Incidencia guardada',
+        incidentType === 'injury' ? 'La lesión ha quedado registrada.' : 'La incidencia ha sido guardada.',
+      );
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? e?.error ?? 'No se pudo registrar la incidencia.');
     } finally {
@@ -504,68 +512,90 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
 
         {/* ── MODAL: Nueva incidencia ── */}
         <Modal visible={incidentModal} transparent animationType="slide" onRequestClose={() => setIncidentModal(false)}>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
             <View style={styles.modalSheet}>
-              <Text style={styles.modalTitle}>Registrar incidencia</Text>
 
-              {/* Tipo */}
-              <Text style={styles.modalLabel}>Tipo *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {(['injury','behavior','expulsion','medical','other'] as const).map(t => (
+              {/* Header */}
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Nueva incidencia</Text>
+                <TouchableOpacity onPress={() => setIncidentModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={24} color={Colors.gray} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Categoría principal */}
+              <View style={styles.catRow}>
+                <TouchableOpacity
+                  style={[styles.catCard, incidentType === 'injury' && styles.catCardInjuryActive]}
+                  onPress={() => setIncidentType('injury')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.catEmoji}>🤕</Text>
+                  <Text style={[styles.catLabel, incidentType === 'injury' && { color: Colors.red }]}>Lesión</Text>
+                  <Text style={styles.catSub}>Física / médica</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.catCard, incidentType !== 'injury' && styles.catCardIncidentActive]}
+                  onPress={() => { if (incidentType === 'injury') setIncidentType('behavior'); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.catEmoji}>⚡</Text>
+                  <Text style={[styles.catLabel, incidentType !== 'injury' && { color: '#D97706' }]}>Incidencia</Text>
+                  <Text style={styles.catSub}>Conducta / disciplina</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Sub-tipo (solo para Incidencia) */}
+              {incidentType !== 'injury' && (
+                <View style={styles.subPillRow}>
+                  {(['behavior','expulsion','medical','other'] as const).map(t => (
                     <TouchableOpacity
                       key={t}
-                      style={[styles.typePill, incidentType === t && styles.typePillActive]}
+                      style={[styles.subPill, incidentType === t && styles.subPillActive]}
                       onPress={() => setIncidentType(t)}
                     >
-                      <Text style={[styles.typePillTxt, incidentType === t && { color: '#fff' }]}>
-                        {t === 'injury' ? 'Lesión' : t === 'behavior' ? 'Conducta' : t === 'expulsion' ? 'Expulsión' : t === 'medical' ? 'Médico' : 'Otro'}
+                      <Text style={[styles.subPillTxt, incidentType === t && { color: '#fff' }]}>
+                        {t === 'behavior' ? 'Conducta' : t === 'expulsion' ? 'Expulsión' : t === 'medical' ? 'Médico' : 'Otro'}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              </ScrollView>
+              )}
 
               <TextInput
                 style={styles.modalInput}
                 placeholder="Descripción breve *"
                 value={incidentTitle}
                 onChangeText={setIncidentTitle}
+                returnKeyType="next"
               />
               <TextInput
-                style={[styles.modalInput, { height: 72, textAlignVertical: 'top' }]}
+                style={styles.modalInput}
+                placeholder="Jugador involucrado (nombre, opcional)"
+                value={incidentPlayer}
+                onChangeText={setIncidentPlayer}
+                returnKeyType="next"
+              />
+              <TextInput
+                style={[styles.modalInput, { height: 64, textAlignVertical: 'top' }]}
                 placeholder="Notas adicionales (opcional)"
                 value={incidentNotes}
                 onChangeText={setIncidentNotes}
                 multiline
               />
-              {(incidentType === 'injury' || incidentType === 'behavior' || incidentType === 'expulsion') && (
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="ID del jugador involucrado (opcional)"
-                  value={incidentPlayer}
-                  onChangeText={setIncidentPlayer}
-                  keyboardType="numeric"
-                />
-              )}
 
-              <View style={styles.modalBtns}>
-                <TouchableOpacity style={styles.modalCancel} onPress={() => setIncidentModal(false)}>
-                  <Text style={styles.modalCancelTxt}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalConfirm, (!incidentTitle.trim() || savingIncident) && { opacity: 0.5 }]}
-                  onPress={saveIncident}
-                  disabled={!incidentTitle.trim() || savingIncident}
-                >
-                  {savingIncident
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={styles.modalConfirmTxt}>Guardar</Text>
-                  }
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[styles.submitBtn, { marginTop: 6 }, (!incidentTitle.trim() || savingIncident) && { opacity: 0.5 }]}
+                onPress={saveIncident}
+                disabled={!incidentTitle.trim() || savingIncident}
+              >
+                {savingIncident
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.submitTxt}>Guardar incidencia</Text>
+                }
+              </TouchableOpacity>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </View>
     );
@@ -673,9 +703,20 @@ const styles = StyleSheet.create({
   modalConfirm: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center', backgroundColor: GREEN },
   modalConfirmTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  typePill:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: Colors.light, backgroundColor: Colors.surf },
-  typePillActive: { backgroundColor: GREEN, borderColor: GREEN },
-  typePillTxt:  { fontSize: 12, fontWeight: '700', color: Colors.gray },
+  modalHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+
+  catRow:           { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  catCard:          { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8, borderRadius: 14, borderWidth: 2, borderColor: Colors.light, backgroundColor: Colors.surf, gap: 4 },
+  catCardInjuryActive:   { borderColor: Colors.red, backgroundColor: '#FEF2F2' },
+  catCardIncidentActive: { borderColor: '#F59E0B', backgroundColor: '#FFFBEB' },
+  catEmoji:         { fontSize: 28 },
+  catLabel:         { fontSize: 14, fontWeight: '800', color: Colors.gray },
+  catSub:           { fontSize: 10, color: Colors.gray, textAlign: 'center' },
+
+  subPillRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  subPill:      { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: Colors.light, backgroundColor: Colors.surf },
+  subPillActive: { backgroundColor: '#D97706', borderColor: '#D97706' },
+  subPillTxt:   { fontSize: 12, fontWeight: '700', color: Colors.gray },
 
   incidentCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.surf, borderRadius: 10, padding: 12, marginBottom: 8 },
   incidentDot:  { width: 10, height: 10, borderRadius: 5, marginTop: 3 },
