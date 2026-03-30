@@ -562,7 +562,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
             </TouchableOpacity>
             {showNomina && (
               <View style={styles.nominaList}>
-                {convocados.filter(c => c.convocado).map(c => {
+                {convocados.filter(c => c.convocado).map((c, i) => {
                   const stColor = c.status === 'confirmed' ? GREEN
                                 : c.status === 'declined'  ? '#EF4444'
                                 : '#F59E0B';
@@ -570,7 +570,7 @@ export default function AsistenciaProfesorScreen({ navigation, route }: any) {
                                 : c.status === 'declined'  ? 'No va'
                                 : 'Pendiente';
                   return (
-                    <View key={c.pupil_id} style={styles.nominaRow}>
+                    <View key={String(c.pupil_id ?? i)} style={styles.nominaRow}>
                       <View style={styles.nominaAvatar}>
                         <Text style={styles.nominaAvatarTxt}>
                           {c.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}

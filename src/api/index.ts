@@ -707,11 +707,11 @@ export const Profesor = {
       // When coming from match_players the actual player fields are nested under c.player
       const p = c.player ?? c;
       return {
-        pupil_id:  c.pupil_id ?? p.pupil_id ?? p.id ?? c.id,
-        name:      p.full_name ?? (`${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || (p.name ?? '')),
-        photo:     toAbsoluteUrl(p.photo_url ?? p.photo),
-        number:    p.number ?? c.number ?? null,
-        position:  p.position ?? c.position ?? null,
+        pupil_id:  c.pupil_id ?? c.player_id ?? p.pupil_id ?? p.player_id ?? p.id ?? c.id,
+        name:      c.player_name ?? p.full_name ?? p.player_name ?? (`${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || (p.name ?? '')),
+        photo:     toAbsoluteUrl(c.player_photo ?? p.photo_url ?? p.player_photo ?? p.photo),
+        number:    c.jersey_number ?? p.jersey_number ?? p.number ?? c.number ?? null,
+        position:  c.position ?? p.position ?? null,
         convocado: c.convocado ?? true,
         status:    c.status ?? null,
       };
